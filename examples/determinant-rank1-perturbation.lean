@@ -29,12 +29,17 @@ def diagMatrix (a : Fin n → ℝ) : Matrix (Fin n) (Fin n) ℝ := Matrix.diagon
 
 /-! ### Matrix Determinant Lemma -/
 
-/-- Matrix Determinant Lemma: det(M + uv^T) = (1 + v^T M^{-1} u) det(M) -/
+/-- Matrix Determinant Lemma: det(M + uv^T) = (1 + v^T M^{-1} u) det(M)
+
+Reference: Horn, R.A. and Johnson, C.R., Matrix Analysis, 2nd ed.,
+Cambridge University Press, 2012, Section 0.8.5, Equation (0.8.5.11).
+DOI: 10.1017/CBO9781139020411
+-/
 theorem matrix_det_lemma {n : ℕ} [DecidableEq (Fin n)] [Fintype (Fin n)]
     (M : Matrix (Fin n) (Fin n) ℝ) (u v : Fin n → ℝ) (hM : M.det ≠ 0) :
     (M + Matrix.col (Fin 1) u * Matrix.row (Fin 1) v).det =
     (1 + Matrix.dotProduct v (M⁻¹.mulVec u)) * M.det := by
-  sorry -- Standard result from linear algebra (Sherman-Morrison)
+  sorry -- See Horn & Johnson, Matrix Analysis (2012), Eq. (0.8.5.11)
 
 /-! ### Main Proposition -/
 
