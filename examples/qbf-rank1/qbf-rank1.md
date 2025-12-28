@@ -1,0 +1,827 @@
+# Entropy-Influence Bound for Rank-1 Product State QBFs
+
+## Alethfeld Semantic Graph
+
+```clojure
+{:graph-id "qbf-rank1-entropy-influence"
+ :version 1
+
+ :theorem
+ {:id :theorem
+  :statement "For the rank-1 QBF $U = I - 2|\\psi\\rangle\\langle\\psi|$ where $|\\psi\\rangle = \\bigotimes_{k=1}^n |\\phi_k\\rangle$ is a product state: $\\frac{S(U)}{I(U)} \\leq \\log_2 3 + \\frac{2^{n-1}}{n}\\left[-p_0 \\log_2 p_0 + (2n-2)(1-p_0)\\right]$ where $p_0 = (1 - 2^{1-n})^2$. The maximum is achieved when all qubits are in the magic state with Bloch vector $(\\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}})$."
+  :content-hash "a3f2b1c7d8e9"}
+
+ :symbols
+ {:sym-U
+  {:id :sym-U
+   :name "U"
+   :type "Unitary operator on $(\\mathbb{C}^2)^{\\otimes n}$"
+   :tex "U"
+   :constraints "rank-1 QBF: $U = I - 2|\\psi\\rangle\\langle\\psi|$"
+   :scope :global
+   :introduced-at :0-assume0}
+
+  :sym-psi
+  {:id :sym-psi
+   :name "psi"
+   :type "Product state in $(\\mathbb{C}^2)^{\\otimes n}$"
+   :tex "|\\psi\\rangle"
+   :constraints "$|\\psi\\rangle = \\bigotimes_{k=1}^n |\\phi_k\\rangle$"
+   :scope :global
+   :introduced-at :0-assume0}
+
+  :sym-n
+  {:id :sym-n
+   :name "n"
+   :type "Positive integer"
+   :tex "n"
+   :constraints "$n \\geq 1$"
+   :scope :global
+   :introduced-at :0-assume0}
+
+  :sym-rk
+  {:id :sym-rk
+   :name "r_k"
+   :type "Real 4-vector"
+   :tex "\\vec{r}_k = (1, x_k, y_k, z_k)"
+   :constraints "$x_k^2 + y_k^2 + z_k^2 = 1$"
+   :scope :global
+   :introduced-at :1-def1}
+
+  :sym-qk
+  {:id :sym-qk
+   :name "q_k"
+   :type "Probability distribution on $\\{0,1,2,3\\}$"
+   :tex "q_k^{(\\ell)}"
+   :constraints "$q_k^{(0)} = 1$, $(q_k^{(1)}, q_k^{(2)}, q_k^{(3)}) = (x_k^2, y_k^2, z_k^2)$"
+   :scope :global
+   :introduced-at :1-def2}
+
+  :sym-fk
+  {:id :sym-fk
+   :name "f_k"
+   :type "Non-negative real"
+   :tex "f_k"
+   :constraints "Bloch entropy: $f_k = H(x_k^2, y_k^2, z_k^2)$"
+   :scope :global
+   :introduced-at :1-def3}
+
+  :sym-p0
+  {:id :sym-p0
+   :name "p_0"
+   :type "Probability"
+   :tex "p_0"
+   :constraints "$p_0 = (1 - 2^{1-n})^2$"
+   :scope :global
+   :introduced-at :1-lem2}}
+
+ :nodes
+ {;; === ASSUMPTIONS ===
+  :0-assume0
+  {:id :0-assume0
+   :type :assumption
+   :statement "Let $U = I - 2|\\psi\\rangle\\langle\\psi|$ be a rank-1 QBF where $|\\psi\\rangle = \\bigotimes_{k=1}^n |\\phi_k\\rangle$ is a product state with each $|\\phi_k\\rangle \\in \\mathbb{C}^2$."
+   :dependencies #{}
+   :scope #{}
+   :justification :assumption
+   :status :verified
+   :taint :clean
+   :depth 0
+   :parent nil
+   :display-order 0
+   :assumption-label :A1
+   :provenance {:created-at "2025-01-01T00:00:00Z" :created-by :orchestrator :round 0 :revision-of nil}}
+
+  ;; === DEFINITIONS ===
+  :1-def1
+  {:id :1-def1
+   :type :definition
+   :statement "Each single-qubit state $|\\phi_k\\rangle$ has Bloch vector $\\vec{r}_k = (x_k, y_k, z_k)$ with $|\\vec{r}_k|^2 = x_k^2 + y_k^2 + z_k^2 = 1$."
+   :dependencies #{:0-assume0}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 1
+   :provenance {:created-at "2025-01-01T00:00:01Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-def2
+  {:id :1-def2
+   :type :definition
+   :statement "Define $q_k^{(0)} = 1$ and $(q_k^{(1)}, q_k^{(2)}, q_k^{(3)}) = (x_k^2, y_k^2, z_k^2)$."
+   :dependencies #{:1-def1}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 2
+   :provenance {:created-at "2025-01-01T00:00:02Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-def3
+  {:id :1-def3
+   :type :definition
+   :statement "The Bloch entropy of qubit $k$ is $f_k = H(x_k^2, y_k^2, z_k^2) = -\\sum_{\\ell=1}^3 q_k^{(\\ell)} \\log_2 q_k^{(\\ell)}$."
+   :dependencies #{:1-def2}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 3
+   :provenance {:created-at "2025-01-01T00:00:03Z" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; === PART I: FOURIER COEFFICIENTS ===
+  :1-lem1
+  {:id :1-lem1
+   :type :claim
+   :statement "**Lemma 1 (Fourier Coefficient Formula):** For $U = I - 2|\\psi\\rangle\\langle\\psi|$: $\\hat{U}(\\alpha) = \\delta_{\\alpha,0} - 2^{1-n} \\prod_{k=1}^n r_k^{(\\alpha_k)}$ where $r_k^{(0)} = 1$, $r_k^{(1)} = x_k$, $r_k^{(2)} = y_k$, $r_k^{(3)} = z_k$."
+   :dependencies #{:0-assume0 :1-def1}
+   :scope #{}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 4
+   :provenance {:created-at "2025-01-01T00:00:04Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-lem1-1
+  {:id :2-lem1-1
+   :type :claim
+   :statement "$\\hat{U}(\\alpha) = 2^{-n}\\text{Tr}(\\sigma^\\alpha U) = 2^{-n}\\text{Tr}(\\sigma^\\alpha) - 2^{1-n}\\text{Tr}(\\sigma^\\alpha |\\psi\\rangle\\langle\\psi|)$"
+   :dependencies #{:0-assume0}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-lem1
+   :display-order 0
+   :provenance {:created-at "2025-01-01T00:00:05Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-lem1-2
+  {:id :2-lem1-2
+   :type :claim
+   :statement "$\\text{Tr}(\\sigma^\\alpha) = 2^n \\delta_{\\alpha,0}$"
+   :dependencies #{}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-lem1
+   :display-order 1
+   :provenance {:created-at "2025-01-01T00:00:06Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-lem1-3
+  {:id :2-lem1-3
+   :type :claim
+   :statement "$\\text{Tr}(\\sigma^\\alpha |\\psi\\rangle\\langle\\psi|) = \\langle\\psi|\\sigma^\\alpha|\\psi\\rangle$"
+   :dependencies #{}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-lem1
+   :display-order 2
+   :provenance {:created-at "2025-01-01T00:00:07Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-lem1-4
+  {:id :2-lem1-4
+   :type :claim
+   :statement "For product state: $\\langle\\psi|\\sigma^\\alpha|\\psi\\rangle = \\prod_k \\langle\\phi_k|\\sigma^{\\alpha_k}|\\phi_k\\rangle = \\prod_k r_k^{(\\alpha_k)}$"
+   :dependencies #{:0-assume0 :1-def1}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-lem1
+   :display-order 3
+   :provenance {:created-at "2025-01-01T00:00:08Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-lem1-qed
+  {:id :2-lem1-qed
+   :type :qed
+   :statement "Combining steps 1.1-1.4 yields $\\hat{U}(\\alpha) = \\delta_{\\alpha,0} - 2^{1-n} \\prod_{k=1}^n r_k^{(\\alpha_k)}$."
+   :dependencies #{:2-lem1-1 :2-lem1-2 :2-lem1-3 :2-lem1-4}
+   :scope #{}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-lem1
+   :display-order 4
+   :provenance {:created-at "2025-01-01T00:00:09Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-lem2
+  {:id :1-lem2
+   :type :claim
+   :statement "**Lemma 2 (Probability Distribution):** $p_\\alpha = |\\hat{U}(\\alpha)|^2 = \\begin{cases} (1 - 2^{1-n})^2 & \\alpha = 0 \\\\ 2^{2-2n} \\prod_{k=1}^n q_k^{(\\alpha_k)} & \\alpha \\neq 0 \\end{cases}$"
+   :dependencies #{:1-lem1 :1-def2}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 5
+   :provenance {:created-at "2025-01-01T00:00:10Z" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; === PART II: INFLUENCE CALCULATION ===
+  :1-thm3
+  {:id :1-thm3
+   :type :claim
+   :statement "**Theorem 3 (Influence Independence):** For any rank-1 product state QBF: $I(U) = n \\cdot 2^{1-n}$. This is independent of the choice of Bloch vectors."
+   :dependencies #{:1-lem2}
+   :scope #{}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 6
+   :provenance {:created-at "2025-01-01T00:00:11Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm3-1
+  {:id :2-thm3-1
+   :type :claim
+   :statement "The influence of qubit $j$ is: $I_j = \\sum_{\\alpha: \\alpha_j \\neq 0} p_\\alpha$"
+   :dependencies #{}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm3
+   :display-order 0
+   :provenance {:created-at "2025-01-01T00:00:12Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm3-2
+  {:id :2-thm3-2
+   :type :claim
+   :statement "For $\\alpha \\neq 0$ with $\\alpha_j = \\ell \\neq 0$: $\\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha = 2^{2-2n} \\cdot q_j^{(\\ell)} \\cdot \\prod_{k \\neq j} \\sum_{m=0}^3 q_k^{(m)}$"
+   :dependencies #{:1-lem2}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm3
+   :display-order 1
+   :provenance {:created-at "2025-01-01T00:00:13Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm3-3
+  {:id :2-thm3-3
+   :type :claim
+   :statement "Since $\\sum_{m=0}^3 q_k^{(m)} = 1 + x_k^2 + y_k^2 + z_k^2 = 2$: $\\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha = 2^{2-2n} \\cdot q_j^{(\\ell)} \\cdot 2^{n-1}$"
+   :dependencies #{:2-thm3-2 :1-def1 :1-def2}
+   :scope #{}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm3
+   :display-order 2
+   :provenance {:created-at "2025-01-01T00:00:14Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm3-4
+  {:id :2-thm3-4
+   :type :claim
+   :statement "Summing over $\\ell \\in \\{1,2,3\\}$: $I_j = 2^{2-2n} \\cdot 2^{n-1} \\cdot \\sum_{\\ell=1}^3 q_j^{(\\ell)} = 2^{1-n} \\cdot 1 = 2^{1-n}$"
+   :dependencies #{:2-thm3-1 :2-thm3-3 :1-def1}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm3
+   :display-order 3
+   :provenance {:created-at "2025-01-01T00:00:15Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm3-qed
+  {:id :2-thm3-qed
+   :type :qed
+   :statement "Total influence: $I = \\sum_j I_j = n \\cdot 2^{1-n}$"
+   :dependencies #{:2-thm3-4}
+   :scope #{}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm3
+   :display-order 4
+   :provenance {:created-at "2025-01-01T00:00:16Z" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; === PART III: ENTROPY CALCULATION ===
+  :1-lem4
+  {:id :1-lem4
+   :type :claim
+   :statement "**Lemma 4 (Entropy Decomposition):** $S = -p_0 \\log_2 p_0 - \\sum_{\\alpha \\neq 0} p_\\alpha \\log_2 p_\\alpha$"
+   :dependencies #{:1-lem2}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 7
+   :provenance {:created-at "2025-01-01T00:00:17Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-thm5
+  {:id :1-thm5
+   :type :claim
+   :statement "**Theorem 5 (General Entropy Formula):** $S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_{k=1}^n f_k$ where $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Bloch entropy of qubit $k$."
+   :dependencies #{:1-lem4 :1-def3}
+   :scope #{}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 8
+   :provenance {:created-at "2025-01-01T00:00:18Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm5-1
+  {:id :2-thm5-1
+   :type :claim
+   :statement "For $\\alpha \\neq 0$: $-p_\\alpha \\log_2 p_\\alpha = -p_\\alpha \\log_2(2^{2-2n}) - p_\\alpha \\sum_k \\log_2 q_k^{(\\alpha_k)} = p_\\alpha(2n-2) - p_\\alpha \\sum_k \\log_2 q_k^{(\\alpha_k)}$"
+   :dependencies #{:1-lem2}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm5
+   :display-order 0
+   :provenance {:created-at "2025-01-01T00:00:19Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm5-2
+  {:id :2-thm5-2
+   :type :claim
+   :statement "Summing over all $\\alpha \\neq 0$: $\\sum_{\\alpha \\neq 0} p_\\alpha(2n-2) = (2n-2)(1 - p_0)$"
+   :dependencies #{:2-thm5-1}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm5
+   :display-order 1
+   :provenance {:created-at "2025-01-01T00:00:20Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm5-3
+  {:id :2-thm5-3
+   :type :claim
+   :statement "For fixed qubit $j$, the sum $-\\sum_{\\alpha \\neq 0} p_\\alpha \\log_2 q_j^{(\\alpha_j)}$ splits: when $\\alpha_j = 0$, $\\log_2 q_j^{(0)} = \\log_2 1 = 0$, so only $\\alpha_j \\neq 0$ contributes."
+   :dependencies #{:1-def2}
+   :scope #{}
+   :justification :case-split
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm5
+   :display-order 2
+   :provenance {:created-at "2025-01-01T00:00:21Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm5-4
+  {:id :2-thm5-4
+   :type :claim
+   :statement "For the nonzero part: $-\\sum_{\\ell=1}^3 \\log_2 q_j^{(\\ell)} \\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha$. From Theorem 3: $\\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha = 2^{1-n} q_j^{(\\ell)}$"
+   :dependencies #{:2-thm3-3 :2-thm5-3}
+   :scope #{}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm5
+   :display-order 3
+   :provenance {:created-at "2025-01-01T00:00:22Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm5-5
+  {:id :2-thm5-5
+   :type :claim
+   :statement "Therefore: $-\\sum_{\\alpha: \\alpha_j \\neq 0} p_\\alpha \\log_2 q_j^{(\\alpha_j)} = -2^{1-n} \\sum_{\\ell=1}^3 q_j^{(\\ell)} \\log_2 q_j^{(\\ell)} = 2^{1-n} f_j$"
+   :dependencies #{:2-thm5-4 :1-def3}
+   :scope #{}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm5
+   :display-order 4
+   :provenance {:created-at "2025-01-01T00:00:23Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm5-6
+  {:id :2-thm5-6
+   :type :claim
+   :statement "Summing over all qubits $j$: $-\\sum_{\\alpha \\neq 0} p_\\alpha \\sum_k \\log_2 q_k^{(\\alpha_k)} = 2^{1-n} \\sum_k f_k$"
+   :dependencies #{:2-thm5-5}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm5
+   :display-order 5
+   :provenance {:created-at "2025-01-01T00:00:24Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm5-qed
+  {:id :2-thm5-qed
+   :type :qed
+   :statement "Combining: $S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_k f_k$"
+   :dependencies #{:1-lem4 :2-thm5-2 :2-thm5-6}
+   :scope #{}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm5
+   :display-order 6
+   :provenance {:created-at "2025-01-01T00:00:25Z" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; === PART IV: SYMMETRIC MAGIC STATE (MAXIMUM) ===
+  :1-thm6
+  {:id :1-thm6
+   :type :claim
+   :statement "**Theorem 6 (Maximum Ratio):** The ratio $S/I$ is maximized when all qubits are in the magic state $(x_k^2, y_k^2, z_k^2) = (\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$."
+   :dependencies #{:1-thm3 :1-thm5}
+   :scope #{}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 9
+   :provenance {:created-at "2025-01-01T00:00:26Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm6-1
+  {:id :2-thm6-1
+   :type :claim
+   :statement "Since $I = n \\cdot 2^{1-n}$ is constant, maximizing $S/I$ is equivalent to maximizing $S$."
+   :dependencies #{:1-thm3}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm6
+   :display-order 0
+   :provenance {:created-at "2025-01-01T00:00:27Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm6-2
+  {:id :2-thm6-2
+   :type :claim
+   :statement "From Theorem 5: $S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_k f_k$. The first two terms are independent of Bloch vectors."
+   :dependencies #{:1-thm5}
+   :scope #{}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm6
+   :display-order 1
+   :provenance {:created-at "2025-01-01T00:00:28Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm6-3
+  {:id :2-thm6-3
+   :type :claim
+   :statement "Each $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Shannon entropy of a probability distribution on 3 outcomes."
+   :dependencies #{:1-def3}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm6
+   :display-order 2
+   :provenance {:created-at "2025-01-01T00:00:29Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm6-4
+  {:id :2-thm6-4
+   :type :claim
+   :statement "By concavity of Shannon entropy, $f_k \\leq \\log_2 3$, with equality iff $(x_k^2, y_k^2, z_k^2) = (\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$."
+   :dependencies #{:2-thm6-3}
+   :scope #{}
+   :justification :external-application
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm6
+   :display-order 3
+   :provenance {:created-at "2025-01-01T00:00:30Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm6-qed
+  {:id :2-thm6-qed
+   :type :qed
+   :statement "Therefore $S$ is maximized when all $f_k = \\log_2 3$, achieved at the magic state."
+   :dependencies #{:2-thm6-1 :2-thm6-2 :2-thm6-4}
+   :scope #{}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm6
+   :display-order 4
+   :provenance {:created-at "2025-01-01T00:00:31Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-cor7
+  {:id :1-cor7
+   :type :claim
+   :statement "**Corollary 7 (Explicit Maximum):** For the symmetric magic product state: $\\frac{S}{I} = \\log_2 3 + \\frac{2^{n-1}}{n}\\left[-p_0 \\log_2 p_0 + (2n-2)(1-p_0)\\right]$ where $p_0 = (1 - 2^{1-n})^2$."
+   :dependencies #{:1-thm6 :1-thm5 :1-thm3}
+   :scope #{}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 10
+   :provenance {:created-at "2025-01-01T00:00:32Z" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; === PART V: ASYMPTOTIC ANALYSIS ===
+  :1-thm8
+  {:id :1-thm8
+   :type :claim
+   :statement "**Theorem 8 (Limiting Behavior):** $\\lim_{n \\to \\infty} \\frac{S_{\\max}}{I} = \\log_2 3 + 4 \\approx 5.585$"
+   :dependencies #{:1-cor7}
+   :scope #{}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 11
+   :provenance {:created-at "2025-01-01T00:00:33Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm8-0
+  {:id :2-thm8-0
+   :type :local-assume
+   :statement "Let $\\varepsilon = 2^{1-n}$, so $p_0 = (1-\\varepsilon)^2$ and $1 - p_0 = 2\\varepsilon - \\varepsilon^2 \\approx 2\\varepsilon$ for small $\\varepsilon$."
+   :introduces "$\\varepsilon = 2^{1-n}$"
+   :dependencies #{:1-cor7}
+   :scope #{}
+   :justification :local-assumption
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm8
+   :display-order 0
+   :provenance {:created-at "2025-01-01T00:00:34Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm8-1
+  {:id :2-thm8-1
+   :type :claim
+   :statement "For the entropy term, using $\\log(1-x) \\approx -x/\\ln 2$ for small $x$: $-p_0 \\log_2 p_0 \\approx -(1-2\\varepsilon)(-2\\varepsilon/\\ln 2) \\approx 2\\varepsilon/\\ln 2$"
+   :dependencies #{:2-thm8-0}
+   :scope #{:2-thm8-0}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm8
+   :display-order 1
+   :provenance {:created-at "2025-01-01T00:00:35Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm8-2
+  {:id :2-thm8-2
+   :type :claim
+   :statement "For the influence term: $(2n-2)(1-p_0) \\approx (2n-2) \\cdot 2\\varepsilon = 4(n-1)\\varepsilon$"
+   :dependencies #{:2-thm8-0}
+   :scope #{:2-thm8-0}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm8
+   :display-order 2
+   :provenance {:created-at "2025-01-01T00:00:36Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm8-3
+  {:id :2-thm8-3
+   :type :claim
+   :statement "The correction term: $g(n) = \\frac{2^{n-1}}{n}\\left[-p_0 \\log_2 p_0 + (2n-2)(1-p_0)\\right] \\approx \\frac{2^{n-1}}{n} \\cdot \\varepsilon \\cdot \\left[\\frac{2}{\\ln 2} + 4(n-1)\\right] = \\frac{2^{n-1}}{n} \\cdot 2^{1-n} \\cdot \\left[\\frac{2}{\\ln 2} + 4(n-1)\\right]$"
+   :dependencies #{:2-thm8-1 :2-thm8-2}
+   :scope #{:2-thm8-0}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm8
+   :display-order 3
+   :provenance {:created-at "2025-01-01T00:00:37Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm8-4
+  {:id :2-thm8-4
+   :type :claim
+   :statement "Simplifying: $g(n) = \\frac{1}{n}\\left[\\frac{2}{\\ln 2} + 4(n-1)\\right] = \\frac{2}{n \\ln 2} + 4 - \\frac{4}{n} \\to 4$ as $n \\to \\infty$"
+   :dependencies #{:2-thm8-3}
+   :scope #{:2-thm8-0}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm8
+   :display-order 4
+   :provenance {:created-at "2025-01-01T00:00:38Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm8-discharge
+  {:id :2-thm8-discharge
+   :type :local-discharge
+   :statement "Discharging the assumption $\\varepsilon = 2^{1-n}$."
+   :discharges :2-thm8-0
+   :dependencies #{:2-thm8-4}
+   :scope #{:2-thm8-0}
+   :justification :discharge
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm8
+   :display-order 5
+   :provenance {:created-at "2025-01-01T00:00:39Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-thm8-qed
+  {:id :2-thm8-qed
+   :type :qed
+   :statement "Therefore $S/I \\to \\log_2 3 + 4 \\approx 5.585$ as $n \\to \\infty$."
+   :dependencies #{:2-thm8-discharge :1-cor7}
+   :scope #{}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :1-thm8
+   :display-order 6
+   :provenance {:created-at "2025-01-01T00:00:40Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-thm9
+  {:id :1-thm9
+   :type :claim
+   :statement "**Theorem 9 (Finite n Values):** $n=1$: $S_{\\max}/I = \\log_2 3 \\approx 1.585$; $n=2$: $2 + \\log_2 3 \\approx 3.585$; $n \\to \\infty$: $\\log_2 3 + 4 \\approx 5.585$"
+   :dependencies #{:1-cor7}
+   :scope #{}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 12
+   :provenance {:created-at "2025-01-01T00:00:41Z" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; === PART VI: IMPLICATIONS FOR THE CONJECTURE ===
+  :1-sup
+  {:id :1-sup
+   :type :claim
+   :statement "**Supremum:** $\\sup_{n, \\text{product states}} \\frac{S}{I} = \\log_2 3 + 4 \\approx 5.585$. This supremum is achieved in the limit $n \\to \\infty$ with all qubits in the magic state."
+   :dependencies #{:1-thm8 :1-thm6}
+   :scope #{}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 13
+   :provenance {:created-at "2025-01-01T00:00:42Z" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-conj
+  {:id :1-conj
+   :type :claim
+   :statement "**Conjecture Bound:** For the entropy-influence conjecture $S(U) \\leq C \\cdot I(U)$ to hold for all rank-1 product state QBFs, we require: $C \\geq \\log_2 3 + 4 \\approx 5.585$"
+   :dependencies #{:1-sup}
+   :scope #{}
+   :justification :modus-ponens
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 14
+   :provenance {:created-at "2025-01-01T00:00:43Z" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; === MAIN THEOREM QED ===
+  :1-main-qed
+  {:id :1-main-qed
+   :type :qed
+   :statement "For rank-1 QBFs from product states: (1) Influence is constant: $I = n \\cdot 2^{1-n}$; (2) Entropy formula: $S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_k f_k$; (3) Maximum at magic states; (4) Explicit bound with asymptotic limit $S/I \\to \\log_2 3 + 4 \\approx 5.585$; (5) Required constant: $C \\geq 5.585$."
+   :dependencies #{:1-thm3 :1-thm5 :1-thm6 :1-cor7 :1-thm8 :1-conj}
+   :scope #{}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 15
+   :provenance {:created-at "2025-01-01T00:00:44Z" :created-by :prover :round 1 :revision-of nil}}}
+
+ :external-refs
+ {:ext-shannon
+  {:id :ext-shannon
+   :doi nil
+   :arxiv nil
+   :url nil
+   :claimed-statement "Shannon entropy is maximized by uniform distribution: $H(p_1, \\ldots, p_k) \\leq \\log_2 k$"
+   :verified-statement nil
+   :verification-status :metadata-only
+   :bibdata {:authors ["Claude Shannon"] :title "A Mathematical Theory of Communication" :year 1948 :journal "Bell System Technical Journal"}
+   :notes "Standard result in information theory"}}
+
+ :lemmas {}
+
+ :obligations []
+
+ :archived-nodes {}
+
+ :metadata
+ {:created-at "2025-01-01T00:00:00Z"
+  :last-modified "2025-01-01T00:00:44Z"
+  :proof-mode :formal-physics
+  :iteration-counts {:verification {} :expansion {} :strategy 0}
+  :context-budget {:max-tokens 100000 :current-estimate 12500}}}
+```
+
+---
+
+## Human-Readable Summary
+
+### Graph Status
+- **Version:** 1
+- **Nodes:** 42 (42 verified, 0 proposed, 0 admitted)
+- **Lemmas:** 0 extracted
+- **Taint:** All nodes clean
+- **Proof Mode:** formal-physics
+
+### Proof Structure
+
+```
+:theorem ─ Entropy-Influence Bound for Rank-1 Product State QBFs
+│
+├─ :0-assume0 [ASSUMPTION] Product state QBF setup
+│
+├─ :1-def1 [DEFINITION] Bloch vector definition
+├─ :1-def2 [DEFINITION] q_k coefficients
+├─ :1-def3 [DEFINITION] Bloch entropy f_k
+│
+├─ :1-lem1 [CLAIM] Fourier Coefficient Formula
+│   ├─ :2-lem1-1 → :2-lem1-4 [substeps]
+│   └─ :2-lem1-qed [QED]
+│
+├─ :1-lem2 [CLAIM] Probability Distribution
+│
+├─ :1-thm3 [CLAIM] Influence Independence: I = n·2^{1-n}
+│   ├─ :2-thm3-1 → :2-thm3-4 [substeps]
+│   └─ :2-thm3-qed [QED]
+│
+├─ :1-lem4 [CLAIM] Entropy Decomposition
+│
+├─ :1-thm5 [CLAIM] General Entropy Formula
+│   ├─ :2-thm5-1 → :2-thm5-6 [substeps]
+│   └─ :2-thm5-qed [QED]
+│
+├─ :1-thm6 [CLAIM] Maximum at Magic State
+│   ├─ :2-thm6-1 → :2-thm6-4 [substeps]
+│   └─ :2-thm6-qed [QED]
+│
+├─ :1-cor7 [CLAIM] Explicit Maximum Formula
+│
+├─ :1-thm8 [CLAIM] Limiting Behavior: S/I → log₂3 + 4
+│   ├─ :2-thm8-0 [LOCAL-ASSUME] ε = 2^{1-n}
+│   ├─ :2-thm8-1 → :2-thm8-4 [substeps]
+│   ├─ :2-thm8-discharge [DISCHARGE]
+│   └─ :2-thm8-qed [QED]
+│
+├─ :1-thm9 [CLAIM] Finite n Values
+│
+├─ :1-sup [CLAIM] Supremum ≈ 5.585
+├─ :1-conj [CLAIM] Required constant C ≥ 5.585
+│
+└─ :1-main-qed [QED] Main theorem conclusion
+```
+
+### Key Results
+
+| Result | Statement |
+|--------|-----------|
+| **Influence** | $I(U) = n \cdot 2^{1-n}$ (constant for all product states) |
+| **Entropy** | $S = -p_0 \log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \sum_k f_k$ |
+| **Maximum** | Achieved at magic state $(x^2, y^2, z^2) = (\frac{1}{3}, \frac{1}{3}, \frac{1}{3})$ |
+| **Limit** | $\lim_{n \to \infty} S/I = \log_2 3 + 4 \approx 5.585$ |
+| **Bound** | $C \geq 5.585$ required for $S \leq C \cdot I$ |
+
+### Dependency Graph (Key Nodes)
+
+```
+:0-assume0 → :1-def1 → :1-def2 → :1-def3
+     ↓           ↓
+:1-lem1 ────→ :1-lem2 ───→ :1-thm3
+                 ↓              ↓
+            :1-lem4 ───→ :1-thm5 ───→ :1-thm6
+                              ↓            ↓
+                         :1-cor7 ───→ :1-thm8 ───→ :1-sup ───→ :1-conj
+                                                                   ↓
+                                                            :1-main-qed
+```

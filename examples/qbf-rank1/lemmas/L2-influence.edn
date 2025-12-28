@@ -1,0 +1,103 @@
+{:lemma-id "L2-influence"
+ :name "Influence Independence"
+ :version 1
+ :extracted-from "qbf-rank1-entropy-influence"
+
+ :statement "For any rank-1 product state QBF: $I(U) = n \\cdot 2^{1-n}$. This is independent of the choice of Bloch vectors."
+ :content-hash "d4e5f6a7"
+
+ :external-dependencies
+ {:L1 {:type :lemma-ref
+       :statement "Fourier coefficient formula: $\\hat{U}(\\alpha) = \\delta_{\\alpha,0} - 2^{1-n} \\prod_k r_k^{(\\alpha_k)}$"}
+  :L1-cor {:type :lemma-ref
+           :statement "Probability distribution: $p_\\alpha = 2^{2-2n} \\prod_k q_k^{(\\alpha_k)}$ for $\\alpha \\neq 0$"}
+  :D1 {:type :definition
+       :statement "Bloch vector with $x_k^2 + y_k^2 + z_k^2 = 1$"}
+  :D2 {:type :definition
+       :statement "$q_k^{(0)} = 1$, $(q_k^{(1)}, q_k^{(2)}, q_k^{(3)}) = (x_k^2, y_k^2, z_k^2)$"}}
+
+ :symbols
+ {:sym-I {:name "I" :type "Total influence" :tex "I(U)"}
+  :sym-Ij {:name "I_j" :type "Influence of qubit j" :tex "I_j"}
+  :sym-n {:name "n" :type "Number of qubits" :tex "n"}}
+
+ :nodes
+ {:L2-root
+  {:id :L2-root
+   :type :claim
+   :statement "For any rank-1 product state QBF: $I(U) = n \\cdot 2^{1-n}$"
+   :dependencies #{:L1-cor}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil}
+
+  :L2-step1
+  {:id :L2-step1
+   :type :claim
+   :statement "The influence of qubit $j$ is: $I_j = \\sum_{\\alpha: \\alpha_j \\neq 0} p_\\alpha$"
+   :dependencies #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L2-root}
+
+  :L2-step2
+  {:id :L2-step2
+   :type :claim
+   :statement "For $\\alpha_j = \\ell \\neq 0$: $\\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha = 2^{2-2n} \\cdot q_j^{(\\ell)} \\cdot \\prod_{k \\neq j} \\sum_{m=0}^3 q_k^{(m)}$"
+   :dependencies #{:L1-cor}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L2-root}
+
+  :L2-step3
+  {:id :L2-step3
+   :type :claim
+   :statement "Since $\\sum_{m=0}^3 q_k^{(m)} = 1 + x_k^2 + y_k^2 + z_k^2 = 2$: $\\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha = 2^{1-n} q_j^{(\\ell)}$"
+   :dependencies #{:L2-step2 :D1 :D2}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L2-root}
+
+  :L2-step4
+  {:id :L2-step4
+   :type :claim
+   :statement "Summing over $\\ell \\in \\{1,2,3\\}$: $I_j = 2^{1-n} \\sum_{\\ell=1}^3 q_j^{(\\ell)} = 2^{1-n} \\cdot 1 = 2^{1-n}$"
+   :dependencies #{:L2-step1 :L2-step3 :D1}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L2-root}
+
+  :L2-qed
+  {:id :L2-qed
+   :type :qed
+   :statement "Total influence: $I = \\sum_{j=1}^n I_j = n \\cdot 2^{1-n}$"
+   :dependencies #{:L2-step4}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L2-root}}
+
+ :independence
+ {:external-deps #{:L1 :L1-cor :D1 :D2}
+  :scope-balanced true
+  :benefit-score 0.72
+  :size-reduction 0.14
+  :isolation 0.85
+  :reusability 0.9
+  :depth-reduction 0.4}
+
+ :status :proven
+ :taint :clean
+
+ :remarks "This is a remarkable result: the influence is completely independent of the choice of single-qubit states. This universality is what makes the entropy-influence ratio analysis tractable."}

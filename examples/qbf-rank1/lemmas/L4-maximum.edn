@@ -1,0 +1,108 @@
+{:lemma-id "L4-maximum"
+ :name "Maximum at Magic State"
+ :version 1
+ :extracted-from "qbf-rank1-entropy-influence"
+
+ :statement "The ratio $S/I$ is maximized when all qubits are in the magic state $(x_k^2, y_k^2, z_k^2) = (\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$."
+ :content-hash "c1d2e3f4"
+
+ :external-dependencies
+ {:L2 {:type :lemma-ref
+       :statement "Influence independence: $I(U) = n \\cdot 2^{1-n}$"}
+  :L3 {:type :lemma-ref
+       :statement "Entropy formula: $S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_k f_k$"}
+  :D3 {:type :definition
+       :statement "Bloch entropy $f_k = H(x_k^2, y_k^2, z_k^2)$"}
+  :ext-shannon {:type :external-ref
+                :statement "Shannon entropy maximum: $H(p_1,...,p_k) \\leq \\log_2 k$ with equality iff uniform"}}
+
+ :symbols
+ {:sym-magic {:name "magic state"
+              :type "Bloch vector"
+              :tex "(\\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}})"
+              :constraints "Squared components: $(\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$"}}
+
+ :nodes
+ {:L4-root
+  {:id :L4-root
+   :type :claim
+   :statement "$S/I$ is maximized when all qubits are in the magic state."
+   :dependencies #{:L2 :L3}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil}
+
+  :L4-step1
+  {:id :L4-step1
+   :type :claim
+   :statement "Since $I = n \\cdot 2^{1-n}$ is constant, maximizing $S/I$ is equivalent to maximizing $S$."
+   :dependencies #{:L2}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L4-root}
+
+  :L4-step2
+  {:id :L4-step2
+   :type :claim
+   :statement "In the entropy formula, only $2^{1-n} \\sum_k f_k$ depends on Bloch vectors."
+   :dependencies #{:L3}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L4-root}
+
+  :L4-step3
+  {:id :L4-step3
+   :type :claim
+   :statement "Each $f_k = H(x_k^2, y_k^2, z_k^2)$ is Shannon entropy of a distribution on 3 outcomes."
+   :dependencies #{:D3}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L4-root}
+
+  :L4-step4
+  {:id :L4-step4
+   :type :claim
+   :statement "By maximum entropy principle: $f_k \\leq \\log_2 3$ with equality iff $(x_k^2, y_k^2, z_k^2) = (\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$."
+   :dependencies #{:L4-step3 :ext-shannon}
+   :justification :external-application
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L4-root}
+
+  :L4-qed
+  {:id :L4-qed
+   :type :qed
+   :statement "$S$ is maximized when all $f_k = \\log_2 3$, achieved at the magic state."
+   :dependencies #{:L4-step1 :L4-step2 :L4-step4}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L4-root}}
+
+ :corollary
+ {:id :L4-cor
+  :statement "At magic state: $\\frac{S}{I} = \\log_2 3 + \\frac{2^{n-1}}{n}[-p_0 \\log_2 p_0 + (2n-2)(1-p_0)]$"
+  :dependencies #{:L4-root :L2 :L3}
+  :status :verified}
+
+ :independence
+ {:external-deps #{:L2 :L3 :D3 :ext-shannon}
+  :scope-balanced true
+  :benefit-score 0.61
+  :size-reduction 0.14
+  :isolation 0.7
+  :reusability 0.65
+  :depth-reduction 0.3}
+
+ :status :proven
+ :taint :clean}

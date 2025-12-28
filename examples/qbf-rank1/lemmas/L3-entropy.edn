@@ -1,0 +1,132 @@
+{:lemma-id "L3-entropy"
+ :name "General Entropy Formula"
+ :version 1
+ :extracted-from "qbf-rank1-entropy-influence"
+
+ :statement "$S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_{k=1}^n f_k$ where $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Bloch entropy."
+ :content-hash "e7f8a9b0"
+
+ :external-dependencies
+ {:L1-cor {:type :lemma-ref
+           :statement "Probability distribution: $p_\\alpha = 2^{2-2n} \\prod_k q_k^{(\\alpha_k)}$ for $\\alpha \\neq 0$"}
+  :L2-step3 {:type :lemma-ref
+             :statement "$\\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha = 2^{1-n} q_j^{(\\ell)}$"}
+  :D3 {:type :definition
+       :statement "Bloch entropy $f_k = H(x_k^2, y_k^2, z_k^2) = -\\sum_{\\ell=1}^3 q_k^{(\\ell)} \\log_2 q_k^{(\\ell)}$"}}
+
+ :symbols
+ {:sym-S {:name "S" :type "Shannon entropy" :tex "S(U)"}
+  :sym-p0 {:name "p_0" :type "Zero-mode probability" :tex "p_0 = (1-2^{1-n})^2"}
+  :sym-fk {:name "f_k" :type "Bloch entropy" :tex "f_k"}}
+
+ :nodes
+ {:L3-root
+  {:id :L3-root
+   :type :claim
+   :statement "$S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_{k=1}^n f_k$"
+   :dependencies #{:L3-lem4 :D3}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil}
+
+  :L3-lem4
+  {:id :L3-lem4
+   :type :claim
+   :statement "$S = -p_0 \\log_2 p_0 - \\sum_{\\alpha \\neq 0} p_\\alpha \\log_2 p_\\alpha$"
+   :dependencies #{:L1-cor}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}
+
+  :L3-step1
+  {:id :L3-step1
+   :type :claim
+   :statement "For $\\alpha \\neq 0$: $-p_\\alpha \\log_2 p_\\alpha = p_\\alpha(2n-2) - p_\\alpha \\sum_k \\log_2 q_k^{(\\alpha_k)}$"
+   :dependencies #{:L1-cor}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}
+
+  :L3-step2
+  {:id :L3-step2
+   :type :claim
+   :statement "$\\sum_{\\alpha \\neq 0} p_\\alpha(2n-2) = (2n-2)(1 - p_0)$"
+   :dependencies #{:L3-step1}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}
+
+  :L3-step3
+  {:id :L3-step3
+   :type :claim
+   :statement "For $\\alpha_j = 0$: $\\log_2 q_j^{(0)} = 0$, so only $\\alpha_j \\neq 0$ contributes."
+   :dependencies #{}
+   :justification :case-split
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}
+
+  :L3-step4
+  {:id :L3-step4
+   :type :claim
+   :statement "From L2: $\\sum_{\\alpha: \\alpha_j = \\ell} p_\\alpha = 2^{1-n} q_j^{(\\ell)}$"
+   :dependencies #{:L2-step3}
+   :justification :lemma-application
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}
+
+  :L3-step5
+  {:id :L3-step5
+   :type :claim
+   :statement "$-\\sum_{\\alpha: \\alpha_j \\neq 0} p_\\alpha \\log_2 q_j^{(\\alpha_j)} = 2^{1-n} f_j$"
+   :dependencies #{:L3-step4 :D3}
+   :justification :substitution
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}
+
+  :L3-step6
+  {:id :L3-step6
+   :type :claim
+   :statement "Summing: $-\\sum_{\\alpha \\neq 0} p_\\alpha \\sum_k \\log_2 q_k^{(\\alpha_k)} = 2^{1-n} \\sum_k f_k$"
+   :dependencies #{:L3-step5}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}
+
+  :L3-qed
+  {:id :L3-qed
+   :type :qed
+   :statement "Combining: $S = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_k f_k$"
+   :dependencies #{:L3-lem4 :L3-step2 :L3-step6}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L3-root}}
+
+ :independence
+ {:external-deps #{:L1-cor :L2-step3 :D3}
+  :scope-balanced true
+  :benefit-score 0.68
+  :size-reduction 0.19
+  :isolation 0.75
+  :reusability 0.8
+  :depth-reduction 0.35}
+
+ :status :proven
+ :taint :clean}

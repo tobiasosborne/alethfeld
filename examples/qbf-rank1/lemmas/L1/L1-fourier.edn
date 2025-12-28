@@ -1,0 +1,98 @@
+{:lemma-id "L1-fourier"
+ :name "Fourier Coefficient Formula"
+ :version 1
+ :extracted-from "qbf-rank1-entropy-influence"
+
+ :statement "For $U = I - 2|\\psi\\rangle\\langle\\psi|$ where $|\\psi\\rangle = \\bigotimes_{k=1}^n |\\phi_k\\rangle$: $\\hat{U}(\\alpha) = \\delta_{\\alpha,0} - 2^{1-n} \\prod_{k=1}^n r_k^{(\\alpha_k)}$ where $r_k^{(0)} = 1$, $r_k^{(1)} = x_k$, $r_k^{(2)} = y_k$, $r_k^{(3)} = z_k$."
+ :content-hash "f1a2b3c4"
+
+ :external-dependencies
+ {:A1 {:type :assumption
+       :statement "Let $U = I - 2|\\psi\\rangle\\langle\\psi|$ be a rank-1 QBF where $|\\psi\\rangle = \\bigotimes_{k=1}^n |\\phi_k\\rangle$ is a product state."}
+  :D1 {:type :definition
+       :statement "Bloch vector $\\vec{r}_k = (x_k, y_k, z_k)$ with $|\\vec{r}_k|^2 = 1$."}}
+
+ :symbols
+ {:sym-U {:name "U" :type "Unitary" :tex "U"}
+  :sym-psi {:name "psi" :type "Product state" :tex "|\\psi\\rangle"}
+  :sym-alpha {:name "alpha" :type "Multi-index in $\\{0,1,2,3\\}^n$" :tex "\\alpha"}
+  :sym-rk {:name "r_k" :type "Bloch component" :tex "r_k^{(\\ell)}"}}
+
+ :nodes
+ {:L1-root
+  {:id :L1-root
+   :type :claim
+   :statement "For $U = I - 2|\\psi\\rangle\\langle\\psi|$: $\\hat{U}(\\alpha) = \\delta_{\\alpha,0} - 2^{1-n} \\prod_{k=1}^n r_k^{(\\alpha_k)}$"
+   :dependencies #{:A1 :D1}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :parent nil}
+
+  :L1-step1
+  {:id :L1-step1
+   :type :claim
+   :statement "$\\hat{U}(\\alpha) = 2^{-n}\\Tr(\\sigma^\\alpha U) = 2^{-n}\\Tr(\\sigma^\\alpha) - 2^{1-n}\\Tr(\\sigma^\\alpha |\\psi\\rangle\\langle\\psi|)$"
+   :dependencies #{:A1}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L1-root}
+
+  :L1-step2
+  {:id :L1-step2
+   :type :claim
+   :statement "$\\Tr(\\sigma^\\alpha) = 2^n \\delta_{\\alpha,0}$"
+   :dependencies #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L1-root}
+
+  :L1-step3
+  {:id :L1-step3
+   :type :claim
+   :statement "$\\Tr(\\sigma^\\alpha |\\psi\\rangle\\langle\\psi|) = \\langle\\psi|\\sigma^\\alpha|\\psi\\rangle$"
+   :dependencies #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L1-root}
+
+  :L1-step4
+  {:id :L1-step4
+   :type :claim
+   :statement "$\\langle\\psi|\\sigma^\\alpha|\\psi\\rangle = \\prod_k \\langle\\phi_k|\\sigma^{\\alpha_k}|\\phi_k\\rangle = \\prod_k r_k^{(\\alpha_k)}$"
+   :dependencies #{:A1 :D1}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L1-root}
+
+  :L1-qed
+  {:id :L1-qed
+   :type :qed
+   :statement "Combining yields $\\hat{U}(\\alpha) = \\delta_{\\alpha,0} - 2^{1-n} \\prod_{k=1}^n r_k^{(\\alpha_k)}$."
+   :dependencies #{:L1-step1 :L1-step2 :L1-step3 :L1-step4}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 2
+   :parent :L1-root}}
+
+ :independence
+ {:external-deps #{:A1 :D1}
+  :scope-balanced true
+  :benefit-score 0.65
+  :size-reduction 0.14
+  :isolation 0.9
+  :reusability 0.7
+  :depth-reduction 0.3}
+
+ :status :proven
+ :taint :clean}
