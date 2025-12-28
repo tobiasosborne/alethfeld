@@ -1,81 +1,157 @@
-# Pickup Prompt: L4Maximum.lean Sorry Elimination (FAILED)
+# Pickup Prompt: L4Maximum Sorry Elimination - MODULARIZATION REQUIRED
 
-## Status: BLOCKED - 3 Sorries in ShannonLemma, Build Errors in L4Maximum
+## Status: BLOCKED - Files Too Large, Need Refactoring
 
-**Last Updated:** 2025-12-28 (Session 3)
+**Last Updated:** 2025-12-28 (Session 4)
 
-The goal remains to eliminate all `sorry` statements from `AlethfeldLean/QBF/Rank1/L4Maximum.lean`. 
-The module was split into `ShannonLemma.lean` (pure math inequalities) and `L4Maximum.lean` (quantum application) to isolate errors, but both files currently fail to build cleanly without `sorry`.
+## Problem Statement
 
-## Current Status
+The `ShannonLemma.lean` and `L4Maximum.lean` files have grown too large and complex to debug effectively. The current approach of trying to fix all errors in a single session has failed due to:
 
-| Module | File | Status |
-|--------|------|--------|
-| **Math** | `ShannonLemma.lean` | ❌ 3 `sorry`s (Inequalities failing to prove) |
-| **Quantum** | `L4Maximum.lean` | ❌ Build Errors (Definitions & Type Mismatches) |
+1. **File Size**: `ShannonLemma.lean` is ~470 lines with complex nested case analysis
+2. **Cascading Errors**: Fixing one proof often breaks others due to shared dependencies
+3. **Mathlib API Complexity**: Many lemma names have changed or require specific imports
+4. **Context Overload**: Too many interconnected proofs to track in a single session
 
-## Session Summary (Dec 28, 2025 - Session 3)
+## Recommended Strategy: Modularization
 
-**Attempted Strategy**:
-1.  **Refactoring**: Split `L4Maximum.lean` into a dedicated math module `ShannonLemma.lean` for the entropy bounds ($H(p) \le \log 3$) and the original file for quantum definitions.
-2.  **Inequality Proofs**: Tried proving `-p log p \le ...` using `linarith`, `nlinarith`, and `positivity`.
-    - **Result**: `linarith` failed to handle the non-linear `log` terms even with hypothesis preprocessing. `nlinarith` also failed.
-3.  **Quantum Definitions**: Tried to define `magicBlochVector` and `isMagicState` cleanly.
-    - **Result**: `norm_sq` proof for `magicBlochVector` fails due to `div_pow` pattern matching issues with `1 / Real.sqrt 3`.
-    - `magic_q_pos` fails due to `Fin` index handling (`Fin 3` vs `Fin 4` mismatch in `fin_cases`).
-    - `bloch_entropy_max_iff` fails due to type mismatches between `1/3` (division) and `3⁻¹` (inverse) when using `norm_num`.
+Break the files into **small, independently compilable modules** (<200 lines each) that can be fixed one at a time.
 
-## Detailed Failure Report
+### Proposed Module Structure
 
-### 1. `ShannonLemma.lean` (Mathematical Core)
-- **Goal**: Prove that $\sum -p_i \log_2 p_i \le \log_2 3$ for $\sum p_i = 1$.
-- **Current State**: Contains 3 `sorry` statements.
-- **Failures**:
-  - `entropyTerm_le_helper`: Proving $-p \log_2 p \le p \log_2 3 + (1/3 - p)/\ln 2$ is proving difficult. The inequality `log x \le x - 1` was invoked, but the algebraic manipulation to bring it to the final form failed with automated tactics.
-  - `entropyTerm_sum_bound`: Summing the inequalities fails because `linarith` doesn't see through the `entropyTerm` definition (which has an `if` split for $p > 0$).
-
-### 2. `L4Maximum.lean` (Quantum Application)
-- **Goal**: Apply `ShannonLemma` to Bloch vectors.
-- **Current Errors**:
-  - `magicBlochVector`: The `norm_sq` field proof fails. `rw [div_pow]` cannot find `(1 / sqrt 3) ^ 2`.
-  - `magic_q_pos`: `fin_cases i` is used on `i : Fin 4`, but the lemma logic was seemingly written for `Fin 3` or had index mismatch errors.
-  - `bloch_entropy_max_iff`: `rw [h1]` where `h1 : v.x^2 = 1/3` fails because the target term might be `(3 : ℝ)⁻¹` or have slightly different structure after simplification.
-
-## Recommended Next Steps for the Next Agent
-
-1.  **Fix `ShannonLemma.lean` First**:
-    - Do **not** rely on `linarith` for the main concavity argument.
-    - Use `Mathlib.Analysis.Convex.SpecificFunctions.Basic`.
-    - Specifically, use the strict concavity of `x \mapsto -x \log x`.
-    - Look for `Real.strictConcaveOn_neg_mul_log` or similar in Mathlib.
-    - Prove that the sum of strictly concave functions is maximized at the centroid (uniform distribution).
-
-2.  **Fix `L4Maximum.lean` Definitions**:
-    - **`magicBlochVector`**: Proof of `norm_sq` should be explicit:
-      ```lean
-      have : (1 / Real.sqrt 3) ^ 2 = 1 / 3 := by rw [div_pow, one_pow, Real.sq_sqrt (by norm_num)]; field_simp
-      rw [this]
-      ring
-      ```
-    - **`magic_q_pos`**: Be very explicit with indices. `BlochVector.q` maps `0 \to 1`, `1 \to x^2`, etc.
-      ```lean
-      fin_cases i
-      · simp [BlochVector.q]; norm_num -- i=0
-      · simp [BlochVector.q, magicBlochVector]; ...
-      ```
-    - **Type Casting**: When equating `1/3`, ensure consistency. Use `(3 : ℝ)⁻¹` if `field_simp` produces it, or force `1/3` with `norm_num`.
-
-3.  **Merge Strategy**:
-    - Once `ShannonLemma` compiles *without sorries*, verify `L4Maximum` imports it correctly.
-    - Do not try to solve everything in one file if the math is heavy. Keep the split.
-
-## Files to Edit
-- `lean/AlethfeldLean/QBF/Rank1/ShannonLemma.lean`
-- `lean/AlethfeldLean/QBF/Rank1/L4Maximum.lean`
-
-## Build Command
-```bash
-lake build AlethfeldLean.QBF.Rank1.ShannonLemma
-lake build AlethfeldLean.QBF.Rank1.L4Maximum
+```
+AlethfeldLean/QBF/Rank1/
+├── L3Entropy.lean              (existing, working)
+├── Shannon/
+│   ├── Basic.lean              (~50 lines) - log2, entropyTerm definitions
+│   ├── NegMulLogBound.lean     (~100 lines) - single-term bounds using log inequalities
+│   ├── SumBound.lean           (~100 lines) - entropyTerm_sum_bound
+│   ├── StrictBound.lean        (~100 lines) - strict inequality proofs
+│   └── Maximum.lean            (~50 lines) - final shannon_max_uniform theorems
+├── L4Maximum/
+│   ├── MagicState.lean         (~80 lines) - magicBlochVector, isMagicState
+│   ├── EntropyBound.lean       (~60 lines) - bloch_entropy_bound
+│   └── Main.lean               (~60 lines) - max_at_magic_state theorem
+└── ShannonLemma.lean           (deprecate, re-export from Shannon/)
 ```
 
+### Key Mathematical Facts Needed
+
+The proofs require these Mathlib lemmas (verify names before use!):
+
+```lean
+-- In Mathlib.Analysis.SpecialFunctions.Log.Basic:
+Real.log_le_sub_one_of_pos : 0 < x → log x ≤ x - 1
+Real.log_lt_sub_one_of_pos : 0 < x → x ≠ 1 → log x < x - 1
+Real.one_sub_inv_le_log_of_pos : 0 < x → 1 - x⁻¹ ≤ log x
+
+-- In Mathlib.Analysis.SpecialFunctions.Log.NegMulLog:
+Real.negMulLog : ℝ → ℝ  -- defined as -x * log x
+Real.strictConcaveOn_negMulLog : StrictConcaveOn ℝ (Set.Ici 0) negMulLog
+```
+
+### Core Proof Strategy
+
+The Shannon entropy maximum theorem follows from:
+
+1. **Single-term bound**: For p > 0:
+   ```
+   -p * log₂(p) ≤ p * log₂(3) + (1/3 - p) / ln(2)
+   ```
+   Proof: Use `log(x) ≥ 1 - 1/x` with x = 3p, then algebra.
+
+2. **Sum bound**: Sum the single-term bounds for p1, p2, p3.
+   The residual `(1/3 - p1) + (1/3 - p2) + (1/3 - p3) = 0` when p1 + p2 + p3 = 1.
+
+3. **Strict version**: Use `log(x) > 1 - 1/x` for x ≠ 1.
+
+## Beads Issues to Create
+
+Create the following issues using `bd create`:
+
+### Issue 1: Create Shannon/Basic.lean
+- Extract `log2`, `entropyTerm` definitions from L3Entropy
+- Add basic lemmas: `log_two_pos`, `entropyTerm_of_pos`, `entropyTerm_zero`
+- Target: ~50 lines, must compile without sorry
+
+### Issue 2: Create Shannon/NegMulLogBound.lean
+- Prove `entropyTerm_le_helper` (single-term bound)
+- Import NegMulLog from Mathlib
+- Use `one_sub_inv_le_log_of_pos` carefully
+- Target: ~100 lines
+
+### Issue 3: Create Shannon/StrictBound.lean
+- Prove `entropyTerm_lt_helper` (strict version)
+- Depends on Issue 2
+- Target: ~100 lines
+
+### Issue 4: Create Shannon/SumBound.lean
+- Prove `entropyTerm_sum_bound` and `neg_mul_log_concave_sum`
+- Depends on Issue 2
+- Target: ~100 lines
+
+### Issue 5: Create Shannon/Maximum.lean
+- Prove `shannon_max_uniform`, `shannon_max_uniform_iff`
+- Depends on Issues 3, 4
+- Target: ~50 lines
+
+### Issue 6: Create L4Maximum/MagicState.lean
+- Extract magic state definitions
+- Prove `magic_q_one`, `magic_q_two`, `magic_q_three`, `magic_q_pos`
+- Target: ~80 lines, must compile without sorry
+
+### Issue 7: Create L4Maximum/EntropyBound.lean
+- Prove `blochEntropy_magic`, `bloch_entropy_bound`
+- Depends on Issue 5
+- Target: ~60 lines
+
+### Issue 8: Create L4Maximum/Main.lean
+- Final theorems: `max_at_magic_state`, `max_iff_magic_state`
+- Depends on Issues 6, 7
+- Target: ~60 lines
+
+## Current File Locations
+
+- `lean/AlethfeldLean/QBF/Rank1/ShannonLemma.lean` - BROKEN, has errors
+- `lean/AlethfeldLean/QBF/Rank1/L4Maximum.lean` - may have errors depending on Shannon
+
+## Build Commands
+
+```bash
+# Test individual modules after creating them:
+lake build AlethfeldLean.QBF.Rank1.Shannon.Basic
+lake build AlethfeldLean.QBF.Rank1.Shannon.NegMulLogBound
+# etc.
+```
+
+## Session 4 Summary (Dec 28, 2025)
+
+**What was attempted:**
+- Tried to fix all sorries in ShannonLemma.lean in one session
+- Added proof using `log(x) ≥ 1 - 1/x` inequality
+- Wrote large case-split proof for `entropyTerm_sum_lt`
+
+**What failed:**
+- Multiple Mathlib API mismatches (`div_le_iff`, `Real.one_sub_inv_lt_log_of_pos`)
+- Proof became >400 lines with nested case analysis
+- Too many interdependent goals to debug effectively
+
+**Lesson learned:**
+- Large monolithic proofs are fragile and hard to debug
+- Better to have many small files that compile independently
+- Each file should have a single focused goal
+
+## Next Agent Instructions
+
+1. **Do NOT try to fix the current ShannonLemma.lean** - it's too broken
+2. Run `bd create` for each of the 8 issues above
+3. Start with Issue 1 (Shannon/Basic.lean) - smallest, no dependencies
+4. Verify each module compiles before moving to the next
+5. Use `bd close` as each issue is completed
+6. At session end: `bd sync && git push`
+
+## Files to Eventually Delete
+
+Once modularization is complete, delete:
+- `lean/AlethfeldLean/QBF/Rank1/ShannonLemma.lean` (replaced by Shannon/)
+- Or keep as re-export wrapper
