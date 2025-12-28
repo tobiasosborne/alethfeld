@@ -1,0 +1,667 @@
+{:graph-id "L4-maximum-v1"
+ :version 1
+ :proof-mode :strict-mathematics
+
+ :theorem
+ {:id :theorem
+  :statement "For a rank-1 product state QBF on $n$ qubits, the ratio $S(U)/I(U)$ is maximized when all qubits are in the magic state $(x_k, y_k, z_k) = (\\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}})$, i.e., $(x_k^2, y_k^2, z_k^2) = (\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$."
+  :content-hash "c1d2e3f4"}
+
+ :assumptions
+ {:A1 {:id :A1
+       :type :assumption
+       :statement "$U = I - 2|\\psi\\rangle\\langle\\psi|$ is a rank-1 product state QBF on $n \\geq 1$ qubits."
+       :status :verified
+       :taint :clean}
+  :A2 {:id :A2
+       :type :assumption
+       :statement "Each qubit $k$ has Bloch vector $(x_k, y_k, z_k)$ with $x_k^2 + y_k^2 + z_k^2 = 1$."
+       :status :verified
+       :taint :clean}}
+
+ :external-dependencies
+ {:L2-ref {:id :L2-ref
+           :type :lemma-ref
+           :statement "Lemma L2 (Influence Independence): $I(U) = n \\cdot 2^{1-n}$, independent of Bloch vectors."
+           :status :verified
+           :taint :clean}
+  :L3-ref {:id :L3-ref
+           :type :lemma-ref
+           :statement "Lemma L3 (Entropy Formula): $S(U) = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_{k=1}^{n} f_k$ where $p_0 = (1-2^{1-n})^2$."
+           :status :verified
+           :taint :clean}
+  :D3-def {:id :D3-def
+           :type :definition
+           :statement "Definition (Bloch Entropy): $f_k = H(x_k^2, y_k^2, z_k^2) = -\\sum_{\\ell \\in \\{x,y,z\\}} q_\\ell \\log_2 q_\\ell$ where $q_x = x_k^2$, $q_y = y_k^2$, $q_z = z_k^2$."
+           :status :verified
+           :taint :clean}
+  :ext-shannon {:id :ext-shannon
+                :type :external-ref
+                :doi "10.1002/j.1538-7305.1948.tb01338.x"
+                :statement "Shannon Maximum Entropy Theorem: For any probability distribution $(p_1, \\ldots, p_m)$ on $m$ outcomes, $H(p_1,\\ldots,p_m) \\leq \\log_2 m$ with equality if and only if $p_1 = \\cdots = p_m = 1/m$."
+                :status :verified
+                :taint :clean}}
+
+ :symbols
+ {:sym-S {:name "S" :type "Real" :tex "S(U)" :scope :global}
+  :sym-I {:name "I" :type "Real" :tex "I(U)" :scope :global}
+  :sym-fk {:name "f_k" :type "Real" :tex "f_k" :scope :global}
+  :sym-p0 {:name "p_0" :type "Real" :tex "p_0" :scope :global}
+  :sym-n {:name "n" :type "Nat" :tex "n" :constraints "n >= 1" :scope :global}
+  :sym-magic {:name "magic" :type "BlochVector" :tex "(\\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}}, \\frac{1}{\\sqrt{3}})" :scope :global}}
+
+ :nodes
+ {;; ═══════════════════════════════════════════════════════════════
+  ;; STEP 1: Reduction to maximizing S
+  ;; ═══════════════════════════════════════════════════════════════
+  :1-main
+  {:id :1-main
+   :type :claim
+   :statement "Maximizing $S(U)/I(U)$ over all Bloch vectors is equivalent to maximizing $S(U)$ over all Bloch vectors."
+   :dependencies #{:L2-ref}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 1}
+
+  :1-main-sub1
+  {:id :1-main-sub1
+   :type :claim
+   :statement "By Lemma L2, $I(U) = n \\cdot 2^{1-n}$, which is a constant with respect to Bloch vectors."
+   :dependencies #{:L2-ref}
+   :justification :lemma-application
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :1-main
+   :display-order 1}
+
+  :1-main-sub1a
+  {:id :1-main-sub1a
+   :type :claim
+   :statement "The expression $n \\cdot 2^{1-n}$ contains only the parameter $n$, which is fixed for a given QBF."
+   :dependencies #{:1-main-sub1}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :1-main-sub1
+   :display-order 1}
+
+  :1-main-sub1b
+  {:id :1-main-sub1b
+   :type :claim
+   :statement "Therefore $I(U)$ does not depend on the choice of Bloch vectors $(x_k, y_k, z_k)$."
+   :dependencies #{:1-main-sub1a}
+   :justification :conjunction-elim
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :1-main-sub1
+   :display-order 2}
+
+  :1-main-sub2
+  {:id :1-main-sub2
+   :type :claim
+   :statement "For fixed $n \\geq 1$, we have $I(U) = n \\cdot 2^{1-n} > 0$."
+   :dependencies #{:A1 :1-main-sub1}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :1-main
+   :display-order 2}
+
+  :1-main-sub2a
+  {:id :1-main-sub2a
+   :type :claim
+   :statement "Since $n \\geq 1$ and $2^{1-n} > 0$ for all integers, the product $n \\cdot 2^{1-n} > 0$."
+   :dependencies #{:A1}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :1-main-sub2
+   :display-order 1}
+
+  :1-main-sub3
+  {:id :1-main-sub3
+   :type :claim
+   :statement "Since $I(U) > 0$ is constant, $\\max_{\\text{Bloch}} \\frac{S(U)}{I(U)} = \\frac{1}{I(U)} \\cdot \\max_{\\text{Bloch}} S(U)$."
+   :dependencies #{:1-main-sub1b :1-main-sub2}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :1-main
+   :display-order 3}
+
+  :1-main-sub3a
+  {:id :1-main-sub3a
+   :type :claim
+   :statement "For any constant $c > 0$ and function $f$: $\\arg\\max f/c = \\arg\\max f$."
+   :dependencies #{}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :1-main-sub3
+   :display-order 1}
+
+  :1-main-sub3b
+  {:id :1-main-sub3b
+   :type :claim
+   :statement "Applying with $c = I(U)$ and $f = S(U)$: $\\arg\\max_{\\text{Bloch}} S(U)/I(U) = \\arg\\max_{\\text{Bloch}} S(U)$."
+   :dependencies #{:1-main-sub3a :1-main-sub2}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :1-main-sub3
+   :display-order 2}
+
+  :1-main-qed
+  {:id :1-main-qed
+   :type :qed
+   :statement "Therefore maximizing $S/I$ is equivalent to maximizing $S$."
+   :dependencies #{:1-main-sub3b}
+   :justification :qed
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :1-main
+   :display-order 4}
+
+  ;; ═══════════════════════════════════════════════════════════════
+  ;; STEP 2: Identify Bloch-dependent term in S
+  ;; ═══════════════════════════════════════════════════════════════
+  :2-main
+  {:id :2-main
+   :type :claim
+   :statement "In the entropy formula $S(U) = -p_0 \\log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \\sum_{k=1}^{n} f_k$, only the term $2^{1-n} \\sum_k f_k$ depends on Bloch vectors."
+   :dependencies #{:L3-ref}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 2}
+
+  :2-main-sub1
+  {:id :2-main-sub1
+   :type :claim
+   :statement "The term $-p_0 \\log_2 p_0$ where $p_0 = (1-2^{1-n})^2$ depends only on $n$."
+   :dependencies #{:L3-ref}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :2-main
+   :display-order 1}
+
+  :2-main-sub1a
+  {:id :2-main-sub1a
+   :type :claim
+   :statement "The expression $p_0 = (1-2^{1-n})^2$ contains only $n$, with no Bloch vector components."
+   :dependencies #{:L3-ref}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :2-main-sub1
+   :display-order 1}
+
+  :2-main-sub1b
+  {:id :2-main-sub1b
+   :type :claim
+   :statement "Since $p_0$ depends only on $n$, so does $-p_0 \\log_2 p_0$."
+   :dependencies #{:2-main-sub1a}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :2-main-sub1
+   :display-order 2}
+
+  :2-main-sub2
+  {:id :2-main-sub2
+   :type :claim
+   :statement "The term $(2n-2)(1-p_0)$ depends only on $n$."
+   :dependencies #{:L3-ref :2-main-sub1a}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :2-main
+   :display-order 2}
+
+  :2-main-sub2a
+  {:id :2-main-sub2a
+   :type :claim
+   :statement "$(2n-2)$ is an expression in $n$ only."
+   :dependencies #{}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :2-main-sub2
+   :display-order 1}
+
+  :2-main-sub2b
+  {:id :2-main-sub2b
+   :type :claim
+   :statement "$(1-p_0)$ depends only on $n$ since $p_0$ depends only on $n$."
+   :dependencies #{:2-main-sub1a}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :2-main-sub2
+   :display-order 2}
+
+  :2-main-sub3
+  {:id :2-main-sub3
+   :type :claim
+   :statement "The term $2^{1-n} \\sum_{k=1}^{n} f_k$ contains $f_k = H(x_k^2, y_k^2, z_k^2)$, which depends on Bloch vectors."
+   :dependencies #{:L3-ref :D3-def}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :2-main
+   :display-order 3}
+
+  :2-main-sub3a
+  {:id :2-main-sub3a
+   :type :claim
+   :statement "By Definition D3, $f_k = H(x_k^2, y_k^2, z_k^2)$ is a function of the Bloch vector components $(x_k, y_k, z_k)$."
+   :dependencies #{:D3-def}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :2-main-sub3
+   :display-order 1}
+
+  :2-main-sub3b
+  {:id :2-main-sub3b
+   :type :claim
+   :statement "The sum $\\sum_k f_k$ is therefore a function of all Bloch vectors $(x_k, y_k, z_k)_{k=1}^n$."
+   :dependencies #{:2-main-sub3a}
+   :justification :conjunction-intro
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :2-main-sub3
+   :display-order 2}
+
+  :2-main-qed
+  {:id :2-main-qed
+   :type :qed
+   :statement "Maximizing $S$ over Bloch vectors is equivalent to maximizing $\\sum_k f_k$."
+   :dependencies #{:2-main-sub1 :2-main-sub2 :2-main-sub3b}
+   :justification :qed
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :2-main
+   :display-order 4}
+
+  ;; ═══════════════════════════════════════════════════════════════
+  ;; STEP 3: Bloch entropy as Shannon entropy on 3 outcomes
+  ;; ═══════════════════════════════════════════════════════════════
+  :3-main
+  {:id :3-main
+   :type :claim
+   :statement "Each $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Shannon entropy of a probability distribution on 3 outcomes."
+   :dependencies #{:D3-def :A2}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 3}
+
+  :3-main-sub1
+  {:id :3-main-sub1
+   :type :claim
+   :statement "Define $q_1 = x_k^2$, $q_2 = y_k^2$, $q_3 = z_k^2$. Then $f_k = H(q_1, q_2, q_3)$."
+   :dependencies #{:D3-def}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :3-main
+   :display-order 1}
+
+  :3-main-sub1a
+  {:id :3-main-sub1a
+   :type :claim
+   :statement "By Definition D3, $f_k = -\\sum_{\\ell=1}^{3} q_\\ell \\log_2 q_\\ell$ which is the Shannon entropy formula."
+   :dependencies #{:D3-def :3-main-sub1}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :3-main-sub1
+   :display-order 1}
+
+  :3-main-sub2
+  {:id :3-main-sub2
+   :type :claim
+   :statement "We verify $(q_1, q_2, q_3)$ forms a probability distribution: $q_i \\geq 0$ and $\\sum_i q_i = 1$."
+   :dependencies #{:A2 :3-main-sub1}
+   :justification :conjunction-intro
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :3-main
+   :display-order 2}
+
+  :3-main-sub2a
+  {:id :3-main-sub2a
+   :type :claim
+   :statement "Each $q_i = (\\text{component})^2 \\geq 0$ since squares are non-negative."
+   :dependencies #{:3-main-sub1}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :3-main-sub2
+   :display-order 1}
+
+  :3-main-sub2b
+  {:id :3-main-sub2b
+   :type :claim
+   :statement "By Assumption A2, $x_k^2 + y_k^2 + z_k^2 = 1$, so $q_1 + q_2 + q_3 = 1$."
+   :dependencies #{:A2 :3-main-sub1}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :3-main-sub2
+   :display-order 2}
+
+  :3-main-qed
+  {:id :3-main-qed
+   :type :qed
+   :statement "Therefore $(q_1, q_2, q_3)$ is a valid probability distribution on 3 outcomes, and $f_k$ is its Shannon entropy."
+   :dependencies #{:3-main-sub1a :3-main-sub2a :3-main-sub2b}
+   :justification :qed
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :3-main
+   :display-order 3}
+
+  ;; ═══════════════════════════════════════════════════════════════
+  ;; STEP 4: Maximum entropy principle application
+  ;; ═══════════════════════════════════════════════════════════════
+  :4-main
+  {:id :4-main
+   :type :claim
+   :statement "By the maximum entropy principle, $f_k \\leq \\log_2 3$ with equality if and only if $(x_k^2, y_k^2, z_k^2) = (\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$."
+   :dependencies #{:3-main :ext-shannon}
+   :justification :external-application
+   :status :proposed
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 4}
+
+  :4-main-sub1
+  {:id :4-main-sub1
+   :type :claim
+   :statement "Shannon's Maximum Entropy Theorem states: for $(p_1, \\ldots, p_m)$ a probability distribution, $H(p_1,\\ldots,p_m) \\leq \\log_2 m$ with equality iff uniform."
+   :dependencies #{:ext-shannon}
+   :justification :external-application
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :4-main
+   :display-order 1}
+
+  :4-main-sub1a
+  {:id :4-main-sub1a
+   :type :claim
+   :statement "This is Shannon's 1948 result: $H(p_1,\\ldots,p_m) = -\\sum_i p_i \\log_2 p_i$ is maximized by $p_i = 1/m$ for all $i$."
+   :dependencies #{:ext-shannon}
+   :justification :external-application
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :4-main-sub1
+   :display-order 1}
+
+  :4-main-sub1b
+  {:id :4-main-sub1b
+   :type :claim
+   :statement "At the uniform distribution, $H(1/m, \\ldots, 1/m) = \\log_2 m$."
+   :dependencies #{:ext-shannon}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :4-main-sub1
+   :display-order 2}
+
+  :4-main-sub2
+  {:id :4-main-sub2
+   :type :claim
+   :statement "Apply with $m = 3$ and $(p_1, p_2, p_3) = (x_k^2, y_k^2, z_k^2)$: $f_k \\leq \\log_2 3$."
+   :dependencies #{:4-main-sub1 :3-main}
+   :justification :universal-elim
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :4-main
+   :display-order 2}
+
+  :4-main-sub2a
+  {:id :4-main-sub2a
+   :type :claim
+   :statement "Since $(x_k^2, y_k^2, z_k^2)$ is a probability distribution on 3 outcomes (Step 3), the theorem applies."
+   :dependencies #{:3-main :4-main-sub1}
+   :justification :modus-ponens
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :4-main-sub2
+   :display-order 1}
+
+  :4-main-sub2b
+  {:id :4-main-sub2b
+   :type :claim
+   :statement "Instantiating with $m=3$: $f_k = H(x_k^2, y_k^2, z_k^2) \\leq \\log_2 3$."
+   :dependencies #{:4-main-sub2a :4-main-sub1}
+   :justification :universal-elim
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :4-main-sub2
+   :display-order 2}
+
+  :4-main-sub3
+  {:id :4-main-sub3
+   :type :claim
+   :statement "Equality holds iff $(x_k^2, y_k^2, z_k^2) = (1/3, 1/3, 1/3)$."
+   :dependencies #{:4-main-sub1 :3-main}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :4-main
+   :display-order 3}
+
+  :4-main-sub3a
+  {:id :4-main-sub3a
+   :type :claim
+   :statement "By Shannon's theorem, equality requires uniform distribution: $x_k^2 = y_k^2 = z_k^2 = 1/3$."
+   :dependencies #{:4-main-sub1b :3-main}
+   :justification :external-application
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :4-main-sub3
+   :display-order 1}
+
+  :4-main-sub3b
+  {:id :4-main-sub3b
+   :type :claim
+   :statement "This corresponds to Bloch vector $(\\pm 1/\\sqrt{3}, \\pm 1/\\sqrt{3}, \\pm 1/\\sqrt{3})$, the magic state."
+   :dependencies #{:4-main-sub3a}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :4-main-sub3
+   :display-order 2}
+
+  :4-main-qed
+  {:id :4-main-qed
+   :type :qed
+   :statement "Each $f_k$ achieves its maximum $\\log_2 3$ at the magic state."
+   :dependencies #{:4-main-sub2b :4-main-sub3b}
+   :justification :qed
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :4-main
+   :display-order 4}
+
+  ;; ═══════════════════════════════════════════════════════════════
+  ;; STEP 5: Global maximum at magic state
+  ;; ═══════════════════════════════════════════════════════════════
+  :5-main
+  {:id :5-main
+   :type :claim
+   :statement "$\\sum_k f_k$ is maximized when ALL qubits are at the magic state."
+   :dependencies #{:4-main}
+   :justification :conjunction-intro
+   :status :proposed
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 5}
+
+  :5-main-sub1
+  {:id :5-main-sub1
+   :type :claim
+   :statement "The sum $\\sum_{k=1}^n f_k$ is a sum of $n$ independent terms, each depending on a different qubit."
+   :dependencies #{:D3-def}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :5-main
+   :display-order 1}
+
+  :5-main-sub1a
+  {:id :5-main-sub1a
+   :type :claim
+   :statement "$f_k$ depends only on $(x_k, y_k, z_k)$, not on $(x_j, y_j, z_j)$ for $j \\neq k$."
+   :dependencies #{:D3-def}
+   :justification :definition-expansion
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :5-main-sub1
+   :display-order 1}
+
+  :5-main-sub1b
+  {:id :5-main-sub1b
+   :type :claim
+   :statement "Therefore the optimization over each qubit's Bloch vector is independent."
+   :dependencies #{:5-main-sub1a}
+   :justification :conjunction-intro
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :5-main-sub1
+   :display-order 2}
+
+  :5-main-sub2
+  {:id :5-main-sub2
+   :type :claim
+   :statement "For independent terms, $\\max \\sum_k f_k = \\sum_k \\max f_k$."
+   :dependencies #{:5-main-sub1b}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :5-main
+   :display-order 2}
+
+  :5-main-sub2a
+  {:id :5-main-sub2a
+   :type :claim
+   :statement "When terms are independent, the maximum of the sum equals the sum of maxima."
+   :dependencies #{}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 3
+   :parent :5-main-sub2
+   :display-order 1}
+
+  :5-main-sub3
+  {:id :5-main-sub3
+   :type :claim
+   :statement "Each $\\max f_k = \\log_2 3$, achieved at magic state (Step 4)."
+   :dependencies #{:4-main}
+   :justification :substitution
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :5-main
+   :display-order 3}
+
+  :5-main-sub4
+  {:id :5-main-sub4
+   :type :claim
+   :statement "Therefore $\\max \\sum_k f_k = n \\log_2 3$, achieved when ALL qubits are at magic state."
+   :dependencies #{:5-main-sub2 :5-main-sub3}
+   :justification :algebraic-rewrite
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :5-main
+   :display-order 4}
+
+  :5-main-qed
+  {:id :5-main-qed
+   :type :qed
+   :statement "$\\sum_k f_k$ achieves maximum $n \\log_2 3$ at the magic state."
+   :dependencies #{:5-main-sub4}
+   :justification :qed
+   :status :proposed
+   :taint :clean
+   :depth 2
+   :parent :5-main
+   :display-order 5}
+
+  ;; ═══════════════════════════════════════════════════════════════
+  ;; FINAL QED
+  ;; ═══════════════════════════════════════════════════════════════
+  :final-qed
+  {:id :final-qed
+   :type :qed
+   :statement "$S(U)/I(U)$ is maximized when all qubits are in the magic state $(x_k^2, y_k^2, z_k^2) = (1/3, 1/3, 1/3)$."
+   :dependencies #{:1-main :2-main :5-main}
+   :justification :qed
+   :status :proposed
+   :taint :clean
+   :depth 1
+   :parent nil
+   :display-order 6}}
+
+ :obligations []
+
+ :metadata
+ {:created-at "2025-12-28T17:00:00+01:00"
+  :last-modified "2025-12-28T17:00:00+01:00"
+  :proof-mode :strict-mathematics
+  :iteration-counts {:verification {} :expansion {} :strategy 0}
+  :context-budget {:max-tokens 100000 :current-estimate 8000}}}
