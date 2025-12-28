@@ -44,7 +44,7 @@ where $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Bloch entropy.
 
 ### File: `AlethfeldLean/QBF/Rank1/L3Entropy.lean`
 
-### Completed (4 issues closed)
+### Completed (6 issues closed)
 
 1. **Skeleton created** (`alethfeld-013`)
    - Imports from L2Influence
@@ -66,13 +66,20 @@ where $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Bloch entropy.
    - `log2_fourierWeight` - logarithm decomposition
    - `log_decomposition` - main result: -p_α log₂ p_α = p_α(2n-2) - p_α Σ_k log₂ q_k^{α_k}
 
-### Remaining Work (8 issues open)
+5. **L3-step2: First sum formula** (`alethfeld-x4n`)
+   - `first_sum_formula` - Σ_{α≠0} p_α(2n-2) = (2n-2)(1-p₀)
+
+6. **L3-step3: Zero case helpers** (`alethfeld-yy4`)
+   - `BlochVector.q_zero_eq_one` - q^{(0)} = 1
+   - `log2_q_zero` - log₂(q^{(0)}) = 0
+   - `log2_q_of_alpha_zero` - log₂(q^{α}) = 0 when α = 0
+   - `sum_log2_q_eq_sum_nonzero` - sum only over non-zero α_k contributions
+
+### Remaining Work (6 issues open)
 
 | Issue ID | Title | Status |
 |----------|-------|--------|
-| `alethfeld-x4n` | L3-step2: first_sum_formula | Ready |
-| `alethfeld-yy4` | L3-step3: zero case helpers | Ready |
-| `alethfeld-680` | L3-step5: qubit_log_contribution | Blocked |
+| `alethfeld-680` | L3-step5: qubit_log_contribution | Ready |
 | `alethfeld-esk` | L3-step6: entropy sum factorization | Blocked |
 | `alethfeld-7j9` | L3-qed: main entropy_formula | Blocked |
 | `alethfeld-xi1` | entropy_nonneg corollary | Blocked |

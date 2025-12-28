@@ -149,8 +149,59 @@ theorem log_decomposition (bloch : Fin n → BlochVector) (α : MultiIndex n)
   rw [log2_fourierWeight bloch α hq]
   ring
 
--- TODO: Prove first_sum_formula (alethfeld-x4n)
--- TODO: Prove zero case helpers (alethfeld-yy4)
+/-! ### L3-step2: First sum formula
+
+Σ_{α≠0} p_α(2n-2) = (2n-2)(1-p₀)
+-/
+
+/-- First sum in entropy decomposition: factoring out the constant -/
+theorem first_sum_formula (bloch : Fin n → BlochVector) :
+    ∑ α : MultiIndex n,
+      (if ∃ k, α k ≠ 0 then fourierWeight bloch α * (2*(n : ℤ) - 2) else 0) =
+    (2*(n : ℤ) - 2) * (1 - p_zero n) := by
+  rw [← Finset.sum_mul]
+  congr 1
+  conv_lhs =>
+    congr
+    ext α
+    rw [show (if ∃ k, α k ≠ 0 then fourierWeight bloch α * (2*(n : ℤ) - 2) else 0) =
+            (if ∃ k, α k ≠ 0 then fourierWeight bloch α else 0) * (2*(n : ℤ) - 2) by
+      split_ifs <;> ring]
+  rw [Finset.sum_mul]
+  rw [sum_fourier_weights bloch]
+
+/-! ### L3-step3: Zero case helpers
+
+When α_k = 0, we have q^{(0)} = 1, so log₂(q^{(0)}) = 0.
+This means only α_k ≠ 0 contributes to the log sum.
+-/
+
+/-- q^{(0)} = 1 for any Bloch vector -/
+theorem BlochVector.q_zero_eq_one (v : BlochVector) : v.q 0 = 1 := by
+  unfold BlochVector.q
+  simp
+
+/-- log₂(q^{(0)}) = 0 since q^{(0)} = 1 -/
+theorem log2_q_zero (v : BlochVector) : log2 (v.q 0) = 0 := by
+  rw [BlochVector.q_zero_eq_one]
+  exact log2_one
+
+/-- When α_k = 0, the log contribution from qubit k is zero -/
+theorem log2_q_of_alpha_zero (v : BlochVector) (α : Fin 4) (hα : α = 0) :
+    log2 (v.q α) = 0 := by
+  rw [hα]
+  exact log2_q_zero v
+
+/-- Sum of logs only gets contributions from non-zero α_k -/
+theorem sum_log2_q_eq_sum_nonzero (bloch : Fin n → BlochVector) (α : MultiIndex n) :
+    ∑ k, log2 ((bloch k).q (α k)) =
+    ∑ k, if α k ≠ 0 then log2 ((bloch k).q (α k)) else 0 := by
+  apply Finset.sum_congr rfl
+  intro k _
+  split_ifs with h
+  · rfl
+  · push_neg at h
+    rw [h, log2_q_zero]
 -- TODO: Prove qubit_log_contribution (alethfeld-680)
 -- TODO: Prove entropy sum factorization (alethfeld-esk)
 

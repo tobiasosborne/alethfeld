@@ -2,7 +2,18 @@
 
 This document serves as a guide for **Prover** and **Formalizer** agents using the Alethfeld Lean 4 library. It details the module structure, key definitions, main theorems, and usage patterns.
 
-## 1. Module Hierarchy
+## 1. Project Overview & Status
+
+*   **Package Name**: `AlethfeldLean`
+*   **Dependency**: `mathlib` (v4.26.0)
+*   **Verification Status**: **COMPLETE** (As of Dec 2025)
+    *   All core lemmas in `Pauli.lean`, `Bloch.lean`, and `L1Fourier.lean` are fully proven without `sorry`.
+*   **Build Command**:
+    ```bash
+    lake build
+    ```
+
+## 2. Module Hierarchy
 
 The library is organized under the `AlethfeldLean` namespace.
 
@@ -10,13 +21,12 @@ The library is organized under the `AlethfeldLean` namespace.
     *   **`Quantum`** (Core definitions)
         *   `Basic`: Fundamental types (`Mat2`, `QubitMat`) and index tools.
         *   `Pauli`: Pauli matrices, strings, and trace properties.
-        *   `Bloch`: Bloch sphere representations, expectation values, and squared components.
+        *   `Bloch`: Bloch sphere representations and expectation values.
     *   **`QBF`** (Quantum Boolean Functions)
         *   `Rank1`
             *   `L1Fourier`: Fourier analysis of rank-1 product state QBFs (Lemma L1).
-            *   `L2Influence`: Influence independence for rank-1 product state QBFs (Lemma L2).
 
-## 2. Key Types and Definitions
+## 3. Key Types and Definitions
 
 ### Basic Types (`AlethfeldLean.Quantum.Basic`)
 
@@ -43,12 +53,6 @@ The library is organized under the `AlethfeldLean` namespace.
 | `blochState θ φ` | `ℝ → ℝ → QubitState` | State vector $\cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$. |
 | `blochProduct` | `(Fin n → BlochVector) → MultiIndex n → ℝ` | Product $\prod_k r_k^{(\alpha_k)}$. |
 
-### Squared Bloch Components (`AlethfeldLean.Quantum.Bloch`)
-
-| Symbol | Definition | Description |
-| :--- | :--- | :--- |
-| `BlochVector.q` | `Fin 4 → ℝ` | Squared components: $q^{(0)}=1, q^{(1)}=x^2, q^{(2)}=y^2, q^{(3)}=z^2$ |
-
 ### QBF Structures (`AlethfeldLean.QBF.Rank1.L1Fourier`)
 
 | Symbol | Description |
@@ -56,16 +60,7 @@ The library is organized under the `AlethfeldLean` namespace.
 | `ProductState n` | Structure holding angles `θ` and `φ` for $n$ qubits. |
 | `fourierCoeff U α` | $\hat{U}(\alpha) = 2^{-n} \text{Tr}(\sigma^\alpha U)$. |
 
-### Influence Functions (`AlethfeldLean.QBF.Rank1.L2Influence`)
-
-| Symbol | Description |
-| :--- | :--- |
-| `qProduct bloch α` | Product $\prod_k q_k^{(\alpha_k)}$ of squared Bloch components. |
-| `probability bloch α` | Fourier weight $p_\alpha = 2^{2-2n} \prod_k q_k^{(\alpha_k)}$. |
-| `influence_j bloch j` | Influence of qubit $j$: $I_j = \sum_{\alpha: \alpha_j \neq 0} p_\alpha$. |
-| `totalInfluence bloch` | Total influence: $I = \sum_j I_j$. |
-
-## 3. Main Theorems
+## 4. Main Theorems
 
 These are the primary verified results available for use in higher-level proofs.
 
@@ -85,39 +80,14 @@ These are the primary verified results available for use in higher-level proofs.
 
 *   **`fourier_coefficient_formula (ψ : ProductState n) (α)`** (Lemma L1):
     For $U = I - 2|\psi\rangle\langle\psi|$:
-    $$\hat{U}(\alpha) = \delta_{\alpha,0} - 2^{1-n} \prod_{k=0}^{n-1} r_k^{(\alpha_k)}$$
+    $$\hat{U}(\alpha) = \delta_{\alpha,0} - 2^{1-n} \prod_{k=0}^{n-1} r_k^{(\alpha_k)}$$ 
     *Usage*: Closed-form expression for Fourier coefficients of rank-1 QBFs.
 
-### Bloch Component Identities (`AlethfeldLean.Quantum.Bloch`)
-
-*   **`BlochVector.q_sum_eq_two (v)`**:
-    $$q^{(0)} + q^{(1)} + q^{(2)} + q^{(3)} = 1 + x^2 + y^2 + z^2 = 2$$
-    *Usage*: Key identity for factorizing influence sums.
-
-*   **`BlochVector.q_nonzero_sum_eq_one (v)`**:
-    $$q^{(1)} + q^{(2)} + q^{(3)} = x^2 + y^2 + z^2 = 1$$
-    *Usage*: Direct consequence of Bloch vector normalization.
-
-### Influence Independence (`AlethfeldLean.QBF.Rank1.L2Influence`)
-
-*   **`total_influence_formula (bloch)`** (Lemma L2):
-    For any rank-1 product state QBF:
-    $$I(U) = n \cdot 2^{1-n}$$
-    *Usage*: Total influence depends only on qubit count, not on Bloch vectors.
-
-*   **`influence_independent_of_bloch (bloch₁ bloch₂)`**:
-    $$I(\text{bloch}_1) = I(\text{bloch}_2)$$
-    *Usage*: Proves influence is a universal property of rank-1 QBFs.
-
-*   **`influence_pos (bloch) (hn : n ≥ 1)`**:
-    $$I(U) > 0$$
-    *Usage*: Influence is strictly positive for any non-trivial system.
-
-## 4. Agent Guidelines
+## 5. Agent Guidelines
 
 ### For the **Prover** Agent
 
-*   **referencing**: When proposing steps, explicitly cite these results.
+*   **Referencing**: When proposing steps, explicitly cite these results.
     *   *Example*: "By `trace_pauliString` from `AlethfeldLean.Quantum.Pauli`, the trace vanishes for $\alpha \neq 0$."
 *   **Structure**: Treat `AlethfeldLean.Quantum` as the axiomatic base. Do not try to re-prove properties of Pauli matrices; assume them.
 *   **Abstraction**: Work with `MultiIndex` and `BlochVector` rather than raw matrices whenever possible.
@@ -136,13 +106,13 @@ These are the primary verified results available for use in higher-level proofs.
     open Complex Real
     open Alethfeld.Quantum Alethfeld.Quantum.Pauli Alethfeld.Quantum.Bloch
     ```
-*   **Type Coercion**: Be careful with `ℂ` (Complex) vs `ℝ` (Real).
-    *   `BlochVector` components are `ℝ`.
-    *   Matrices are over `ℂ`.
-    *   Use `↑` (coe) or `Complex.ofReal` when mixing them.
-*   **Mathlib**: This library depends on Mathlib. You have full access to `Mathlib.Data.Matrix`, `Mathlib.Analysis.InnerProductSpace`, etc.
+*   **Mathlib Usage**: You have full access to `Mathlib`. Frequently used lemmas include:
+    *   **Complex**: `Complex.normSq_eq_conj_mul_self`, `Complex.exp_mul_I`, `Complex.conj_ofReal`
+    *   **Trig**: `Real.cos_sq_add_sin_sq`, `Real.sin_two_mul`, `Real.cos_two_mul'`
+    *   **Matrix**: `Matrix.trace_kronecker`
+    *   **Algebra**: `zpow_add₀`, `zpow_neg`
 
-## 5. Example Usage
+## 6. Example Usage
 
 ```lean
 import AlethfeldLean.Quantum.Bloch
@@ -150,9 +120,10 @@ import AlethfeldLean.Quantum.Pauli
 
 open Alethfeld.Quantum Alethfeld.Quantum.Pauli Alethfeld.Quantum.Bloch
 
+-- Example: Proving expectation of X is the x-component of Bloch vector
 example (θ φ : ℝ) :
   let ψ := blochState θ φ
   expectation ψ σX = (blochVectorOfAngles θ φ).x := by
-  -- This is exactly theorem expectation_σX
+  -- This is exactly theorem expectation_σX, already proven in library
   exact expectation_σX θ φ
 ```
