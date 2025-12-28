@@ -1,0 +1,674 @@
+{:graph-id "shannon-max-002"
+ :version 2
+
+ :theorem
+ {:id :theorem
+  :statement "For any probability distribution $p = (p_1, p_2, p_3)$ on three outcomes with $p_i \\geq 0$ and $\\sum_{i=1}^{3} p_i = 1$, the Shannon entropy satisfies $H(p) = -\\sum_{i=1}^{3} p_i \\log_2 p_i \\leq \\log_2 3$, with equality if and only if $p_1 = p_2 = p_3 = \\frac{1}{3}$."
+  :content-hash "sha256-shannon-max-v2"}
+
+ :metadata
+ {:created-at "2025-12-28T20:30:00Z"
+  :proof-mode :strict-mathematics
+  :iteration-counts {:verification {} :expansion {} :strategy 0}
+  :context-budget {:max-tokens 100000 :current-estimate 8000}}
+
+ :symbols
+ {:p1 {:id :p1 :name "p_1" :type "ℝ" :tex "p_1" :constraints "p_1 ≥ 0" :scope :global}
+  :p2 {:id :p2 :name "p_2" :type "ℝ" :tex "p_2" :constraints "p_2 ≥ 0" :scope :global}
+  :p3 {:id :p3 :name "p_3" :type "ℝ" :tex "p_3" :constraints "p_3 ≥ 0" :scope :global}
+  :x {:id :x :name "x" :type "ℝ" :tex "x" :constraints "x > 0" :scope :global}
+  :H {:id :H :name "H" :type "ℝ³ → ℝ" :tex "H(p)" :scope :global}
+  :f {:id :f :name "f" :type "ℝ → ℝ" :tex "f(x) = x - 1 - \\ln x" :scope :global}}
+
+ :nodes
+ {;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 0: ASSUMPTIONS
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :0-A1
+  {:id :0-A1
+   :type :assumption
+   :statement "$p_1, p_2, p_3 \\geq 0$"
+   :dependencies #{} :scope #{} :justification :assumption
+   :status :verified :taint :clean :depth 0 :parent nil :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :orchestrator :round 0 :revision-of nil}}
+
+  :0-A2
+  {:id :0-A2
+   :type :assumption
+   :statement "$p_1 + p_2 + p_3 = 1$"
+   :dependencies #{} :scope #{} :justification :assumption
+   :status :verified :taint :clean :depth 0 :parent nil :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :orchestrator :round 0 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 1: MAIN PROOF STRUCTURE
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :1-def-H
+  {:id :1-def-H
+   :type :definition
+   :statement "Define $H(p) = -\\sum_{i=1}^{3} p_i \\log_2 p_i$ with convention $0 \\cdot \\log_2 0 := 0$."
+   :dependencies #{:0-A1} :scope #{} :justification :definition-expansion
+   :status :verified :taint :clean :depth 1 :parent nil :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-def-u
+  {:id :1-def-u
+   :type :definition
+   :statement "Define uniform distribution $u = (\\frac{1}{3}, \\frac{1}{3}, \\frac{1}{3})$."
+   :dependencies #{} :scope #{} :justification :definition-expansion
+   :status :verified :taint :clean :depth 1 :parent nil :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-log-ineq
+  {:id :1-log-ineq
+   :type :claim
+   :statement "**Log Inequality**: For all $x > 0$: $\\ln x \\leq x - 1$, with equality iff $x = 1$."
+   :dependencies #{} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 1 :parent nil :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-gibbs
+  {:id :1-gibbs
+   :type :claim
+   :statement "**Gibbs Inequality**: $\\sum_{i} p_i \\ln \\frac{p_i}{q_i} \\geq 0$ for distributions $p, q$ with $q_i > 0$, equality iff $p = q$."
+   :dependencies #{:1-log-ineq :0-A1 :0-A2} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 1 :parent nil :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-H-bound
+  {:id :1-H-bound
+   :type :claim
+   :statement "$H(p) \\leq \\log_2 3$."
+   :dependencies #{:1-gibbs :1-def-H :1-def-u :0-A2} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 1 :parent nil :display-order 5
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-H-equality
+  {:id :1-H-equality
+   :type :claim
+   :statement "Equality $H(p) = \\log_2 3$ holds iff $p_1 = p_2 = p_3 = \\frac{1}{3}$."
+   :dependencies #{:1-gibbs :1-H-bound :1-def-u} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 1 :parent nil :display-order 6
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :1-qed
+  {:id :1-qed
+   :type :qed
+   :statement "QED: $H(p) \\leq \\log_2 3$ with equality iff $p = u$."
+   :dependencies #{:1-H-bound :1-H-equality} :scope #{} :justification :qed
+   :status :verified :taint :clean :depth 1 :parent nil :display-order 7
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 2: LOG INEQUALITY PROOF
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :2-def-f
+  {:id :2-def-f
+   :type :definition
+   :statement "Define $f: (0, \\infty) \\to \\mathbb{R}$ by $f(x) = x - 1 - \\ln x$."
+   :dependencies #{} :scope #{} :justification :definition-expansion
+   :status :verified :taint :clean :depth 2 :parent :1-log-ineq :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-f-deriv
+  {:id :2-f-deriv
+   :type :claim
+   :statement "$f$ is differentiable on $(0, \\infty)$ with $f'(x) = 1 - \\frac{1}{x}$."
+   :dependencies #{:2-def-f} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-log-ineq :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-f-min
+  {:id :2-f-min
+   :type :claim
+   :statement "$x = 1$ is the unique global minimum of $f$ on $(0, \\infty)$."
+   :dependencies #{:2-f-deriv} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-log-ineq :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-f-val
+  {:id :2-f-val
+   :type :claim
+   :statement "$f(1) = 1 - 1 - \\ln 1 = 0$."
+   :dependencies #{:2-def-f} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-log-ineq :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-f-nonneg
+  {:id :2-f-nonneg
+   :type :claim
+   :statement "For all $x > 0$: $f(x) \\geq f(1) = 0$."
+   :dependencies #{:2-f-min :2-f-val} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-log-ineq :display-order 5
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-log-ineq-conclude
+  {:id :2-log-ineq-conclude
+   :type :claim
+   :statement "Rewriting $f(x) \\geq 0$: $x - 1 - \\ln x \\geq 0$, hence $\\ln x \\leq x - 1$."
+   :dependencies #{:2-f-nonneg :2-def-f} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-log-ineq :display-order 6
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-log-ineq-eq
+  {:id :2-log-ineq-eq
+   :type :claim
+   :statement "Equality $\\ln x = x - 1$ iff $f(x) = 0$ iff $x = 1$ (unique minimum)."
+   :dependencies #{:2-f-min :2-f-nonneg} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-log-ineq :display-order 7
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 2: GIBBS INEQUALITY PROOF
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :2-gibbs-setup
+  {:id :2-gibbs-setup
+   :type :claim
+   :statement "Let $p, q$ be distributions on $\\{1,2,3\\}$ with $q_i > 0$. Define $S = \\sum_i p_i \\ln \\frac{p_i}{q_i}$."
+   :dependencies #{:0-A1} :scope #{} :justification :definition-expansion
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-apply-log
+  {:id :2-gibbs-apply-log
+   :type :claim
+   :statement "For $p_i > 0$: apply log inequality with $x = q_i/p_i > 0$ to get $\\ln(q_i/p_i) \\leq q_i/p_i - 1$."
+   :dependencies #{:1-log-ineq} :scope #{} :justification :substitution
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-negate
+  {:id :2-gibbs-negate
+   :type :claim
+   :statement "Negate: $-\\ln(q_i/p_i) \\geq 1 - q_i/p_i$, i.e., $\\ln(p_i/q_i) \\geq 1 - q_i/p_i$."
+   :dependencies #{:2-gibbs-apply-log} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-mult
+  {:id :2-gibbs-mult
+   :type :claim
+   :statement "Multiply by $p_i \\geq 0$: $p_i \\ln(p_i/q_i) \\geq p_i - q_i$ (holds also when $p_i = 0$)."
+   :dependencies #{:2-gibbs-negate :0-A1} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-sum
+  {:id :2-gibbs-sum
+   :type :claim
+   :statement "Sum over $i$: $\\sum_i p_i \\ln(p_i/q_i) \\geq \\sum_i p_i - \\sum_i q_i$."
+   :dependencies #{:2-gibbs-mult} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 5
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-zero
+  {:id :2-gibbs-zero
+   :type :claim
+   :statement "Since $\\sum_i p_i = 1$ and $\\sum_i q_i = 1$: RHS $= 1 - 1 = 0$."
+   :dependencies #{:2-gibbs-sum :0-A2} :scope #{} :justification :substitution
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 6
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-conclude
+  {:id :2-gibbs-conclude
+   :type :claim
+   :statement "Therefore $\\sum_i p_i \\ln(p_i/q_i) \\geq 0$."
+   :dependencies #{:2-gibbs-sum :2-gibbs-zero} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 7
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-eq-cond
+  {:id :2-gibbs-eq-cond
+   :type :claim
+   :statement "Equality holds iff $\\ln(p_i/q_i) = 1 - q_i/p_i$ for all $i$ with $p_i > 0$, iff $q_i/p_i = 1$ for all such $i$."
+   :dependencies #{:1-log-ineq :2-gibbs-conclude} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 8
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-gibbs-eq-final
+  {:id :2-gibbs-eq-final
+   :type :claim
+   :statement "Combined with $\\sum p_i = \\sum q_i = 1$: equality iff $p_i = q_i$ for all $i$."
+   :dependencies #{:2-gibbs-eq-cond :0-A2} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-gibbs :display-order 9
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 2: BOUND DERIVATION
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :2-bound-inst
+  {:id :2-bound-inst
+   :type :claim
+   :statement "Apply Gibbs with $q = u = (1/3, 1/3, 1/3)$: $\\sum_i p_i \\ln(p_i / (1/3)) \\geq 0$."
+   :dependencies #{:1-gibbs :1-def-u} :scope #{} :justification :universal-elim
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-bound-expand
+  {:id :2-bound-expand
+   :type :claim
+   :statement "Expand: $\\sum_i p_i \\ln p_i - \\sum_i p_i \\ln(1/3) \\geq 0$."
+   :dependencies #{:2-bound-inst} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-bound-ln3
+  {:id :2-bound-ln3
+   :type :claim
+   :statement "$\\ln(1/3) = -\\ln 3$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-bound-subst
+  {:id :2-bound-subst
+   :type :claim
+   :statement "Substitute: $\\sum_i p_i \\ln p_i + (\\ln 3)(\\sum_i p_i) \\geq 0$."
+   :dependencies #{:2-bound-expand :2-bound-ln3} :scope #{} :justification :substitution
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-bound-sum1
+  {:id :2-bound-sum1
+   :type :claim
+   :statement "By :A2, $\\sum_i p_i = 1$, so: $\\sum_i p_i \\ln p_i + \\ln 3 \\geq 0$."
+   :dependencies #{:2-bound-subst :0-A2} :scope #{} :justification :substitution
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 5
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-bound-rearr
+  {:id :2-bound-rearr
+   :type :claim
+   :statement "Rearrange: $-\\sum_i p_i \\ln p_i \\leq \\ln 3$."
+   :dependencies #{:2-bound-sum1} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 6
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-bound-convert
+  {:id :2-bound-convert
+   :type :claim
+   :statement "Convert to log₂: $-\\sum_i p_i \\log_2 p_i \\leq \\log_2 3$ (divide by $\\ln 2 > 0$)."
+   :dependencies #{:2-bound-rearr} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 7
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-bound-final
+  {:id :2-bound-final
+   :type :claim
+   :statement "By definition of $H$: $H(p) \\leq \\log_2 3$."
+   :dependencies #{:2-bound-convert :1-def-H} :scope #{} :justification :substitution
+   :status :verified :taint :clean :depth 2 :parent :1-H-bound :display-order 8
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 2: EQUALITY CHARACTERIZATION
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :2-eq-fwd
+  {:id :2-eq-fwd
+   :type :claim
+   :statement "$H(p) = \\log_2 3$ iff $\\sum_i p_i \\ln(p_i/(1/3)) = 0$."
+   :dependencies #{:2-bound-rearr :2-bound-convert :1-def-H} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 2 :parent :1-H-equality :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-eq-gibbs
+  {:id :2-eq-gibbs
+   :type :claim
+   :statement "By Gibbs equality condition: $\\sum_i p_i \\ln(p_i/(1/3)) = 0$ iff $p_i = 1/3$ for all $i$."
+   :dependencies #{:2-gibbs-eq-final :1-def-u} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-H-equality :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :2-eq-conclude
+  {:id :2-eq-conclude
+   :type :claim
+   :statement "Therefore: $H(p) = \\log_2 3$ iff $p_1 = p_2 = p_3 = 1/3$."
+   :dependencies #{:2-eq-fwd :2-eq-gibbs} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 2 :parent :1-H-equality :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 3: DERIVATIVE COMPUTATION (substeps of :2-f-deriv)
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :3-deriv-x
+  {:id :3-deriv-x
+   :type :claim
+   :statement "$\\frac{d}{dx}(x) = 1$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-deriv :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-deriv-const
+  {:id :3-deriv-const
+   :type :claim
+   :statement "$\\frac{d}{dx}(-1) = 0$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-deriv :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-deriv-ln
+  {:id :3-deriv-ln
+   :type :claim
+   :statement "$\\frac{d}{dx}(-\\ln x) = -\\frac{1}{x}$ for $x > 0$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-deriv :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-deriv-sum
+  {:id :3-deriv-sum
+   :type :claim
+   :statement "$f'(x) = 1 + 0 + (-\\frac{1}{x}) = 1 - \\frac{1}{x}$."
+   :dependencies #{:3-deriv-x :3-deriv-const :3-deriv-ln :2-def-f} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-deriv :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 3: MINIMUM ANALYSIS (substeps of :2-f-min)
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :3-crit-solve
+  {:id :3-crit-solve
+   :type :claim
+   :statement "$f'(x) = 0$ iff $1 - \\frac{1}{x} = 0$ iff $x = 1$."
+   :dependencies #{:2-f-deriv} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-min :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-crit-left
+  {:id :3-crit-left
+   :type :claim
+   :statement "For $0 < x < 1$: $\\frac{1}{x} > 1$, so $f'(x) = 1 - \\frac{1}{x} < 0$."
+   :dependencies #{:2-f-deriv} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-min :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-crit-right
+  {:id :3-crit-right
+   :type :claim
+   :statement "For $x > 1$: $\\frac{1}{x} < 1$, so $f'(x) = 1 - \\frac{1}{x} > 0$."
+   :dependencies #{:2-f-deriv} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-min :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-mono-dec
+  {:id :3-mono-dec
+   :type :claim
+   :statement "$f$ is strictly decreasing on $(0, 1)$."
+   :dependencies #{:3-crit-left} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 3 :parent :2-f-min :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-mono-inc
+  {:id :3-mono-inc
+   :type :claim
+   :statement "$f$ is strictly increasing on $(1, \\infty)$."
+   :dependencies #{:3-crit-right} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 3 :parent :2-f-min :display-order 5
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-global-min
+  {:id :3-global-min
+   :type :claim
+   :statement "Therefore $x = 1$ is the unique global minimum of $f$ on $(0, \\infty)$."
+   :dependencies #{:3-crit-solve :3-mono-dec :3-mono-inc} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 3 :parent :2-f-min :display-order 6
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 3: f(1) COMPUTATION (substeps of :2-f-val)
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :3-f1-ln
+  {:id :3-f1-ln
+   :type :claim
+   :statement "$\\ln 1 = 0$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-val :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-f1-compute
+  {:id :3-f1-compute
+   :type :claim
+   :statement "$f(1) = 1 - 1 - \\ln 1 = 1 - 1 - 0 = 0$."
+   :dependencies #{:2-def-f :3-f1-ln} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-f-val :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 3: GIBBS STEP DETAILS
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :3-mult-pos
+  {:id :3-mult-pos
+   :type :claim
+   :statement "When $p_i > 0$: multiplying $\\ln(p_i/q_i) \\geq 1 - q_i/p_i$ by $p_i > 0$ preserves inequality."
+   :dependencies #{:2-gibbs-negate} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-gibbs-mult :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-mult-zero
+  {:id :3-mult-zero
+   :type :claim
+   :statement "When $p_i = 0$: LHS $= 0 \\cdot \\ln(0/q_i) = 0$ (by convention), RHS $= 0 - q_i = -q_i \\leq 0$. So $0 \\geq -q_i$ holds."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-gibbs-mult :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-mult-combined
+  {:id :3-mult-combined
+   :type :claim
+   :statement "In both cases: $p_i \\ln(p_i/q_i) \\geq p_i - q_i$."
+   :dependencies #{:3-mult-pos :3-mult-zero} :scope #{} :justification :case-split
+   :status :verified :taint :clean :depth 3 :parent :2-gibbs-mult :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 3: LOG BASE CONVERSION
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :3-log2-def
+  {:id :3-log2-def
+   :type :claim
+   :statement "$\\log_2 x = \\frac{\\ln x}{\\ln 2}$."
+   :dependencies #{} :scope #{} :justification :definition-expansion
+   :status :verified :taint :clean :depth 3 :parent :2-bound-convert :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-ln2-pos
+  {:id :3-ln2-pos
+   :type :claim
+   :statement "$\\ln 2 > 0$ (since $2 > 1$)."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-bound-convert :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-div-ln2
+  {:id :3-div-ln2
+   :type :claim
+   :statement "Dividing $-\\sum_i p_i \\ln p_i \\leq \\ln 3$ by $\\ln 2 > 0$: $-\\sum_i p_i \\frac{\\ln p_i}{\\ln 2} \\leq \\frac{\\ln 3}{\\ln 2}$."
+   :dependencies #{:2-bound-rearr :3-ln2-pos} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 3 :parent :2-bound-convert :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :3-convert-final
+  {:id :3-convert-final
+   :type :claim
+   :statement "By definition: $-\\sum_i p_i \\log_2 p_i \\leq \\log_2 3$."
+   :dependencies #{:3-div-ln2 :3-log2-def} :scope #{} :justification :substitution
+   :status :verified :taint :clean :depth 3 :parent :2-bound-convert :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 4: ATOMIC DERIVATIVE FACTS
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :4-ln-diff
+  {:id :4-ln-diff
+   :type :claim
+   :statement "$\\ln$ is differentiable on $(0, \\infty)$ with $(\\ln x)' = 1/x$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-deriv-ln :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-chain-neg
+  {:id :4-chain-neg
+   :type :claim
+   :statement "$(-\\ln x)' = -(\\ln x)' = -1/x$."
+   :dependencies #{:4-ln-diff} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-deriv-ln :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 4: MONOTONICITY DETAILS
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :4-recip-gt1
+  {:id :4-recip-gt1
+   :type :claim
+   :statement "For $0 < x < 1$: $1/x > 1$ (since $x < 1$ implies $1 > x$ implies $1/x > 1$)."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-crit-left :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-fprime-neg
+  {:id :4-fprime-neg
+   :type :claim
+   :statement "$1/x > 1 \\Rightarrow 1 - 1/x < 0 \\Rightarrow f'(x) < 0$."
+   :dependencies #{:4-recip-gt1 :2-f-deriv} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-crit-left :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-recip-lt1
+  {:id :4-recip-lt1
+   :type :claim
+   :statement "For $x > 1$: $1/x < 1$ (since $x > 1$ implies $1 < x$ implies $1/x < 1$)."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-crit-right :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-fprime-pos
+  {:id :4-fprime-pos
+   :type :claim
+   :statement "$1/x < 1 \\Rightarrow 1 - 1/x > 0 \\Rightarrow f'(x) > 0$."
+   :dependencies #{:4-recip-lt1 :2-f-deriv} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-crit-right :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 4: FIRST DERIVATIVE TEST
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :4-first-deriv-test
+  {:id :4-first-deriv-test
+   :type :claim
+   :statement "If $f'(x) < 0$ for $x < c$ and $f'(x) > 0$ for $x > c$, then $c$ is a global minimum."
+   :dependencies #{} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 4 :parent :3-global-min :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-apply-test
+  {:id :4-apply-test
+   :type :claim
+   :statement "Apply with $c = 1$: $f'(x) < 0$ on $(0,1)$ and $f'(x) > 0$ on $(1,\\infty)$, so $x=1$ is global min."
+   :dependencies #{:4-first-deriv-test :3-crit-left :3-crit-right} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 4 :parent :3-global-min :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 4: ZERO CASE IN GIBBS
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :4-0log0-conv
+  {:id :4-0log0-conv
+   :type :claim
+   :statement "By convention: $0 \\cdot \\ln 0 := \\lim_{t \\to 0^+} t \\ln t = 0$."
+   :dependencies #{} :scope #{} :justification :definition-expansion
+   :status :verified :taint :clean :depth 4 :parent :3-mult-zero :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-lhs-zero
+  {:id :4-lhs-zero
+   :type :claim
+   :statement "When $p_i = 0$: $p_i \\ln(p_i/q_i) = 0$ by convention."
+   :dependencies #{:4-0log0-conv} :scope #{} :justification :substitution
+   :status :verified :taint :clean :depth 4 :parent :3-mult-zero :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-rhs-neg
+  {:id :4-rhs-neg
+   :type :claim
+   :statement "When $p_i = 0$: $p_i - q_i = 0 - q_i = -q_i \\leq 0$ since $q_i \\geq 0$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-mult-zero :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-zero-ineq
+  {:id :4-zero-ineq
+   :type :claim
+   :statement "So $0 \\geq -q_i$, which means $p_i \\ln(p_i/q_i) \\geq p_i - q_i$ holds."
+   :dependencies #{:4-lhs-zero :4-rhs-neg} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-mult-zero :display-order 4
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 4: ln(1) = 0 justification
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :4-exp0
+  {:id :4-exp0
+   :type :claim
+   :statement "$e^0 = 1$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-f1-ln :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-ln-inv
+  {:id :4-ln-inv
+   :type :claim
+   :statement "$\\ln$ is inverse of $\\exp$, so $\\ln(e^0) = 0$, i.e., $\\ln 1 = 0$."
+   :dependencies #{:4-exp0} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 4 :parent :3-f1-ln :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  ;; ═══════════════════════════════════════════════════════════════════
+  ;; DEPTH 4: ln(2) > 0 justification
+  ;; ═══════════════════════════════════════════════════════════════════
+
+  :4-2gt1
+  {:id :4-2gt1
+   :type :claim
+   :statement "$2 > 1$."
+   :dependencies #{} :scope #{} :justification :algebraic-rewrite
+   :status :verified :taint :clean :depth 4 :parent :3-ln2-pos :display-order 1
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-ln-mono
+  {:id :4-ln-mono
+   :type :claim
+   :statement "$\\ln$ is strictly increasing, so $x > 1 \\Rightarrow \\ln x > \\ln 1 = 0$."
+   :dependencies #{:3-f1-ln} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 4 :parent :3-ln2-pos :display-order 2
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}
+
+  :4-ln2-conclude
+  {:id :4-ln2-conclude
+   :type :claim
+   :statement "Since $2 > 1$: $\\ln 2 > 0$."
+   :dependencies #{:4-2gt1 :4-ln-mono} :scope #{} :justification :modus-ponens
+   :status :verified :taint :clean :depth 4 :parent :3-ln2-pos :display-order 3
+   :provenance {:created-at "2025-12-28" :created-by :prover :round 1 :revision-of nil}}}
+
+ :external-refs {}
+
+ :lemmas {}
+
+ :obligations []
+
+ :archived-nodes {}}
