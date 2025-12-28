@@ -28,6 +28,46 @@ def BlochVector.r (v : BlochVector) : Fin 4 → ℝ
   | 2 => v.y
   | 3 => v.z
 
+/-- Squared Bloch components: q^(0) = 1, q^(1) = x², q^(2) = y², q^(3) = z² -/
+def BlochVector.q (v : BlochVector) : Fin 4 → ℝ
+  | 0 => 1
+  | 1 => v.x^2
+  | 2 => v.y^2
+  | 3 => v.z^2
+
+/-- Sum of all q components equals 2: q^(0) + q^(1) + q^(2) + q^(3) = 1 + x² + y² + z² = 2 -/
+theorem BlochVector.q_sum_eq_two (v : BlochVector) :
+    v.q 0 + v.q 1 + v.q 2 + v.q 3 = 2 := by
+  simp only [BlochVector.q]
+  linarith [v.norm_sq]
+
+/-- Sum of nonzero q components equals 1: q^(1) + q^(2) + q^(3) = x² + y² + z² = 1 -/
+theorem BlochVector.q_nonzero_sum_eq_one (v : BlochVector) :
+    v.q 1 + v.q 2 + v.q 3 = 1 := by
+  simp only [BlochVector.q]
+  exact v.norm_sq
+
+/-- q components are non-negative (squares) -/
+theorem BlochVector.q_nonneg (v : BlochVector) (m : Fin 4) : 0 ≤ v.q m := by
+  fin_cases m <;> simp only [BlochVector.q] <;> nlinarith [sq_nonneg v.x, sq_nonneg v.y, sq_nonneg v.z]
+
+/-- q^(0) = 1 always -/
+theorem BlochVector.q_zero_eq_one (v : BlochVector) : v.q 0 = 1 := rfl
+
+/-- Each q component is at most 1 -/
+theorem BlochVector.q_le_one (v : BlochVector) (m : Fin 4) : v.q m ≤ 1 := by
+  fin_cases m
+  · simp only [BlochVector.q]; norm_num
+  · have h := v.norm_sq
+    simp only [BlochVector.q]
+    nlinarith [sq_nonneg v.y, sq_nonneg v.z]
+  · have h := v.norm_sq
+    simp only [BlochVector.q]
+    nlinarith [sq_nonneg v.x, sq_nonneg v.z]
+  · have h := v.norm_sq
+    simp only [BlochVector.q]
+    nlinarith [sq_nonneg v.x, sq_nonneg v.y]
+
 /-- Product of Bloch components over all qubits for a multi-index -/
 noncomputable def blochProduct {n : ℕ} (bloch : Fin n → BlochVector) (α : MultiIndex n) : ℝ :=
   ∏ k, (bloch k).r (α k)
