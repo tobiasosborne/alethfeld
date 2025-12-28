@@ -81,11 +81,117 @@ noncomputable def p_zero (n : ℕ) : ℝ := (1 - (2 : ℝ)^(1 - (n : ℤ)))^2
 noncomputable abbrev fourierWeight (bloch : Fin n → BlochVector) (α : MultiIndex n) : ℝ :=
   probability bloch α
 
+/-- The zero multi-index (all components are 0) -/
+def zeroMultiIndex : MultiIndex n := fun _ => 0
+
+/-- qProduct at zero multi-index is 1 -/
+theorem qProduct_zero (bloch : Fin n → BlochVector) :
+    qProduct bloch zeroMultiIndex = 1 := by
+  unfold qProduct zeroMultiIndex
+  simp only [BlochVector.q_zero_eq_one, Finset.prod_const_one]
+
+/-- fourierWeight at zero multi-index -/
+theorem fourierWeight_zero (bloch : Fin n → BlochVector) :
+    fourierWeight bloch zeroMultiIndex = (2 : ℝ)^(2 - 2*(n : ℤ)) := by
+  unfold fourierWeight probability
+  rw [qProduct_zero, mul_one]
+
+/-- Sum of qProducts over all multi-indices (Fubini) -/
+theorem sum_qProduct (bloch : Fin n → BlochVector) :
+    ∑ α : MultiIndex n, qProduct bloch α = (2 : ℝ)^n := by
+  unfold qProduct
+  -- Apply Fubini: ∑_α ∏_k f(α_k) = ∏_k ∑_m f(m)
+  rw [Fintype.prod_sum]
+  -- Each factor is ∑_m q_k^m = 2
+  have h : ∀ k : Fin n, ∑ m : Fin 4, (bloch k).q m = 2 := fun k => sum_q_eq_two (bloch k)
+  simp only [h]
+  -- Product of 2's is 2^n
+  simp only [Finset.prod_const, Finset.card_fin]
+  norm_cast
+
+/-- Sum of all Fourier weights (including α = 0) -/
+theorem sum_all_fourier_weights (bloch : Fin n → BlochVector) :
+    ∑ α : MultiIndex n, fourierWeight bloch α = (2 : ℝ)^(2 - (n : ℤ)) := by
+  unfold fourierWeight probability
+  rw [← Finset.sum_mul]
+  rw [sum_qProduct]
+  -- 2^{2-2n} * 2^n = 2^{2-n}
+  rw [← zpow_natCast (2 : ℝ) n]
+  rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+  congr 1
+  omega
+
+/-- α = 0 iff ∀ k, α k = 0 -/
+theorem multiIndex_eq_zero_iff (α : MultiIndex n) :
+    α = zeroMultiIndex ↔ ∀ k, α k = 0 := by
+  constructor
+  · intro h k
+    rw [h]
+    rfl
+  · intro h
+    ext k
+    exact h k
+
+/-- ¬(∃ k, α k ≠ 0) iff α = 0 -/
+theorem not_exists_ne_zero_iff (α : MultiIndex n) :
+    ¬(∃ k, α k ≠ 0) ↔ α = zeroMultiIndex := by
+  rw [multiIndex_eq_zero_iff]
+  push_neg
+  constructor
+  · intro h k
+    by_contra hc
+    exact h k hc
+  · intro h k hk
+    exact hk (h k)
+
+/-- Simplify 1 - p_zero n -/
+theorem one_minus_p_zero (n : ℕ) :
+    1 - p_zero n = (2 : ℝ)^(2 - (n : ℤ)) - (2 : ℝ)^(2 - 2*(n : ℤ)) := by
+  unfold p_zero
+  -- (1 - 2^{1-n})² = 1 - 2·2^{1-n} + 2^{2-2n}
+  -- So 1 - (1 - 2^{1-n})² = 2·2^{1-n} - 2^{2-2n} = 2^{2-n} - 2^{2-2n}
+  have h1 : (1 - (2 : ℝ)^(1 - (n : ℤ)))^2 =
+            1 - 2 * (2 : ℝ)^(1 - (n : ℤ)) + (2 : ℝ)^(2 - 2*(n : ℤ)) := by
+    have hpow : (2 : ℝ)^(1 - (n : ℤ)) * (2 : ℝ)^(1 - (n : ℤ)) = (2 : ℝ)^(2 - 2*(n : ℤ)) := by
+      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+      congr 1
+      omega
+    ring_nf
+    rw [hpow]
+    ring
+  rw [h1]
+  have h2 : 2 * (2 : ℝ)^(1 - (n : ℤ)) = (2 : ℝ)^(2 - (n : ℤ)) := by
+    have : (2 : ℝ) = (2 : ℝ)^(1 : ℤ) := by simp
+    rw [this, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    congr 1
+    omega
+  rw [h2]
+  ring
+
 /-- Sum of all Fourier weights for α ≠ 0 equals 1 - p₀ -/
 theorem sum_fourier_weights (bloch : Fin n → BlochVector) :
     ∑ α : MultiIndex n, (if ∃ k, α k ≠ 0 then fourierWeight bloch α else 0) =
     1 - p_zero n := by
-  sorry -- Will prove later using Parseval's identity
+  -- Strategy: total sum - contribution at α=0 = sum over α≠0
+  -- Split: ∑_α f(α) = ∑_{α≠0} f(α) + f(0)
+  have h_split : ∑ α : MultiIndex n, fourierWeight bloch α =
+      ∑ α : MultiIndex n, (if ∃ k, α k ≠ 0 then fourierWeight bloch α else 0) +
+      fourierWeight bloch zeroMultiIndex := by
+    rw [← Finset.sum_add_distrib]
+    apply Finset.sum_congr rfl
+    intro α _
+    by_cases h : ∃ k, α k ≠ 0
+    · simp only [h, ↓reduceIte, add_zero]
+    · simp only [h, ↓reduceIte, zero_add]
+      rw [not_exists_ne_zero_iff] at h
+      rw [h]
+  -- Rearrange to get the sum we want
+  rw [sum_all_fourier_weights, fourierWeight_zero] at h_split
+  -- ∑_{α≠0} f = total - f(0) = 2^{2-n} - 2^{2-2n}
+  have h_result : ∑ α : MultiIndex n, (if ∃ k, α k ≠ 0 then fourierWeight bloch α else 0) =
+      (2 : ℝ)^(2 - (n : ℤ)) - (2 : ℝ)^(2 - 2*(n : ℤ)) := by
+    linarith
+  rw [h_result, ← one_minus_p_zero]
 
 /-- Total Shannon entropy S(U) of the Fourier distribution -/
 noncomputable def totalEntropy (bloch : Fin n → BlochVector) : ℝ :=

@@ -6,7 +6,7 @@
 |-------|------|--------|
 | L1 | L1Fourier.lean | ✅ COMPLETE (0 sorries) |
 | L2 | L2Influence.lean | ✅ COMPLETE (0 sorries) |
-| L3 | L3Entropy.lean | 🔄 IN PROGRESS (1 sorry) |
+| L3 | L3Entropy.lean | ✅ COMPLETE (0 sorries) |
 
 **Last Updated:** 2025-12-28
 
@@ -89,35 +89,28 @@ where $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Bloch entropy.
    - `entropyTerm_pos`, `entropy_sum_decomposition` - helper lemmas
    - `entropy_formula` - **MAIN THEOREM**: S(U) = entropyTerm(p₀) + (2n-2)(1-p₀) + 2^{1-n} Σₖ fₖ
 
-### Remaining Work (2 issues open)
+10. **sum_fourier_weights (Parseval)** (`alethfeld-5zy`)
+    - `zeroMultiIndex`, `qProduct_zero`, `fourierWeight_zero` - zero index helpers
+    - `sum_qProduct` - Fubini theorem: Σ_α ∏_k q_k^{α_k} = 2^n
+    - `sum_all_fourier_weights` - total sum = 2^{2-n}
+    - `multiIndex_eq_zero_iff`, `not_exists_ne_zero_iff` - zero characterization
+    - `one_minus_p_zero` - algebraic identity
+    - `sum_fourier_weights` - **FINAL LEMMA**: Σ_{α≠0} p_α = 1 - p₀
+
+### Remaining Work (1 issue open)
 
 | Issue ID | Title | Status |
 |----------|-------|--------|
-| `alethfeld-xi1` | entropy_nonneg corollary | Ready |
-| `alethfeld-5zy` | Verify lake build (no sorries) | Ready (blocked by sum_fourier_weights sorry) |
+| `alethfeld-xi1` | entropy_nonneg corollary | Ready (optional) |
 
-### Current Sorry
+### ✅ L3 VERIFICATION COMPLETE
 
-```lean
--- In L3Entropy.lean line 85
-theorem sum_fourier_weights (bloch : Fin n → BlochVector) :
-    ∑ α : MultiIndex n, (if ∃ k, α k ≠ 0 then fourierWeight bloch α else 0) =
-    1 - p_zero n := by
-  sorry -- Will prove using Parseval's identity
+All sorries eliminated! The L3 entropy formula is fully verified:
+
 ```
-
-### Next Steps
-
-1. **Prove `first_sum_formula`** (`alethfeld-x4n`):
-   Show Σ_{α≠0} p_α(2n-2) = (2n-2)(1-p₀)
-
-2. **Prove zero case helpers** (`alethfeld-yy4`):
-   Show log₂(q^{(0)}) = log₂(1) = 0, so only α_j ≠ 0 contributes
-
-3. **Prove `qubit_log_contribution`** (`alethfeld-680`):
-   Show -Σ_{α: α_j≠0} p_α log₂ q_j^{α_j} = 2^{1-n} f_j
-
-4. **Combine for main theorem** (`alethfeld-7j9`)
+lake build 2>&1 | grep -c "declaration uses 'sorry'"
+0
+```
 
 ---
 
