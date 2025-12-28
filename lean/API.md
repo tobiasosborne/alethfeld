@@ -7,7 +7,9 @@ This document serves as a guide for **Prover** and **Formalizer** agents using t
 *   **Package Name**: `AlethfeldLean`
 *   **Dependency**: `mathlib` (v4.26.0)
 *   **Verification Status**: **COMPLETE** (As of Dec 2025)
-    *   All core lemmas in `Pauli.lean`, `Bloch.lean`, and `L1Fourier.lean` are fully proven without `sorry`.
+    *   L1 (Fourier): ✅ 0 sorries
+    *   L2 (Influence): ✅ 0 sorries
+    *   L3 (Entropy): ✅ 0 sorries
 *   **Build Command**:
     ```bash
     lake build
@@ -25,6 +27,8 @@ The library is organized under the `AlethfeldLean` namespace.
     *   **`QBF`** (Quantum Boolean Functions)
         *   `Rank1`
             *   `L1Fourier`: Fourier analysis of rank-1 product state QBFs (Lemma L1).
+            *   `L2Influence`: Influence independence theorem (Lemma L2).
+            *   `L3Entropy`: General entropy formula (Lemma L3).
 
 ## 3. Key Types and Definitions
 
@@ -60,6 +64,28 @@ The library is organized under the `AlethfeldLean` namespace.
 | `ProductState n` | Structure holding angles `θ` and `φ` for $n$ qubits. |
 | `fourierCoeff U α` | $\hat{U}(\alpha) = 2^{-n} \text{Tr}(\sigma^\alpha U)$. |
 
+### Influence (`AlethfeldLean.QBF.Rank1.L2Influence`)
+
+| Symbol | Definition | Description |
+| :--- | :--- | :--- |
+| `qProduct bloch α` | $\prod_k q_k^{(\alpha_k)}$ | Product of squared Bloch components. |
+| `probability bloch α` | $2^{2-2n} \cdot \text{qProduct}$ | Fourier weight for multi-index $\alpha$. |
+| `influence_j bloch j` | $\sum_{\alpha: \alpha_j \neq 0} p_\alpha$ | Influence of qubit $j$. |
+| `totalInfluence bloch` | $\sum_j I_j$ | Total influence. |
+| `partialSum bloch j ℓ` | $\sum_{\alpha: \alpha_j = \ell} p_\alpha$ | Partial sum for fixed $\alpha_j = \ell$. |
+
+### Entropy (`AlethfeldLean.QBF.Rank1.L3Entropy`)
+
+| Symbol | Definition | Description |
+| :--- | :--- | :--- |
+| `log2 x` | $\ln(x) / \ln(2)$ | Binary logarithm. |
+| `entropyTerm p` | $-p \log_2 p$ (or 0 if $p=0$) | Shannon entropy term. |
+| `blochEntropy v` | $H(x^2, y^2, z^2)$ | Entropy of Bloch vector components. |
+| `p_zero n` | $(1 - 2^{1-n})^2$ | Fourier weight of zero index. |
+| `fourierWeight bloch α` | `probability bloch α` | Alias for Fourier weight. |
+| `totalEntropy bloch` | $\sum_\alpha -p_\alpha \log_2 p_\alpha$ | Total Shannon entropy $S(U)$. |
+| `totalBlochEntropy bloch` | $\sum_k f_k$ | Sum of Bloch entropies over all qubits. |
+
 ## 4. Main Theorems
 
 These are the primary verified results available for use in higher-level proofs.
@@ -80,8 +106,49 @@ These are the primary verified results available for use in higher-level proofs.
 
 *   **`fourier_coefficient_formula (ψ : ProductState n) (α)`** (Lemma L1):
     For $U = I - 2|\psi\rangle\langle\psi|$:
-    $$\hat{U}(\alpha) = \delta_{\alpha,0} - 2^{1-n} \prod_{k=0}^{n-1} r_k^{(\alpha_k)}$$ 
+    $$\hat{U}(\alpha) = \delta_{\alpha,0} - 2^{1-n} \prod_{k=0}^{n-1} r_k^{(\alpha_k)}$$
     *Usage*: Closed-form expression for Fourier coefficients of rank-1 QBFs.
+
+### Influence Independence (`AlethfeldLean.QBF.Rank1.L2Influence`)
+
+*   **`influence_j_formula (bloch) (j)`** (Lemma L2a):
+    $$I_j = 2^{1-n}$$
+    *Usage*: Single-qubit influence is constant, independent of Bloch vector.
+
+*   **`total_influence_formula (bloch)`** (Lemma L2b):
+    $$I(U) = n \cdot 2^{1-n}$$
+    *Usage*: Total influence depends only on number of qubits.
+
+*   **`influence_independent_of_bloch (bloch₁ bloch₂)`**:
+    $$I(\text{bloch}_1) = I(\text{bloch}_2)$$
+    *Usage*: Influence is universal across all product states.
+
+*   **`influence_decreasing (bloch) (hn : n ≥ 1)`**:
+    $$I(U) \leq 1$$
+    *Usage*: Influence bound for rank-1 QBFs.
+
+### Entropy Formula (`AlethfeldLean.QBF.Rank1.L3Entropy`)
+
+*   **`sum_fourier_weights (bloch)`** (Parseval):
+    $$\sum_{\alpha \neq 0} p_\alpha = 1 - p_0$$
+    *Usage*: Probability normalization (Fourier weights sum to 1).
+
+*   **`first_sum_formula (bloch)`**:
+    $$\sum_{\alpha \neq 0} p_\alpha (2n-2) = (2n-2)(1-p_0)$$
+    *Usage*: First sum in entropy decomposition.
+
+*   **`qubit_log_contribution (bloch) (j)`**:
+    $$-\sum_{\alpha: \alpha_j \neq 0} p_\alpha \log_2 q_j^{(\alpha_j)} = 2^{1-n} f_j$$
+    *Usage*: Log contribution from qubit $j$ equals scaled Bloch entropy.
+
+*   **`entropy_sum_factorization (bloch)`**:
+    $$\sum_j \text{(log contributions from } j\text{)} = 2^{1-n} \sum_k f_k$$
+    *Usage*: Sum over qubits factors out the power of 2.
+
+*   **`entropy_formula (bloch)`** (Lemma L3 - Main Theorem):
+    $$S(U) = -p_0 \log_2 p_0 + (2n-2)(1-p_0) + 2^{1-n} \sum_k f_k$$
+    where $f_k = H(x_k^2, y_k^2, z_k^2)$ is the Bloch entropy.
+    *Usage*: **Main result** - closed-form entropy for rank-1 product state QBFs.
 
 ## 5. Agent Guidelines
 
