@@ -11,6 +11,7 @@ This document serves as a guide for **Prover** and **Formalizer** agents using t
     *   L2 (Influence): ✅ 0 sorries
     *   L3 (Entropy): ✅ 0 sorries
     *   ShannonMax: ✅ Verified (0 sorries)
+    *   L4Maximum: ✅ Verified (0 sorries)
 *   **Build Command**:
     ```bash
     lake build
@@ -31,6 +32,7 @@ The library is organized under the `AlethfeldLean` namespace.
             *   `L2Influence`: Influence independence theorem (Lemma L2).
             *   `L3Entropy`: General entropy formula (Lemma L3).
             *   `ShannonMax`: Maximum entropy for 3-outcome distributions.
+            *   `L4Maximum`: Maximum entropy-influence ratio at magic state (Lemma L4).
 
 ## 3. Key Types and Definitions
 
@@ -96,6 +98,15 @@ The library is organized under the `AlethfeldLean` namespace.
 | `uniformDist` | `(1/3, 1/3, 1/3)` | Uniform distribution on 3 outcomes. |
 | `shannonEntropy p` | $-\sum p_i \log_2 p_i$ | Shannon entropy with $0 \log 0 = 0$ convention. |
 | `klDivergence p q` | $\sum p_i \ln(p_i/q_i)$ | Kullback-Leibler divergence. |
+
+### L4 Maximum (`AlethfeldLean.QBF.Rank1.L4Maximum`)
+
+| Symbol | Definition | Description |
+| :--- | :--- | :--- |
+| `isMagicState v` | `v.q 1 = 1/3 ∧ v.q 2 = 1/3 ∧ v.q 3 = 1/3` | Predicate for magic state. |
+| `magicBlochVector` | $(1/\sqrt{3}, 1/\sqrt{3}, 1/\sqrt{3})$ | The magic Bloch vector. |
+| `magicProductState` | `fun _ => magicBlochVector` | Product state with all qubits magic. |
+| `blochToProbDist3 v` | `{p := fun i => v.q (i+1)}` | Convert Bloch vector to ProbDist3. |
 
 ## 4. Main Theorems
 
@@ -178,6 +189,36 @@ These are the primary verified results available for use in higher-level proofs.
 *   **`entropy_eq_max_iff_uniform (p)`**:
     $$H(p) = \log_2 3 \iff p = (1/3, 1/3, 1/3)$$
     *Usage*: Unique maximizer characterization.
+
+### L4 Maximum at Magic State (`AlethfeldLean.QBF.Rank1.L4Maximum`)
+
+*   **`blochEntropy_le_log2_three (v)`**:
+    $$f(v) = H(x^2, y^2, z^2) \leq \log_2 3$$
+    *Usage*: Bloch entropy is bounded by $\log_2 3$ for any Bloch vector.
+
+*   **`blochEntropy_eq_max_iff_magic (v) (hq)`** (Lemma L4 - Equality):
+    $$f(v) = \log_2 3 \iff (x^2, y^2, z^2) = (1/3, 1/3, 1/3)$$
+    *Usage*: Equality holds iff $v$ is in the magic state.
+
+*   **`blochEntropy_magic`**:
+    $$f(\text{magicBlochVector}) = \log_2 3$$
+    *Usage*: The magic Bloch vector achieves maximum Bloch entropy.
+
+*   **`totalBlochEntropy_le_magic (bloch) (hq)`**:
+    $$\sum_k f_k \leq n \cdot \log_2 3$$
+    *Usage*: Total Bloch entropy is maximized by the magic product state.
+
+*   **`totalBlochEntropy_eq_max_iff (bloch) (hq)`**:
+    $$\sum_k f_k = n \cdot \log_2 3 \iff \forall k, \text{isMagicState}(\text{bloch}_k)$$
+    *Usage*: Equality holds iff all qubits are in the magic state.
+
+*   **`l4_maximum_entropy (v) (hq)`** (Lemma L4 - Main Theorem):
+    Combined bound and equality: $f(v) \leq \log_2 3$ with equality iff magic state.
+    *Usage*: **Main result** - Bloch entropy is uniquely maximized at the magic state.
+
+*   **`l4_maximum_total_entropy (bloch) (hq)`** (Lemma L4 - Corollary):
+    Total entropy bound: $\sum_k f_k \leq n \cdot \log_2 3$ with equality iff all magic.
+    *Usage*: Product state version of the maximum entropy result.
 
 ## 5. Agent Guidelines
 
