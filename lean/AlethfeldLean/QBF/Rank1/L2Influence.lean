@@ -116,6 +116,39 @@ theorem partial_sum_simplified (bloch : Fin n → BlochVector) (j : Fin n) (ℓ 
 I_j = ∑_{ℓ ≠ 0} partialSum_ℓ = 2^{1-n} * ∑_{ℓ ≠ 0} q_j^ℓ = 2^{1-n} * 1 = 2^{1-n}
 -/
 
+/-- Influence_j equals sum of partialSums over nonzero ℓ (L2-S3a) -/
+theorem influence_j_eq_sum_partialSum (bloch : Fin n → BlochVector) (j : Fin n) :
+    influence_j bloch j = ∑ ℓ : Fin 4, if ℓ ≠ 0 then partialSum bloch j ℓ else 0 := by
+  unfold influence_j partialSum
+  simp only [Fin.sum_univ_four, ne_eq, Fin.isValue, Fin.reduceEq, not_true_eq_false, ↓reduceIte,
+    not_false_eq_true, zero_add]
+  -- Partition the sum over α by value of α j
+  have partition : ∀ α : MultiIndex n,
+      (if α j ≠ 0 then probability bloch α else 0) =
+      (if α j = 1 then probability bloch α else 0) +
+      (if α j = 2 then probability bloch α else 0) +
+      (if α j = 3 then probability bloch α else 0) := by
+    intro α
+    rcases Fin.eq_zero_or_eq_succ (α j) with h0 | ⟨k, hk⟩
+    · simp [h0]
+    · rcases Fin.eq_zero_or_eq_succ k with hk0 | ⟨k', hk'⟩
+      · simp [hk, hk0]
+      · rcases Fin.eq_zero_or_eq_succ k' with hk'0 | ⟨k'', hk''⟩
+        · simp [hk, hk', hk'0]
+        · have : k'' = 0 := Fin.eq_zero k''
+          simp [hk, hk', hk'', this]
+  simp_rw [partition]
+  simp only [Finset.sum_add_distrib]
+
+/-- Factor out constant from conditional sum (L2-S3b) -/
+theorem factor_out_power (bloch : Fin n → BlochVector) (j : Fin n) :
+    ∑ ℓ : Fin 4, (if ℓ ≠ 0 then (2 : ℝ)^(1 - (n : ℤ)) * (bloch j).q ℓ else 0) =
+    (2 : ℝ)^(1 - (n : ℤ)) * ∑ ℓ : Fin 4, (if ℓ ≠ 0 then (bloch j).q ℓ else 0) := by
+  rw [Finset.mul_sum]
+  congr 1
+  ext ℓ
+  split_ifs <;> ring
+
 /-- Sum over nonzero Fin 4 elements -/
 theorem sum_nonzero_fin4 (f : Fin 4 → ℝ) :
     ∑ m : Fin 4, (if m ≠ 0 then f m else 0) = f 1 + f 2 + f 3 := by
