@@ -48,8 +48,18 @@ theorem fourierCoeff_rank1_expand (α : MultiIndex n) (traceOfPauliProj : ℂ) :
     (2 : ℂ)^(-(n : ℤ)) * (Matrix.trace (pauliString α) - 2 * traceOfPauliProj)
     = (2 : ℂ)^(-(n : ℤ)) * Matrix.trace (pauliString α)
       - (2 : ℂ)^(1 - n : ℤ) * traceOfPauliProj := by
-  -- Algebraic manipulation of zpow expressions
-  sorry
+  have h2ne : (2 : ℂ) ≠ 0 := by norm_num
+  have hpow : (2 : ℂ)^(-(n : ℤ)) * 2 = (2 : ℂ)^(1 - n : ℤ) := by
+    have : (2 : ℂ)^(-(n : ℤ) + 1) = (2 : ℂ)^(-(n : ℤ)) * (2 : ℂ)^(1 : ℤ) := zpow_add₀ h2ne _ _
+    simp only [zpow_one] at this
+    rw [← this]
+    congr 1
+    omega
+  calc (2 : ℂ)^(-(n : ℤ)) * (Matrix.trace (pauliString α) - 2 * traceOfPauliProj)
+      = (2 : ℂ)^(-(n : ℤ)) * Matrix.trace (pauliString α) -
+        (2 : ℂ)^(-(n : ℤ)) * 2 * traceOfPauliProj := by ring
+    _ = (2 : ℂ)^(-(n : ℤ)) * Matrix.trace (pauliString α) -
+        (2 : ℂ)^(1 - n : ℤ) * traceOfPauliProj := by rw [hpow]
 
 /-! ## Step 2: Trace of Pauli String (from Pauli.lean)
 
@@ -61,8 +71,14 @@ theorem fourierCoeff_rank1_expand (α : MultiIndex n) (traceOfPauliProj : ℂ) :
 theorem term1_simplify (α : MultiIndex n) :
     (2 : ℂ)^(-(n : ℤ)) * Matrix.trace (pauliString α) = multiIndexDelta α := by
   rw [trace_pauliString']
-  -- 2^{-n} * (2^n * δ) = δ
-  sorry
+  have h2ne : (2 : ℂ) ≠ 0 := by norm_num
+  have hpow : (2 : ℂ)^(-(n : ℤ)) * (2 : ℂ)^n = 1 := by
+    rw [← zpow_natCast, ← zpow_add₀ h2ne]
+    simp
+  calc (2 : ℂ)^(-(n : ℤ)) * ((2 : ℂ)^n * multiIndexDelta α)
+      = (2 : ℂ)^(-(n : ℤ)) * (2 : ℂ)^n * multiIndexDelta α := by ring
+    _ = 1 * multiIndexDelta α := by rw [hpow]
+    _ = multiIndexDelta α := by ring
 
 /-! ## Step 3: Trace Cyclic Property
 

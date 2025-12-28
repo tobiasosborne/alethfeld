@@ -74,27 +74,132 @@ noncomputable def matVecMul (A : Mat2) (ψ : QubitState) : QubitState :=
 noncomputable def expectation (ψ : QubitState) (A : Mat2) : ℂ :=
   innerProduct ψ (matVecMul A ψ)
 
+/-! ## Helper Lemmas for Expectation Computations -/
+
+/-- exp(iφ) * conj(exp(iφ)) = 1 -/
+lemma exp_mul_conj_exp_eq_one (φ : ℝ) :
+    cexp (↑φ * I) * (starRingEnd ℂ) (cexp (↑φ * I)) = 1 := by
+  rw [mul_comm, ← normSq_eq_conj_mul_self]
+  simp only [normSq_eq_norm_sq, norm_exp_ofReal_mul_I]
+  norm_num
+
+/-- exp(iφ) + conj(exp(iφ)) = 2cos(φ) -/
+lemma exp_add_exp_conj (φ : ℝ) :
+    cexp (↑φ * I) + (starRingEnd ℂ) (cexp (↑φ * I)) = 2 * ↑(Real.cos φ) := by
+  rw [exp_mul_I]
+  simp only [map_add, map_mul, conj_I, mul_neg]
+  have hc : (starRingEnd ℂ) (Complex.cos ↑φ) = Complex.cos ↑φ := by
+    rw [← ofReal_cos]; exact conj_ofReal _
+  have hs : (starRingEnd ℂ) (Complex.sin ↑φ) = Complex.sin ↑φ := by
+    rw [← ofReal_sin]; exact conj_ofReal _
+  rw [hc, hs, ← ofReal_cos]
+  ring
+
+/-- conj(exp(iφ)) - exp(iφ) = -2i*sin(φ) -/
+lemma exp_conj_sub_exp (φ : ℝ) :
+    (starRingEnd ℂ) (cexp (↑φ * I)) - cexp (↑φ * I) = -2 * I * ↑(Real.sin φ) := by
+  rw [exp_mul_I]
+  simp only [map_add, map_mul, conj_I, mul_neg]
+  have hc : (starRingEnd ℂ) (Complex.cos ↑φ) = Complex.cos ↑φ := by
+    rw [← ofReal_cos]; exact conj_ofReal _
+  have hs : (starRingEnd ℂ) (Complex.sin ↑φ) = Complex.sin ↑φ := by
+    rw [← ofReal_sin]; exact conj_ofReal _
+  rw [hc, hs, ← ofReal_sin]
+  ring
+
 /-! ## Main Bloch Expectation Theorems -/
 
 /-- ⟨φ|I|φ⟩ = 1 for normalized state -/
 theorem expectation_σI (θ φ : ℝ) :
     expectation (blochState θ φ) σI = 1 := by
-  sorry -- Direct computation
+  simp only [expectation, innerProduct, matVecMul, blochState, σI]
+  simp only [Fin.sum_univ_two, Matrix.of_apply, Matrix.cons_val_zero, Matrix.cons_val_one]
+  ring_nf
+  simp only [map_mul, conj_ofReal]
+  have hexp : cexp (I * ↑φ) * (starRingEnd ℂ) (cexp (I * ↑φ)) = 1 := by
+    rw [mul_comm I]
+    exact exp_mul_conj_exp_eq_one φ
+  calc ↑(Real.cos (θ * (1 / 2))) * ↑(Real.cos (θ * (1 / 2))) +
+       cexp (I * ↑φ) * ↑(Real.sin (θ * (1 / 2))) * ((starRingEnd ℂ) (cexp (I * ↑φ)) * ↑(Real.sin (θ * (1 / 2))))
+      = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.cos (θ * (1 / 2))) +
+        cexp (I * ↑φ) * (starRingEnd ℂ) (cexp (I * ↑φ)) * (↑(Real.sin (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2)))) := by ring
+    _ = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.cos (θ * (1 / 2))) +
+        1 * (↑(Real.sin (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2)))) := by rw [hexp]
+    _ = ↑(Real.cos (θ * (1 / 2)))^2 + ↑(Real.sin (θ * (1 / 2)))^2 := by ring
+    _ = ↑(Real.cos (θ * (1 / 2))^2 + Real.sin (θ * (1 / 2))^2) := by push_cast; ring
+    _ = ↑(1 : ℝ) := by rw [Real.cos_sq_add_sin_sq]
+    _ = 1 := ofReal_one
 
 /-- ⟨φ|σ_x|φ⟩ = sin θ cos φ = x -/
 theorem expectation_σX (θ φ : ℝ) :
     expectation (blochState θ φ) σX = (blochVectorOfAngles θ φ).x := by
-  sorry -- Computation using 2cos(θ/2)sin(θ/2)cos(φ) = sin(θ)cos(φ)
+  simp only [expectation, innerProduct, matVecMul, blochState, σX, blochVectorOfAngles]
+  simp only [Fin.sum_univ_two, Matrix.of_apply, Matrix.cons_val_zero, Matrix.cons_val_one]
+  ring_nf
+  simp only [map_mul, conj_ofReal]
+  have hexp_sum : cexp (I * ↑φ) + (starRingEnd ℂ) (cexp (I * ↑φ)) = 2 * ↑(Real.cos φ) := by
+    rw [mul_comm I]
+    exact exp_add_exp_conj φ
+  calc ↑(Real.cos (θ * (1 / 2))) * cexp (I * ↑φ) * ↑(Real.sin (θ * (1 / 2))) +
+       ↑(Real.cos (θ * (1 / 2))) * ((starRingEnd ℂ) (cexp (I * ↑φ)) * ↑(Real.sin (θ * (1 / 2))))
+      = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2))) *
+        (cexp (I * ↑φ) + (starRingEnd ℂ) (cexp (I * ↑φ))) := by ring
+    _ = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2))) * (2 * ↑(Real.cos φ)) := by
+        rw [hexp_sum]
+    _ = ↑(2 * Real.sin (θ * (1 / 2)) * Real.cos (θ * (1 / 2))) * ↑(Real.cos φ) := by
+        push_cast; ring
+    _ = ↑(Real.sin (2 * (θ * (1 / 2)))) * ↑(Real.cos φ) := by rw [Real.sin_two_mul]
+    _ = ↑(Real.sin θ) * ↑(Real.cos φ) := by ring_nf
+    _ = ↑(Real.sin θ * Real.cos φ) := by push_cast; ring
 
 /-- ⟨φ|σ_y|φ⟩ = sin θ sin φ = y -/
 theorem expectation_σY (θ φ : ℝ) :
     expectation (blochState θ φ) σY = (blochVectorOfAngles θ φ).y := by
-  sorry -- Analogous computation
+  simp only [expectation, innerProduct, matVecMul, blochState, σY, blochVectorOfAngles]
+  simp only [Fin.sum_univ_two, Matrix.of_apply, Matrix.cons_val_zero, Matrix.cons_val_one]
+  ring_nf
+  simp only [map_mul, conj_ofReal]
+  have hexp_diff : (starRingEnd ℂ) (cexp (I * ↑φ)) - cexp (I * ↑φ) = -2 * I * ↑(Real.sin φ) := by
+    rw [mul_comm I]
+    exact exp_conj_sub_exp φ
+  calc -(↑(Real.cos (θ * (1 / 2))) * I * cexp (I * ↑φ) * ↑(Real.sin (θ * (1 / 2)))) +
+       ↑(Real.cos (θ * (1 / 2))) * I * ((starRingEnd ℂ) (cexp (I * ↑φ)) * ↑(Real.sin (θ * (1 / 2))))
+      = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2))) * I *
+        ((starRingEnd ℂ) (cexp (I * ↑φ)) - cexp (I * ↑φ)) := by ring
+    _ = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2))) * I *
+        (-2 * I * ↑(Real.sin φ)) := by rw [hexp_diff]
+    _ = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2))) * (I * I) * (-2) * ↑(Real.sin φ) := by
+        ring
+    _ = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2))) * (-1) * (-2) * ↑(Real.sin φ) := by
+        rw [I_mul_I]
+    _ = ↑(2 * Real.sin (θ * (1 / 2)) * Real.cos (θ * (1 / 2))) * ↑(Real.sin φ) := by
+        push_cast; ring
+    _ = ↑(Real.sin (2 * (θ * (1 / 2)))) * ↑(Real.sin φ) := by rw [Real.sin_two_mul]
+    _ = ↑(Real.sin θ) * ↑(Real.sin φ) := by ring_nf
+    _ = ↑(Real.sin θ * Real.sin φ) := by push_cast; ring
 
 /-- ⟨φ|σ_z|φ⟩ = cos θ = z -/
 theorem expectation_σZ (θ φ : ℝ) :
     expectation (blochState θ φ) σZ = (blochVectorOfAngles θ φ).z := by
-  sorry -- cos²(θ/2) - sin²(θ/2) = cos(θ)
+  simp only [expectation, innerProduct, matVecMul, blochState, σZ, blochVectorOfAngles]
+  simp only [Fin.sum_univ_two, Matrix.of_apply, Matrix.cons_val_zero, Matrix.cons_val_one]
+  ring_nf
+  simp only [map_mul, conj_ofReal]
+  have hexp : cexp (I * ↑φ) * (starRingEnd ℂ) (cexp (I * ↑φ)) = 1 := by
+    rw [mul_comm I]
+    exact exp_mul_conj_exp_eq_one φ
+  calc ↑(Real.cos (θ * (1 / 2))) * ↑(Real.cos (θ * (1 / 2))) -
+       cexp (I * ↑φ) * ↑(Real.sin (θ * (1 / 2))) *
+         ((starRingEnd ℂ) (cexp (I * ↑φ)) * ↑(Real.sin (θ * (1 / 2))))
+      = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.cos (θ * (1 / 2))) -
+        cexp (I * ↑φ) * (starRingEnd ℂ) (cexp (I * ↑φ)) *
+          (↑(Real.sin (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2)))) := by ring
+    _ = ↑(Real.cos (θ * (1 / 2))) * ↑(Real.cos (θ * (1 / 2))) -
+        1 * (↑(Real.sin (θ * (1 / 2))) * ↑(Real.sin (θ * (1 / 2)))) := by rw [hexp]
+    _ = ↑(Real.cos (θ * (1 / 2)))^2 - ↑(Real.sin (θ * (1 / 2)))^2 := by ring
+    _ = ↑(Real.cos (θ * (1 / 2))^2 - Real.sin (θ * (1 / 2))^2) := by push_cast; ring
+    _ = ↑(Real.cos (2 * (θ * (1 / 2)))) := by rw [Real.cos_two_mul']
+    _ = ↑(Real.cos θ) := by ring_nf
 
 /-- Unified theorem: ⟨φ|σ^j|φ⟩ = r^(j) for Bloch component r -/
 theorem expectation_σ (θ φ : ℝ) (j : Fin 4) :
