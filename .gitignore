@@ -310,3 +310,5 @@ literature/pdfs/
 
 # Literature TeX source files (reference material, not project code)
 literature/tex/
+# Chat history (sensitive)
+chathistory*.md
