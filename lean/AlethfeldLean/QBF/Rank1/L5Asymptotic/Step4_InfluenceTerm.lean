@@ -20,6 +20,7 @@ namespace Alethfeld.QBF.Rank1.L5Asymptotic
 
 open scoped BigOperators
 open Real Filter Topology
+open Alethfeld.QBF.Rank1.L3Entropy
 
 /-! ## L5-step2-1: 1 - p_0 = 2*epsilon - epsilon^2 -/
 
@@ -56,12 +57,18 @@ theorem influence_main_term (n : ℕ) :
 /-- L5-step2-4a: epsilon^2 = 2^{2-2n} = 4/4^n. -/
 theorem epsilon_sq_eq_four_div {n : ℕ} :
     (epsilon n)^2 = 4 / (4 : ℝ)^n := by
-  rw [epsilon_sq, show (2 : ℤ) - 2*(n : ℤ) = 2 * (1 - (n : ℤ)) by ring]
-  rw [zpow_mul (by norm_num : (2 : ℝ) ≥ 0)]
+  rw [epsilon_sq]
+  -- 2^{2-2n} = 2^2 * 2^{-2n} = 4 * 2^{-2n} = 4 / 2^{2n} = 4 / 4^n
+  have hexp : (2 - 2*(n : ℤ) : ℤ) = (2 : ℤ) + (-(2*(n : ℤ))) := by ring
+  rw [hexp, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
   have h4 : (2 : ℝ)^(2 : ℤ) = 4 := by norm_num
-  rw [h4]
-  rw [zpow_sub₀ (by norm_num : (4 : ℝ) ≠ 0)]
-  simp [zpow_natCast]
+  rw [h4, zpow_neg]
+  have h2n : (2 : ℝ)^(2*(n : ℤ)) = (4 : ℝ)^n := by
+    rw [show (2*(n : ℤ) : ℤ) = ((2*n : ℕ) : ℤ) by simp, zpow_natCast]
+    calc (2 : ℝ)^(2*n) = ((2 : ℝ)^2)^n := by rw [pow_mul]
+      _ = (4 : ℝ)^n := by norm_num
+  rw [h2n]
+  field_simp
 
 /-- L5-step2-4b: (2n-2) * 4/4^n <= 2n * 4/4^n = 8n/4^n = O(n * 4^{-n}). -/
 theorem influence_error_bound {n : ℕ} (hn : n ≥ 1) :
@@ -118,8 +125,7 @@ theorem influenceTerm_expansion {n : ℕ} (hn : n ≥ 1) :
   use (2*(n : ℝ) - 2) * (epsilon n)^2
   constructor
   · exact influence_error_bound hn
-  · rw [influenceTerm_exact]
-    ring
+  · exact influenceTerm_exact n
 
 /-- The influence term is asymptotically 4(n-1)*epsilon. -/
 theorem influenceTerm_asymptotic {n : ℕ} (hn : n ≥ 2) :
@@ -128,7 +134,9 @@ theorem influenceTerm_asymptotic {n : ℕ} (hn : n ≥ 2) :
   unfold influenceTerm_p0
   use -(2*(n : ℝ) - 2) * (epsilon n)^2
   constructor
-  · rw [abs_neg]
+  · -- |-(2n-2) * eps^2| = |(2n-2) * eps^2|
+    have h : -(2*(n : ℝ) - 2) * (epsilon n)^2 = -((2*(n : ℝ) - 2) * (epsilon n)^2) := by ring
+    rw [h, abs_neg]
     exact influence_error_is_small hn
   · rw [influenceTerm_exact]
     ring
