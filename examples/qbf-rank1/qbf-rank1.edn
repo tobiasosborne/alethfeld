@@ -840,4 +840,18 @@
   :lean4-mapping {:status :complete
                   :modules ["L1Fourier" "L2Influence" "L3Entropy" "L4Maximum" "L5Asymptotic" "QBFRank1MasterTheorem"]
                   :verification-status "All modules verified (0 sorries)"
-                  :api-doc "lean/API.md"}}}
+                  :api-doc "lean/API.md"}
+  :lean4-verification {:mathlib-version "v4.26.0"
+                       :lean-version "4.26.0"
+                       :proof-status :complete
+                       :sorry-count 0
+                       :last-build-date "2025-12-29"
+                       :build-result :success
+                       :modules-verified {:L1Fourier {:sorries 0 :status :verified}
+                                          :L2Influence {:sorries 0 :status :verified}
+                                          :L3Entropy {:sorries 0 :status :verified}
+                                          :ShannonMax {:sorries 0 :status :verified}
+                                          :L4Maximum {:sorries 0 :status :verified}
+                                          :L5Asymptotic {:sorries 0 :status :verified}
+                                          :QBFRank1MasterTheorem {:sorries 0 :status :verified}}
+                       :notes "All theorems formally verified with 0 sorries"}}}
