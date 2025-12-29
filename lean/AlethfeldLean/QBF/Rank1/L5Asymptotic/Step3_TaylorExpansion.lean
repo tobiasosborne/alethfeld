@@ -30,10 +30,14 @@ The Mercator series: log(1-x) = -x - x^2/2 - x^3/3 - ... for |x| < 1.
 -/
 
 /-- L5-step1-1a: The Mercator series is valid for |x| < 1.
-    We use Mathlib's hasSum_log_one_sub for the formal statement. -/
+    We use Mathlib's hasSum_pow_div_log_of_abs_lt_one for the formal statement. -/
 theorem mercator_series_valid {x : ℝ} (hx : |x| < 1) :
     Real.log (1 - x) = -∑' n : ℕ, x^(n+1) / (n+1) := by
-  sorry -- Uses Mathlib.Analysis.SpecialFunctions.Log.Deriv
+  -- From Mathlib: HasSum (fun n => x^(n+1)/(n+1)) (-log (1 - x))
+  have h := Real.hasSum_pow_div_log_of_abs_lt_one hx
+  -- Convert HasSum to tsum equality: ∑' n, x^(n+1)/(n+1) = -log (1 - x)
+  rw [h.tsum_eq]
+  ring
 
 /-- L5-step1-1b: For n >= 2, |epsilon| < 1, so the series applies.
     From L5-assume-2: epsilon < 1 for n >= 2. -/
@@ -113,14 +117,15 @@ theorem p_zero_times_eps {n : ℕ} (hn : n ≥ 2) :
   constructor
   · have heps := epsilon_bounds hn
     have hle : epsilon n ≤ 1/2 := heps.2.1
+    have heps_pos : epsilon n > 0 := heps.1
+    have h2eps : 2 - epsilon n > 0 := by linarith
+    -- The expression -(epsilon n)^2 * (2 - epsilon n) is non-positive (negative of product of positives)
+    have hR_nonpos : -(epsilon n)^2 * (2 - epsilon n) ≤ 0 := by nlinarith [sq_nonneg (epsilon n)]
     calc |-(epsilon n)^2 * (2 - epsilon n)|
-        = (epsilon n)^2 * |2 - epsilon n| := by rw [abs_neg, abs_mul, abs_sq]
-      _ = (epsilon n)^2 * (2 - epsilon n) := by
-          rw [abs_of_pos]; linarith
-      _ ≤ (epsilon n)^2 * 2 := by
-          apply mul_le_mul_of_nonneg_left _ (sq_nonneg _)
-          linarith
-      _ ≤ 3 * (epsilon n)^2 := by linarith
+        = -(-(epsilon n)^2 * (2 - epsilon n)) := abs_of_nonpos hR_nonpos
+      _ = (epsilon n)^2 * (2 - epsilon n) := by ring
+      _ ≤ (epsilon n)^2 * 2 := by nlinarith [sq_nonneg (epsilon n)]
+      _ ≤ 3 * (epsilon n)^2 := by nlinarith [sq_nonneg (epsilon n)]
   · rw [sq_one_minus_eps]
     ring
 
