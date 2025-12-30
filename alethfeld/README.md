@@ -50,7 +50,7 @@ clojure -M:run --help
 ### Initialize a proof
 
 ```bash
-clojure -M:run init "For all continuous f,g: (g \\circ f) is continuous" \
+./scripts/alethfeld init "For all continuous f,g: (g \\circ f) is continuous" \
   --mode strict-mathematics \
   --output proof.edn
 ```
@@ -59,30 +59,30 @@ clojure -M:run init "For all continuous f,g: (g \\circ f) is continuous" \
 
 ```bash
 # From file
-clojure -M:run add-node proof.edn node.edn
+./scripts/alethfeld add-node proof.edn node.edn
 
 # From stdin
 echo '{:id :1-abc :type :claim :statement "..." ...}' | \
-  clojure -M:run add-node --stdin proof.edn
+  ./scripts/alethfeld add-node --stdin proof.edn
 ```
 
 ### Verification loop
 
 ```bash
 # Verify a step
-clojure -M:run update-status proof.edn :1-abc123 verified
+./scripts/alethfeld update-status proof.edn :1-abc123 verified
 
 # Reject a step
-clojure -M:run update-status proof.edn :1-abc123 rejected
+./scripts/alethfeld update-status proof.edn :1-abc123 rejected
 
 # Replace rejected with revision
-clojure -M:run replace-node proof.edn :1-abc123 revised.edn
+./scripts/alethfeld replace-node proof.edn :1-abc123 revised.edn
 ```
 
 ### Extract lemmas
 
 ```bash
-clojure -M:run extract-lemma proof.edn \
+./scripts/alethfeld extract-lemma proof.edn \
   --name "Intermediate Value Theorem" \
   --root :2-ivt456 \
   --nodes :2-ivt456,:3-sub1,:3-sub2
@@ -91,7 +91,7 @@ clojure -M:run extract-lemma proof.edn \
 ### Validate
 
 ```bash
-clojure -M:run validate proof.edn -v
+./scripts/alethfeld validate proof.edn -v
 ```
 
 ## Development

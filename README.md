@@ -312,6 +312,13 @@ Alethfeld is a field for cultivating unconcealed proofs: every step visible, eve
 
 The primary CLI tool for all semantic proof graph operations. Located in [`alethfeld/`](alethfeld/).
 
+**Quick Start (Compiled - Recommended):**
+```bash
+cd alethfeld
+./scripts/alethfeld <command> [options]
+```
+
+**Development (Slow CLI):**
 ```bash
 cd alethfeld
 clojure -M:run <command> [options]
@@ -329,20 +336,24 @@ clojure -M:run <command> [options]
 - `stats` — Display graph statistics
 - `recompute` — Recalculate taint propagation
 
-**Example workflow:**
+**Example workflow (using compiled version):**
 ```bash
+cd alethfeld
+
 # Initialize a proof
-clojure -M:run init "For all continuous f,g: (g \\circ f) is continuous" -o proof.edn
+./scripts/alethfeld init "For all continuous f,g: (g \\circ f) is continuous" -o proof.edn
 
 # Add a claim
-clojure -M:run add-node proof.edn step1.edn
+./scripts/alethfeld add-node proof.edn step1.edn
 
 # Verify it
-clojure -M:run update-status proof.edn :1-abc123 verified
+./scripts/alethfeld update-status proof.edn :1-abc123 verified
 
 # Extract as lemma
-clojure -M:run extract-lemma proof.edn --name "Composition" --root :1-abc123 --nodes :1-abc123
+./scripts/alethfeld extract-lemma proof.edn --name "Composition" --root :1-abc123 --nodes :1-abc123
 ```
+
+See [`alethfeld/README.md`](alethfeld/README.md) for complete documentation and build instructions.
 
 See [docs/cli-reference.md](docs/cli-reference.md) for complete documentation.
 
