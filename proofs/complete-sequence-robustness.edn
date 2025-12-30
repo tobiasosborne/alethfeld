@@ -44,7 +44,7 @@
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :verified,
    :id :2-inc008,
    :provenance
    {:created-at "2025-12-30T17:35:18.553664215Z",
@@ -63,7 +63,7 @@
    :type :claim,
    :scope #{},
    :justification :existential-intro,
-   :status :proposed,
+   :status :verified,
    :id :2-inc001,
    :provenance
    {:created-at "2025-12-30T17:34:13.610798811Z",
@@ -81,7 +81,7 @@
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :verified,
    :id :1-not004,
    :provenance
    {:created-at "2025-12-30T17:15:10.034078723Z",
@@ -99,7 +99,7 @@
    :type :claim,
    :scope #{},
    :justification :universal-elim,
-   :status :proposed,
+   :status :verified,
    :id :1-sub001,
    :provenance
    {:created-at "2025-12-30T17:13:40.472510714Z",
@@ -118,7 +118,7 @@
    :type :claim,
    :scope #{},
    :justification :existential-elim,
-   :status :proposed,
+   :status :verified,
    :id :3-sum001,
    :provenance
    {:created-at "2025-12-30T17:36:32.172269945Z",
@@ -130,14 +130,14 @@
   :2-pig005
   {:statement
    "By the Powers of 2 Core lemma (:0-lem003), $\\{1, 2, 4, 8, \\ldots\\}$ is complete.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-sub001,
    :content-hash "5f2253f2594bede7",
    :display-order 34,
    :type :claim,
    :scope #{},
    :justification :lemma-application,
-   :status :proposed,
+   :status :rejected,
    :id :2-pig005,
    :provenance
    {:created-at "2025-12-30T17:33:56.192831943Z",
@@ -156,7 +156,7 @@
    :type :claim,
    :scope #{},
    :justification :induction-step,
-   :status :proposed,
+   :status :verified,
    :id :4-geo003,
    :provenance
    {:created-at "2025-12-30T17:37:46.915296500Z",
@@ -175,7 +175,7 @@
    :type :claim,
    :scope #{},
    :justification :induction-base,
-   :status :proposed,
+   :status :verified,
    :id :4-geo001,
    :provenance
    {:created-at "2025-12-30T17:37:28.122294280Z",
@@ -187,14 +187,14 @@
   :2-ext003
   {:statement
    "Since $S^* \\subseteq T$, we have $A_m \\setminus T \\subseteq A_m \\setminus S^*$.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-fin001,
    :content-hash "28927d9885cbc234",
    :display-order 52,
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :rejected,
    :id :2-ext003,
    :provenance
    {:created-at "2025-12-30T17:35:50.186063358Z",
@@ -213,7 +213,7 @@
    :type :claim,
    :scope #{},
    :justification :universal-intro,
-   :status :proposed,
+   :status :verified,
    :id :2-pig001,
    :provenance
    {:created-at "2025-12-30T17:33:07.467108287Z",
@@ -231,7 +231,7 @@
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :verified,
    :id :1-sub002,
    :provenance
    {:created-at "2025-12-30T17:13:52.492383993Z",
@@ -240,6 +240,25 @@
     :revision-of nil},
    :depth 1,
    :dependencies #{:1-sub001 :0-lem001}},
+  :2-ext001b
+  {:statement
+   "Let $n > m$ be arbitrary. The multiset $A_m \\setminus S^*$ is infinite (contains infinitely many copies of $2, 4, 8, \\ldots$). Since $(n-m-1)$ is a finite non-negative integer, we can select $(n-m-1)$ elements from $A_m \\setminus S^*$ (choosing from the available copies). Define $T = S^* \\cup \\{\\text{these } (n-m-1) \\text{ elements}\\}$. Note: $T \\subseteq A_m$ by construction.",
+   :taint :clean,
+   :parent :1-fin001a,
+   :content-hash "7586280652b78699",
+   :display-order 50,
+   :type :claim,
+   :scope #{},
+   :justification :existential-intro,
+   :status :verified,
+   :id :2-ext001b,
+   :provenance
+   {:created-at "2025-12-30T18:02:29.826609570Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-inc001 :1-con001 :2-inc002}},
   :4-geo002
   {:statement
    "**Inductive hypothesis**: Assume $\\sum_{j=0}^{k-1} 2^j = 2^k - 1$ holds for some $k \\geq 1$.",
@@ -250,7 +269,7 @@
    :type :claim,
    :scope #{},
    :justification :induction-step,
-   :status :proposed,
+   :status :verified,
    :id :4-geo002,
    :provenance
    {:created-at "2025-12-30T17:37:32.353318708Z",
@@ -262,14 +281,14 @@
   :2-ext006
   {:statement
    "Since $n > m$ was arbitrary, for all $n > m$: $A_m$ is not $n$-subcomplete.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-fin001,
    :content-hash "e7623dab469cc788",
    :display-order 55,
    :type :claim,
    :scope #{},
    :justification :universal-intro,
-   :status :proposed,
+   :status :rejected,
    :id :2-ext006,
    :provenance
    {:created-at "2025-12-30T17:36:13.816409578Z",
@@ -278,16 +297,70 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-ext005}},
+  :1-fin002
+  {:statement
+   "For any $n > m$: By :1-not004, $A_m$ is not $(m+1)$-subcomplete. By :2-ext006b, for any $n \\geq m+1$, we can construct a witness set $T$ of size $n$ such that $A_m \\setminus T$ is not complete. Hence $A_m$ is not $n$-subcomplete for any $n > m$.",
+   :taint :tainted,
+   :content-hash "44b498888662d8e5",
+   :display-order 17,
+   :type :claim,
+   :scope #{},
+   :justification :modus-ponens,
+   :status :verified,
+   :id :1-fin002,
+   :provenance
+   {:created-at "2025-12-30T18:04:08.575110294Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 1,
+   :dependencies #{:1-not004 :2-ext006b}},
+  :1-qed002
+  {:statement
+   "**QED**: For all integers $0 \\leq m < n$, the sequence $A_m$ satisfies: (1) $A_m$ is complete (by :1-cmp004), (2) $A_m$ is $m$-subcomplete (by :1-sub004), (3) $A_m$ is not $n$-subcomplete (by :1-fin001a). This proves the theorem. $\\square$",
+   :taint :tainted,
+   :content-hash "234791415ef8cb6a",
+   :display-order 18,
+   :type :qed,
+   :scope #{},
+   :justification :qed,
+   :status :rejected,
+   :id :1-qed002,
+   :provenance
+   {:created-at "2025-12-30T17:59:48.872610443Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 1,
+   :dependencies #{:1-fin001a :1-edge002 :1-cmp004 :1-sub004}},
+  :1-fin001a
+  {:statement
+   "For any $n > m$, since $A_m$ is not $(m+1)$-subcomplete (by :1-not004) and we can construct a witness set $T$ of size $n$ (by :2-ext006a), there exist $n$ elements whose removal makes $A_m$ incomplete. Hence $A_m$ is not $n$-subcomplete.",
+   :taint :tainted,
+   :content-hash "ee7bd66b011064b9",
+   :display-order 17,
+   :type :claim,
+   :scope #{},
+   :justification :modus-ponens,
+   :status :rejected,
+   :id :1-fin001a,
+   :provenance
+   {:created-at "2025-12-30T17:59:31.849102370Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 1,
+   :dependencies #{:1-not004 :2-ext006a}},
   :2-ext002
   {:statement "$|T| = |S^*| + (n - m - 1) = (m+1) + (n - m - 1) = n$.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-fin001,
    :content-hash "27d1ae0ff8768faf",
    :display-order 51,
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :2-ext002,
    :provenance
    {:created-at "2025-12-30T17:35:46.329576416Z",
@@ -306,7 +379,7 @@
    :scope #{},
    :justification :external-application,
    :external-id "cassels-1960",
-   :status :proposed,
+   :status :verified,
    :id :0-lem001,
    :provenance
    {:created-at "2025-12-30T17:12:07.870843357Z",
@@ -325,7 +398,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :2-inc003,
    :provenance
    {:created-at "2025-12-30T17:34:33.268065905Z",
@@ -343,7 +416,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :2-inc005,
    :provenance
    {:created-at "2025-12-30T17:34:54.709607942Z",
@@ -361,7 +434,7 @@
    :type :definition,
    :scope #{},
    :justification :definition-expansion,
-   :status :proposed,
+   :status :verified,
    :id :0-def001,
    :provenance
    {:created-at "2025-12-30T17:11:44.532461878Z",
@@ -373,13 +446,13 @@
   :1-fin001
   {:statement
    "For any $n > m$, since $A_m$ is not $(m+1)$-subcomplete and $n \\geq m+1$, there exists a set of $n$ elements (take the $(m+1)$ copies of 1 plus any $n - m - 1$ additional elements) whose removal makes $A_m$ incomplete.",
-   :taint :clean,
+   :taint :tainted,
    :content-hash "77bf480a5cebd9e1",
    :display-order 17,
    :type :claim,
    :scope #{},
    :justification :universal-intro,
-   :status :proposed,
+   :status :rejected,
    :id :1-fin001,
    :provenance
    {:created-at "2025-12-30T17:15:30.968776414Z",
@@ -388,6 +461,44 @@
     :revision-of nil},
    :depth 1,
    :dependencies #{:1-not004}},
+  :2-ext005b
+  {:statement
+   "Since $A_m \\setminus T$ cannot represent 1 (a positive integer), $A_m \\setminus T$ is not complete (by :0-def001). Since $|T| = n$ (by :2-ext003b), the set $T$ witnesses that $A_m$ is not $n$-subcomplete (by :0-def002).",
+   :taint :tainted,
+   :parent :1-fin001a,
+   :content-hash "5877077f1accab64",
+   :display-order 54,
+   :type :claim,
+   :scope #{},
+   :justification :modus-ponens,
+   :status :verified,
+   :id :2-ext005b,
+   :provenance
+   {:created-at "2025-12-30T18:03:37.191312656Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:0-def001 :2-ext004b :2-ext003b :0-def002}},
+  :2-ext004b
+  {:statement
+   "**Monotonicity of non-representability**: By :2-inc007, $A_m \\setminus S^*$ cannot represent 1. By :2-ext003b, $A_m \\setminus T \\subseteq A_m \\setminus S^*$ (as multisets). Any sum from $A_m \\setminus T$ is also a sum from $A_m \\setminus S^*$. Hence $A_m \\setminus T$ also cannot represent 1.",
+   :taint :tainted,
+   :parent :1-fin001a,
+   :content-hash "bed09f62defa2603",
+   :display-order 53,
+   :type :claim,
+   :scope #{},
+   :justification :modus-ponens,
+   :status :verified,
+   :id :2-ext004b,
+   :provenance
+   {:created-at "2025-12-30T18:03:32.951420954Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-ext003b :2-inc007}},
   :2-pig002
   {:statement
    "For each power $2^j$, the set $S$ contains at most $m$ copies of $2^j$ since $|S| = m$ total.",
@@ -398,7 +509,7 @@
    :type :claim,
    :scope #{},
    :justification :conjunction-elim,
-   :status :proposed,
+   :status :verified,
    :id :2-pig002,
    :provenance
    {:created-at "2025-12-30T17:33:22.977557440Z",
@@ -407,6 +518,25 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-pig001 :1-con001}},
+  :2-ext006a
+  {:statement
+   "Since $n > m$ was arbitrary, we have: $\\forall n > m$: $A_m$ is not $n$-subcomplete.",
+   :taint :tainted,
+   :parent :1-fin001,
+   :content-hash "760a0ac8d3c937dd",
+   :display-order 55,
+   :type :claim,
+   :scope #{},
+   :justification :universal-intro,
+   :status :rejected,
+   :id :2-ext006a,
+   :provenance
+   {:created-at "2025-12-30T17:58:09.953065234Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-ext005a}},
   :4-geo004
   {:statement
    "By induction, $\\sum_{j=0}^{k-1} 2^j = 2^k - 1$ for all $k \\geq 1$. $\\square$",
@@ -417,7 +547,7 @@
    :type :claim,
    :scope #{},
    :justification :induction-step,
-   :status :proposed,
+   :status :verified,
    :id :4-geo004,
    :provenance
    {:created-at "2025-12-30T17:37:51.034072513Z",
@@ -429,14 +559,14 @@
   :2-ext005
   {:statement
    "Therefore $A_m \\setminus T$ is not complete, and since $|T| = n$, $A_m$ is not $n$-subcomplete.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-fin001,
    :content-hash "488f96b462aad916",
    :display-order 54,
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :rejected,
    :id :2-ext005,
    :provenance
    {:created-at "2025-12-30T17:36:08.922306718Z",
@@ -445,6 +575,42 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-ext002 :2-ext004 :0-def002}},
+  :1-qed003
+  {:statement
+   "**QED**: For all integers $0 \\leq m < n$, the sequence $A_m$ satisfies:\\n(1) $A_m$ is complete (by :1-cmp004 via Browns criterion)\\n(2) $A_m$ is $m$-subcomplete (by :1-sub004 via arithmetic/superset preservation)\\n(3) $A_m$ is not $n$-subcomplete (by :1-fin002 via witness construction)\\nThis proves the theorem. $\\square$",
+   :taint :tainted,
+   :content-hash "6348af86ed18ed2f",
+   :display-order 18,
+   :type :qed,
+   :scope #{},
+   :justification :qed,
+   :status :verified,
+   :id :1-qed003,
+   :provenance
+   {:created-at "2025-12-30T18:04:20.203878218Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 1,
+   :dependencies #{:1-fin002 :1-edge002 :1-cmp004 :1-sub004}},
+  :1-edge002
+  {:statement
+   "**Edge case $m = 0$**: When $m = 0$, we have $A_0 = \\{1, 2, 4, 8, \\ldots\\}$ (multiplicity 1). This is *trivially* 0-subcomplete: the quantification $\\forall S$ with $|S| = 0$ has exactly one instance ($S = \\emptyset$), and $A_0 \\setminus \\emptyset = A_0$ is complete.",
+   :taint :clean,
+   :content-hash "2233c22e3d8b28fb",
+   :display-order 19,
+   :type :claim,
+   :scope #{},
+   :justification :substitution,
+   :status :verified,
+   :id :1-edge002,
+   :provenance
+   {:created-at "2025-12-30T17:54:46.984360766Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 1,
+   :dependencies #{:1-con001 :1-cmp004 :0-def002}},
   :2-edge001
   {:statement
    "0-subcomplete means: $\\forall S \\subseteq A_0$ with $|S| = 0$: $A_0 \\setminus S$ is complete. The only such $S$ is $\\emptyset$, and $A_0 \\setminus \\emptyset = A_0$ is complete by :1-cmp004.",
@@ -455,7 +621,7 @@
    :type :claim,
    :scope #{},
    :justification :universal-intro,
-   :status :proposed,
+   :status :verified,
    :id :2-edge001,
    :provenance
    {:created-at "2025-12-30T17:37:05.056261343Z",
@@ -473,7 +639,7 @@
    :type :claim,
    :scope #{},
    :justification :existential-intro,
-   :status :proposed,
+   :status :verified,
    :id :1-con001,
    :provenance
    {:created-at "2025-12-30T17:12:28.245227218Z",
@@ -492,7 +658,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :2-bc005,
    :provenance
    {:created-at "2025-12-30T17:32:56.119935683Z",
@@ -501,6 +667,25 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-bc003 :2-bc004}},
+  :2-ext001a
+  {:statement
+   "Let $n > m$ be arbitrary. Since $A_m \\setminus S^*$ is infinite (contains infinitely many copies of $2, 4, 8, \\ldots$) and $(n-m-1)$ is finite, we can choose $(n-m-1)$ additional elements from $A_m \\setminus S^*$. Define $T = S^* \\cup \\{\\text{these } (n-m-1) \\text{ elements}\\}$.",
+   :taint :tainted,
+   :parent :1-fin001,
+   :content-hash "737fae5cb45a444b",
+   :display-order 50,
+   :type :claim,
+   :scope #{},
+   :justification :existential-intro,
+   :status :rejected,
+   :id :2-ext001a,
+   :provenance
+   {:created-at "2025-12-30T17:57:00.407009148Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-inc001 :1-con001}},
   :1-cmp004
   {:statement "By the Cassels criterion, $A_m$ is complete.",
    :taint :clean,
@@ -509,7 +694,7 @@
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :verified,
    :id :1-cmp004,
    :provenance
    {:created-at "2025-12-30T17:13:20.137181843Z",
@@ -518,17 +703,36 @@
     :revision-of nil},
    :depth 1,
    :dependencies #{:0-lem001 :1-cmp001 :1-cmp003}},
+  :2-pig003a
+  {:statement
+   "**Arithmetic**: $A_m$ has $(m+1)$ copies of each $2^j$. Since $S$ removes at most $m$ copies of any value, at least $(m+1) - m = 1$ copy of each $2^j$ remains in $A_m \\setminus S$.",
+   :taint :clean,
+   :parent :1-sub001,
+   :content-hash "7f976ec2017036fb",
+   :display-order 32,
+   :type :claim,
+   :scope #{},
+   :justification :algebraic-rewrite,
+   :status :verified,
+   :id :2-pig003a,
+   :provenance
+   {:created-at "2025-12-30T17:55:15.230533316Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-pig002 :1-con001}},
   :2-pig003
   {:statement
    "**Pigeonhole**: Since $A_m$ has $(m+1)$ copies of each $2^j$ and $S$ removes at most $m$ copies, at least $(m+1) - m = 1$ copy of each $2^j$ remains in $A_m \\setminus S$.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-sub001,
    :content-hash "a7c81d77aa744dc7",
    :display-order 32,
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :rejected,
    :id :2-pig003,
    :provenance
    {:created-at "2025-12-30T17:33:27.606496062Z",
@@ -537,17 +741,36 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-pig002 :1-con001}},
+  :2-pig006a
+  {:statement
+   "**Superset Preservation** (:0-lem002): If $B \\subseteq C$ (as multisets) and $B$ is complete, then $C$ is complete. Here $\\{1,2,4,\\ldots\\} \\subseteq A_m \\setminus S$ and $\\{1,2,4,\\ldots\\}$ is complete, so $A_m \\setminus S$ is complete.",
+   :taint :clean,
+   :parent :1-sub001,
+   :content-hash "9dc7e941e461e808",
+   :display-order 35,
+   :type :claim,
+   :scope #{},
+   :justification :modus-ponens,
+   :status :verified,
+   :id :2-pig006a,
+   :provenance
+   {:created-at "2025-12-30T17:56:39.559564614Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:0-lem002 :2-pig005a :2-pig004a}},
   :2-pig006
   {:statement
    "By Superset Preservation (:0-lem002), since $\\{1,2,4,\\ldots\\} \\subseteq A_m \\setminus S$ and $\\{1,2,4,\\ldots\\}$ is complete, $A_m \\setminus S$ is complete.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-sub001,
    :content-hash "e19d1075b292315b",
    :display-order 35,
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :rejected,
    :id :2-pig006,
    :provenance
    {:created-at "2025-12-30T17:34:01.336327352Z",
@@ -556,6 +779,44 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-pig005 :0-lem002 :2-pig004}},
+  :2-ext003b
+  {:statement
+   "**Cardinality** (multiset arithmetic): $|T| = |S^*| + (n-m-1) = (m+1) + (n-m-1) = n$. **Subset relation** (multiset): Since $S^* \\subseteq T$ (every element of $S^*$ is in $T$), multiset subtraction gives $A_m \\setminus T \\subseteq A_m \\setminus S^*$ (removing more leaves less or equal).",
+   :taint :tainted,
+   :parent :1-fin001a,
+   :content-hash "5a15867236ec5fc3",
+   :display-order 52,
+   :type :claim,
+   :scope #{},
+   :justification :algebraic-rewrite,
+   :status :verified,
+   :id :2-ext003b,
+   :provenance
+   {:created-at "2025-12-30T18:02:50.909092050Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-inc001 :2-ext001b :2-ext002}},
+  :3-sum003a
+  {:statement
+   "The sum of elements in $X$ is $\\geq x$ (since all elements are positive). By :3-sum002a, $x \\geq 2$. Hence sum$(X) \\geq 2$.",
+   :taint :clean,
+   :parent :2-inc006,
+   :content-hash "36cc60e589367169",
+   :display-order 62,
+   :type :claim,
+   :scope #{},
+   :justification :algebraic-rewrite,
+   :status :verified,
+   :id :3-sum003a,
+   :provenance
+   {:created-at "2025-12-30T17:59:04.806474735Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 3,
+   :dependencies #{:3-sum002a}},
   :1-not002
   {:statement
    "The sequence $A_m \\setminus S = \\{2, 2, \\ldots, 2, 4, 4, \\ldots, 4, 8, 8, \\ldots\\}$ contains no 1s.",
@@ -565,7 +826,7 @@
    :type :claim,
    :scope #{},
    :justification :substitution,
-   :status :proposed,
+   :status :verified,
    :id :1-not002,
    :provenance
    {:created-at "2025-12-30T17:14:46.569886499Z",
@@ -574,16 +835,35 @@
     :revision-of nil},
    :depth 1,
    :dependencies #{:1-con001 :1-not001}},
+  :2-ext004a
+  {:statement
+   "**Monotonicity of non-representability**: $A_m \\setminus S^*$ cannot represent 1 (by :2-inc007). Since $A_m \\setminus T \\subseteq A_m \\setminus S^*$, any sum from $A_m \\setminus T$ is also a sum from $A_m \\setminus S^*$. Hence $A_m \\setminus T$ also cannot represent 1.",
+   :taint :tainted,
+   :parent :1-fin001,
+   :content-hash "53ddd418e1eab4a8",
+   :display-order 53,
+   :type :claim,
+   :scope #{},
+   :justification :modus-ponens,
+   :status :rejected,
+   :id :2-ext004a,
+   :provenance
+   {:created-at "2025-12-30T17:57:44.482349243Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-inc007 :2-ext003a}},
   :1-qed001
   {:statement
    "Therefore, for all integers $0 \\leq m < n$, the sequence $A_m$ is complete, remains complete after removing any $m$ elements, but becomes incomplete after removing some $n$ elements. $\\square$",
-   :taint :clean,
+   :taint :tainted,
    :content-hash "a672e3a37422a8d1",
    :display-order 18,
    :type :qed,
    :scope #{},
    :justification :qed,
-   :status :proposed,
+   :status :rejected,
    :id :1-qed001,
    :provenance
    {:created-at "2025-12-30T17:15:42.724770139Z",
@@ -602,7 +882,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :2-bc003,
    :provenance
    {:created-at "2025-12-30T17:32:47.707361549Z",
@@ -614,14 +894,14 @@
   :2-ext001
   {:statement
    "Let $n > m$ be arbitrary. Define $T = S^* \\cup \\{\\text{any } (n-m-1) \\text{ additional elements from } A_m \\setminus S^*\\}$.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-fin001,
    :content-hash "78c76c08c9d464fb",
    :display-order 50,
    :type :claim,
    :scope #{},
    :justification :existential-intro,
-   :status :proposed,
+   :status :rejected,
    :id :2-ext001,
    :provenance
    {:created-at "2025-12-30T17:35:42.356999180Z",
@@ -639,7 +919,7 @@
    :type :claim,
    :scope #{},
    :justification :existential-intro,
-   :status :proposed,
+   :status :verified,
    :id :1-not001,
    :provenance
    {:created-at "2025-12-30T17:14:35.021741407Z",
@@ -657,7 +937,7 @@
    :type :claim,
    :scope #{},
    :justification :universal-intro,
-   :status :proposed,
+   :status :verified,
    :id :1-sub004,
    :provenance
    {:created-at "2025-12-30T17:14:15.512286993Z",
@@ -675,7 +955,7 @@
    :type :claim,
    :scope #{},
    :justification :substitution,
-   :status :proposed,
+   :status :verified,
    :id :1-cmp001,
    :provenance
    {:created-at "2025-12-30T17:12:46.268292376Z",
@@ -687,14 +967,14 @@
   :3-sum004
   {:statement
    "Since $X$ was an arbitrary non-empty subset, any non-empty sum is $\\geq 2 > 1$.",
-   :taint :clean,
+   :taint :tainted,
    :parent :2-inc006,
    :content-hash "7336ad4ff6f4bebb",
    :display-order 63,
    :type :claim,
    :scope #{},
    :justification :universal-intro,
-   :status :proposed,
+   :status :rejected,
    :id :3-sum004,
    :provenance
    {:created-at "2025-12-30T17:36:44.078194329Z",
@@ -705,14 +985,14 @@
    :dependencies #{:3-sum003}},
   :3-sum002
   {:statement "By :2-inc003, $x \\geq 2$.",
-   :taint :clean,
+   :taint :tainted,
    :parent :2-inc006,
    :content-hash "40a6221eb030316a",
    :display-order 61,
    :type :claim,
    :scope #{},
    :justification :universal-elim,
-   :status :proposed,
+   :status :rejected,
    :id :3-sum002,
    :provenance
    {:created-at "2025-12-30T17:36:36.124047027Z",
@@ -730,7 +1010,7 @@
    :type :claim,
    :scope #{},
    :justification :implication-intro,
-   :status :proposed,
+   :status :verified,
    :id :0-lem002,
    :provenance
    {:created-at "2025-12-30T17:29:19.636472765Z",
@@ -749,7 +1029,7 @@
    :type :claim,
    :scope #{},
    :justification :induction-base,
-   :status :proposed,
+   :status :verified,
    :id :3-geo001,
    :provenance
    {:created-at "2025-12-30T17:37:23.944141280Z",
@@ -758,6 +1038,25 @@
     :revision-of nil},
    :depth 3,
    :dependencies #{:2-bc003}},
+  :2-pig005a
+  {:statement
+   "**Powers of 2 Core** (:0-lem003): Any multiset containing at least one copy of each power of 2 is complete. This follows from binary representation: every positive integer $n$ has a unique binary expansion $n = \\sum_{i \\in I} 2^i$, so $n$ is representable using distinct powers of 2.",
+   :taint :clean,
+   :parent :1-sub001,
+   :content-hash "3ebf4f0d3b035fa1",
+   :display-order 34,
+   :type :claim,
+   :scope #{},
+   :justification :lemma-application,
+   :status :verified,
+   :id :2-pig005a,
+   :provenance
+   {:created-at "2025-12-30T17:56:25.061291795Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-pig004a :0-lem003}},
   :1-edge001
   {:statement
    "**Edge case $m = 0$**: When $m = 0$, we have $A_0 = \\{1, 2, 4, 8, \\ldots\\}$ (multiplicity 1). This is vacuously 0-subcomplete since removing 0 elements leaves $A_0$ unchanged and complete.",
@@ -779,14 +1078,14 @@
   :2-pig004
   {:statement
    "Since at least one copy of each $2^j$ remains, $A_m \\setminus S$ contains $\\{1, 2, 4, 8, \\ldots\\}$ as a subsequence.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-sub001,
    :content-hash "1d2e642787f45d29",
    :display-order 33,
    :type :claim,
    :scope #{},
    :justification :existential-intro,
-   :status :proposed,
+   :status :rejected,
    :id :2-pig004,
    :provenance
    {:created-at "2025-12-30T17:33:52.503587328Z",
@@ -805,7 +1104,7 @@
    :type :claim,
    :scope #{},
    :justification :case-split,
-   :status :proposed,
+   :status :verified,
    :id :2-inc004,
    :provenance
    {:created-at "2025-12-30T17:34:50.781363610Z",
@@ -814,17 +1113,36 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-inc003 :0-def001}},
+  :2-ext005a
+  {:statement
+   "Since $A_m \\setminus T$ cannot represent 1 (a positive integer), $A_m \\setminus T$ is not complete. Since $|T| = n$, this witnesses that $A_m$ is not $n$-subcomplete.",
+   :taint :tainted,
+   :parent :1-fin001,
+   :content-hash "0f91a2db1b83d92f",
+   :display-order 54,
+   :type :claim,
+   :scope #{},
+   :justification :modus-ponens,
+   :status :rejected,
+   :id :2-ext005a,
+   :provenance
+   {:created-at "2025-12-30T17:57:55.245644457Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:0-def001 :2-ext004a :0-def002 :2-ext003a}},
   :2-ext004
   {:statement
    "Since $A_m \\setminus S^*$ cannot represent 1 and $A_m \\setminus T \\subseteq A_m \\setminus S^*$, the smaller set $A_m \\setminus T$ also cannot represent 1.",
-   :taint :clean,
+   :taint :tainted,
    :parent :1-fin001,
    :content-hash "92c9032acb1bcc68",
    :display-order 53,
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :rejected,
    :id :2-ext004,
    :provenance
    {:created-at "2025-12-30T17:36:04.957323997Z",
@@ -843,7 +1161,7 @@
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :verified,
    :id :2-inc009,
    :provenance
    {:created-at "2025-12-30T17:35:22.445840434Z",
@@ -852,6 +1170,25 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-inc008 :2-inc001 :0-def002}},
+  :3-sum002a
+  {:statement
+   "Since $x \\in A_m \\setminus S^*$ and every element of $A_m \\setminus S^*$ is $\\geq 2$ (by :2-inc003: smallest element is $2^1 = 2$), we have $x \\geq 2$.",
+   :taint :clean,
+   :parent :2-inc006,
+   :content-hash "5916a7e84988a368",
+   :display-order 61,
+   :type :claim,
+   :scope #{},
+   :justification :universal-elim,
+   :status :verified,
+   :id :3-sum002a,
+   :provenance
+   {:created-at "2025-12-30T17:58:38.699940901Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 3,
+   :dependencies #{:3-sum001 :2-inc003}},
   :1-not003
   {:statement
    "A sum of distinct positive integers, each $\\geq 2$, is at least 2. Hence the integer 1 cannot be represented as a sum of distinct elements from $A_m \\setminus S$.",
@@ -861,7 +1198,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :1-not003,
    :provenance
    {:created-at "2025-12-30T17:14:56.605983227Z",
@@ -879,7 +1216,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :1-cmp003,
    :provenance
    {:created-at "2025-12-30T17:13:10.870104500Z",
@@ -898,7 +1235,7 @@
    :type :claim,
    :scope #{},
    :justification :disjunction-elim,
-   :status :proposed,
+   :status :verified,
    :id :2-inc007,
    :provenance
    {:created-at "2025-12-30T17:35:02.557488969Z",
@@ -907,6 +1244,25 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:2-inc005 :2-inc006}},
+  :2-pig004a
+  {:statement
+   "Since at least one copy of each $2^j$ remains (by :2-pig003a), the support of $A_m \\setminus S$ contains $\\{2^0, 2^1, 2^2, \\ldots\\} = \\{1, 2, 4, 8, \\ldots\\}$.",
+   :taint :clean,
+   :parent :1-sub001,
+   :content-hash "7d9898bfffa9a363",
+   :display-order 33,
+   :type :claim,
+   :scope #{},
+   :justification :existential-intro,
+   :status :verified,
+   :id :2-pig004a,
+   :provenance
+   {:created-at "2025-12-30T17:55:38.209198767Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-pig003a}},
   :2-inc006
   {:statement
    "Case (b): Any non-empty sum of elements each $\\geq 2$ is $\\geq 2 > 1$.",
@@ -917,7 +1273,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :2-inc006,
    :provenance
    {:created-at "2025-12-30T17:34:58.677399651Z",
@@ -936,7 +1292,7 @@
    :type :claim,
    :scope #{},
    :justification :substitution,
-   :status :proposed,
+   :status :verified,
    :id :2-inc002,
    :provenance
    {:created-at "2025-12-30T17:34:28.419729803Z",
@@ -954,7 +1310,7 @@
    :type :definition,
    :scope #{},
    :justification :definition-expansion,
-   :status :proposed,
+   :status :verified,
    :id :0-def002,
    :provenance
    {:created-at "2025-12-30T17:11:56.033663749Z",
@@ -973,7 +1329,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :2-bc002,
    :provenance
    {:created-at "2025-12-30T17:32:31.267019376Z",
@@ -991,7 +1347,7 @@
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :verified,
    :id :1-cmp002,
    :provenance
    {:created-at "2025-12-30T17:12:58.073199974Z",
@@ -1000,16 +1356,35 @@
     :revision-of nil},
    :depth 1,
    :dependencies #{:1-con001}},
+  :2-ext006b
+  {:statement
+   "Since $n > m$ was arbitrary, we have proven: $\\forall n > m$: $A_m$ is not $n$-subcomplete.",
+   :taint :tainted,
+   :parent :1-fin001a,
+   :content-hash "35f0ca439ee05040",
+   :display-order 55,
+   :type :claim,
+   :scope #{},
+   :justification :universal-intro,
+   :status :verified,
+   :id :2-ext006b,
+   :provenance
+   {:created-at "2025-12-30T18:03:41.442911694Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-ext005b}},
   :3-sum003
   {:statement "The sum of elements in $X$ is $\\geq x \\geq 2$.",
-   :taint :clean,
+   :taint :tainted,
    :parent :2-inc006,
    :content-hash "380e77cfa24466c4",
    :display-order 62,
    :type :claim,
    :scope #{},
    :justification :algebraic-rewrite,
-   :status :proposed,
+   :status :rejected,
    :id :3-sum003,
    :provenance
    {:created-at "2025-12-30T17:36:40.095165460Z",
@@ -1027,7 +1402,7 @@
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :verified,
    :id :0-lem003,
    :provenance
    {:created-at "2025-12-30T17:29:31.821962102Z",
@@ -1036,6 +1411,25 @@
     :revision-of nil},
    :depth 0,
    :dependencies #{:0-lem001 :0-def001 :0-lem002}},
+  :3-sum004a
+  {:statement
+   "Since $X$ was an arbitrary non-empty subset of $A_m \\setminus S^*$, any non-empty sum of distinct elements from $A_m \\setminus S^*$ is $\\geq 2 > 1$.",
+   :taint :clean,
+   :parent :2-inc006,
+   :content-hash "34952a5f3b013f9c",
+   :display-order 63,
+   :type :claim,
+   :scope #{},
+   :justification :universal-intro,
+   :status :verified,
+   :id :3-sum004a,
+   :provenance
+   {:created-at "2025-12-30T17:59:08.965351605Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 3,
+   :dependencies #{:3-sum003a}},
   :0-clar001
   {:statement
    "**Clarification**: Throughout this proof, $A$ denotes a non-decreasing sequence (multiset with ordering) of positive integers. The notation $\\{a_1 \\leq a_2 \\leq \\cdots\\}$ specifies weak ordering. \"Distinct elements\" means distinct *positions* (indices), not distinct values. Multiset subtraction $A \\setminus S$ removes elements by position.",
@@ -1045,7 +1439,7 @@
    :type :claim,
    :scope #{},
    :justification :definition-expansion,
-   :status :proposed,
+   :status :verified,
    :id :0-clar001,
    :provenance
    {:created-at "2025-12-30T17:40:44.923871689Z",
@@ -1064,7 +1458,7 @@
    :type :claim,
    :scope #{},
    :justification :substitution,
-   :status :proposed,
+   :status :verified,
    :id :2-bc001,
    :provenance
    {:created-at "2025-12-30T17:32:19.499179007Z",
@@ -1073,6 +1467,25 @@
     :revision-of nil},
    :depth 2,
    :dependencies #{:1-sub002}},
+  :2-ext003a
+  {:statement
+   "**Cardinality**: $|T| = |S^*| + (n-m-1) = (m+1) + (n-m-1) = n$ (by :2-ext002). Since $S^* \\subseteq T$, multiset subtraction gives $A_m \\setminus T \\subseteq A_m \\setminus S^*$.",
+   :taint :tainted,
+   :parent :1-fin001,
+   :content-hash "879a2778cccf8637",
+   :display-order 52,
+   :type :claim,
+   :scope #{},
+   :justification :algebraic-rewrite,
+   :status :rejected,
+   :id :2-ext003a,
+   :provenance
+   {:created-at "2025-12-30T17:57:19.262889920Z",
+    :created-by :prover,
+    :round 0,
+    :revision-of nil},
+   :depth 2,
+   :dependencies #{:2-inc001 :2-ext002 :2-ext001a}},
   :2-bc004
   {:statement
    "For $k \\geq 1$, we have $a_{k+1} = 2^{(k+1)-1} = 2^k$.",
@@ -1083,7 +1496,7 @@
    :type :claim,
    :scope #{},
    :justification :substitution,
-   :status :proposed,
+   :status :verified,
    :id :2-bc004,
    :provenance
    {:created-at "2025-12-30T17:32:51.447650702Z",
@@ -1101,7 +1514,7 @@
    :type :claim,
    :scope #{},
    :justification :modus-ponens,
-   :status :proposed,
+   :status :verified,
    :id :1-sub003,
    :provenance
    {:created-at "2025-12-30T17:14:04.605674153Z",
@@ -1111,12 +1524,12 @@
    :depth 1,
    :dependencies #{:1-sub002 :0-def001}}},
  :graph-id "graph-8a76a3-245578",
- :version 63,
+ :version 164,
  :lemmas {},
  :metadata
  {:created-at "2025-12-30T17:11:20.378035818Z",
-  :last-modified "2025-12-30T17:40:56.591699162Z",
+  :last-modified "2025-12-30T18:09:29.099804451Z",
   :proof-mode :strict-mathematics,
   :iteration-counts {:verification {}, :expansion {}, :strategy 0},
-  :context-budget {:max-tokens 100000, :current-estimate 5508}},
+  :context-budget {:max-tokens 100000, :current-estimate 7806}},
  :symbols {}}
