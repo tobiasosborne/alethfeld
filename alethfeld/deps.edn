@@ -20,4 +20,9 @@
 
   :build
   {:deps {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
-   :ns-default build}}}
+   :ns-default build}
+
+  :bench
+  {:extra-paths ["bench"]
+   :extra-deps {criterium/criterium {:mvn/version "0.4.6"}}
+   :main-opts ["-m" "alethfeld.bench"]}}}
