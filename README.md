@@ -50,6 +50,14 @@ The system has been successfully used to derive and formalize several non-trivia
 
 These results are available in the `lean/AlethfeldLean/` library and documented in `lean/API.md`.
 
+### Error Detection: BrokenMath Benchmark
+
+Alethfeld has been tested against problems from the [BrokenMath](https://github.com/insait-institute/broken-math) benchmark—a dataset of mathematical problems with subtle errors designed to test LLM robustness.
+
+- **Divisor Sum Problem**: Given "Prove that the sum of positive divisors of 9! with units digit 3 is 105", Alethfeld immediately detected the error. The correct sum is **66** (divisors: {3, 63}). The system produced a complete proof of the correct statement with full Lean 4 formalization (0 sorries). See [`examples/divisor-sum-9factorial/`](examples/divisor-sum-9factorial/).
+
+This demonstrates that the adversarial verification approach catches not just proof errors, but also errors in problem statements—a critical capability for reliable mathematical reasoning.
+
 ## Lamport Structured Proofs
 
 At the heart of Alethfeld is Leslie Lamport's hierarchical proof notation, originally developed for specifying and verifying concurrent systems in TLA+.

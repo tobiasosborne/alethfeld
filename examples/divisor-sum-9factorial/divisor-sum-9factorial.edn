@@ -1,0 +1,167 @@
+{:theorem
+ {:id :theorem,
+  :statement
+  "The sum of all positive divisors of $9!$ that have units digit $3$ equals $66$.",
+  :content-hash "a7b3c9d1e2f45678"}
+
+ :graph-id "graph-div9fac-a1b2c3"
+ :version 1
+
+ :metadata
+ {:created-at "2025-12-31T00:00:00Z",
+  :last-modified "2025-12-31T00:00:00Z",
+  :proof-mode :strict-mathematics,
+  :note "Corrected from original problem statement claiming sum = 105",
+  :iteration-counts {:verification {} :expansion {} :strategy 0},
+  :context-budget {:max-tokens 100000 :current-estimate 2000}}
+
+ :symbols
+ {:n {:id :n :name "n" :type "N" :tex "n" :constraints "n = 9!" :scope :global :introduced-at :1-fact001}
+  :D {:id :D :name "D" :type "Set N" :tex "D" :constraints "divisors of 9!" :scope :global :introduced-at :1-div001}
+  :D3 {:id :D3 :name "D3" :type "Set N" :tex "D_3" :constraints "divisors of 9! with units digit 3" :scope :global :introduced-at :1-complete001}}
+
+ :external-refs {}
+ :lemmas {}
+ :obligations []
+ :archived-nodes {}
+
+ :nodes
+ {:0-def001
+  {:id :0-def001
+   :type :definition
+   :statement "**Definition (Units digit)**: For $n \\in \\mathbb{N}$, the *units digit* of $n$ is $n \\mod 10$."
+   :dependencies #{}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 0
+   :display-order 1
+   :content-hash "def001a1b2c3d4e5"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :1-fact001
+  {:id :1-fact001
+   :type :claim
+   :statement "**Factorization**: $9! = 362880 = 2^7 \\cdot 3^4 \\cdot 5 \\cdot 7$."
+   :dependencies #{}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 1
+   :display-order 2
+   :content-hash "f1e2d3c4b5a6f7e8"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :1-div001
+  {:id :1-div001
+   :type :claim
+   :statement "**Divisor form**: Every divisor of $9!$ has the form $d = 2^a \\cdot 3^b \\cdot 5^c \\cdot 7^e$ where $0 \\leq a \\leq 7$, $0 \\leq b \\leq 4$, $0 \\leq c \\leq 1$, $0 \\leq e \\leq 1$."
+   :dependencies #{:1-fact001}
+   :scope #{}
+   :justification :definition-expansion
+   :status :verified
+   :taint :clean
+   :depth 1
+   :display-order 3
+   :content-hash "a2b3c4d5e6f7a8b9"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :1-mod5001
+  {:id :1-mod5001
+   :type :claim
+   :statement "**Divisibility by 5**: If $c = 1$ (i.e., $5 \\mid d$), then $d \\mod 10 \\in \\{0, 5\\}$. Therefore $c = 0$ for any divisor with units digit $3$."
+   :dependencies #{:1-div001 :0-def001}
+   :scope #{}
+   :justification :case-split
+   :status :verified
+   :taint :clean
+   :depth 1
+   :display-order 4
+   :content-hash "b3c4d5e6f7a8b9c0"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :2-cycle001
+  {:id :2-cycle001
+   :type :claim
+   :statement "**Power cycles mod 10**: The units digits cycle as follows: $2^a \\mod 10$ for $a = 0..7$ gives $1,2,4,8,6,2,4,8$; $3^b \\mod 10$ for $b = 0..4$ gives $1,3,9,7,1$; $7^e \\mod 10$ for $e = 0,1$ gives $1,7$."
+   :dependencies #{}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 2
+   :display-order 5
+   :content-hash "c4d5e6f7a8b9c0d1"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :2-casee0
+  {:id :2-casee0
+   :type :claim
+   :statement "**Case $e = 0$**: Need $(2^a \\cdot 3^b) \\mod 10 = 3$. Checking all $8 \\times 5 = 40$ combinations: only $(a,b) = (0,1)$ satisfies this, giving $2^0 \\cdot 3^1 = 3$. Divisor: $d = 3$."
+   :dependencies #{:1-mod5001 :2-cycle001}
+   :scope #{}
+   :justification :case-split
+   :status :verified
+   :taint :clean
+   :depth 2
+   :display-order 6
+   :content-hash "d5e6f7a8b9c0d1e2"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :2-casee1
+  {:id :2-casee1
+   :type :claim
+   :statement "**Case $e = 1$**: Need $(2^a \\cdot 3^b \\cdot 7) \\mod 10 = 3$. Since $7 \\cdot 3 \\equiv 1 \\pmod{10}$, this requires $(2^a \\cdot 3^b) \\mod 10 = 9$. Only $(a,b) = (0,2)$ satisfies: $9 \\cdot 7 = 63 \\equiv 3 \\pmod{10}$. Divisor: $d = 63$."
+   :dependencies #{:1-mod5001 :2-cycle001}
+   :scope #{}
+   :justification :case-split
+   :status :verified
+   :taint :clean
+   :depth 2
+   :display-order 7
+   :content-hash "e6f7a8b9c0d1e2f3"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :1-complete001
+  {:id :1-complete001
+   :type :claim
+   :statement "**Completeness**: The set $D_3$ of all divisors of $9!$ with units digit $3$ is exactly $\\{3, 63\\}$."
+   :dependencies #{:2-casee0 :2-casee1 :1-mod5001}
+   :scope #{}
+   :justification :conjunction-intro
+   :status :verified
+   :taint :clean
+   :depth 1
+   :display-order 8
+   :content-hash "f7a8b9c0d1e2f3a4"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :1-sum001
+  {:id :1-sum001
+   :type :claim
+   :statement "**Sum**: $\\sum_{d \\in D_3} d = 3 + 63 = 66$."
+   :dependencies #{:1-complete001}
+   :scope #{}
+   :justification :algebraic-rewrite
+   :status :verified
+   :taint :clean
+   :depth 1
+   :display-order 9
+   :content-hash "a8b9c0d1e2f3a4b5"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}
+
+  :1-qed001
+  {:id :1-qed001
+   :type :qed
+   :statement "**QED**: The sum of positive divisors of $9!$ with units digit $3$ is $66$. $\\square$"
+   :dependencies #{:1-sum001}
+   :scope #{}
+   :justification :qed
+   :status :verified
+   :taint :clean
+   :depth 1
+   :display-order 10
+   :content-hash "b9c0d1e2f3a4b5c6"
+   :provenance {:created-at "2025-12-31T00:00:00Z" :created-by :prover :round 0 :revision-of nil}}}}

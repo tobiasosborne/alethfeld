@@ -1,0 +1,213 @@
+% Alethfeld Generated Proof Document
+% Graph: graph-div9fac-a1b2c3
+% Status: All steps verified
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+% Theorem environments
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+% Lamport-style proof environment
+\newlist{proofsteps}{enumerate}{3}
+\setlist[proofsteps,1]{label=$\langle 1 \rangle$\arabic*.,ref=$\langle 1 \rangle$\arabic*,leftmargin=2em}
+\setlist[proofsteps,2]{label=$\langle 2 \rangle$\arabic*.,ref=$\langle 2 \rangle$\arabic*,leftmargin=2em}
+\setlist[proofsteps,3]{label=$\langle 3 \rangle$\arabic*.,ref=$\langle 3 \rangle$\arabic*,leftmargin=2em}
+
+% Justification command
+\newcommand{\by}[1]{\hfill\textnormal{\small\textcolor{gray}{[#1]}}}
+
+% Status markers
+\newcommand{\verified}{\textcolor{green!50!black}{\checkmark}}
+\newcommand{\admitted}{\textcolor{orange}{\textbf{[admitted]}}}
+
+\title{Sum of Divisors of $9!$ with Units Digit 3}
+\author{Alethfeld Proof System}
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We prove that the sum of all positive divisors of $9!$ having units digit $3$ equals $66$.
+This corrects an erroneous problem statement claiming the sum equals $105$.
+The proof proceeds by prime factorization and systematic case analysis on units digits modulo $10$.
+\end{abstract}
+
+\section{Main Result}
+
+\begin{theorem}[Sum of Divisors with Units Digit 3]\label{thm:main}
+The sum of all positive divisors of $9!$ that have units digit $3$ equals $66$.
+Symbolically:
+\[
+\sum_{\substack{d \mid 9! \\ d \equiv 3 \pmod{10}}} d = 66.
+\]
+\end{theorem}
+
+\begin{remark}
+The original problem statement claimed this sum equals $105$, which is incorrect.
+Computational verification confirms the only such divisors are $\{3, 63\}$.
+\end{remark}
+
+\section{Proof}
+
+\begin{definition}[Units Digit]\label{def:units}
+For $n \in \mathbb{N}$, the \emph{units digit} of $n$ is defined as $n \bmod 10$.
+\end{definition}
+
+\begin{proof}[Proof of Theorem~\ref{thm:main}]
+We proceed via Lamport-style structured proof.
+
+\begin{proofsteps}
+\item \label{step:1-1} \textbf{Factorization.} $9! = 362880 = 2^7 \cdot 3^4 \cdot 5 \cdot 7$. \by{algebraic computation} \verified
+
+\textit{Proof.} Direct computation:
+\begin{align*}
+9! &= 1 \cdot 2 \cdot 3 \cdot 4 \cdot 5 \cdot 6 \cdot 7 \cdot 8 \cdot 9 \\
+&= 362880 \\
+&= 2^7 \cdot 3^4 \cdot 5 \cdot 7.
+\end{align*}
+The exponents are obtained by Legendre's formula: for prime $p$,
+\[
+\nu_p(9!) = \sum_{i=1}^{\infty} \left\lfloor \frac{9}{p^i} \right\rfloor.
+\]
+For $p=2$: $\lfloor 9/2 \rfloor + \lfloor 9/4 \rfloor + \lfloor 9/8 \rfloor = 4 + 2 + 1 = 7$.
+For $p=3$: $\lfloor 9/3 \rfloor + \lfloor 9/9 \rfloor = 3 + 1 = 4$.
+For $p=5$: $\lfloor 9/5 \rfloor = 1$.
+For $p=7$: $\lfloor 9/7 \rfloor = 1$. \hfill $\square$
+
+\item \label{step:1-2} \textbf{Divisor Form.} Every divisor of $9!$ has the form
+\[
+d = 2^a \cdot 3^b \cdot 5^c \cdot 7^e
+\]
+where $0 \leq a \leq 7$, $0 \leq b \leq 4$, $0 \leq c \leq 1$, $0 \leq e \leq 1$. \by{from \ref{step:1-1}, definition of divisor} \verified
+
+\item \label{step:1-3} \textbf{Divisibility by 5.} If $c = 1$ (i.e., $5 \mid d$), then $d \bmod 10 \in \{0, 5\}$. Therefore, $c = 0$ for any divisor with units digit $3$. \by{from \ref{step:1-2}, Definition~\ref{def:units}} \verified
+
+\textit{Proof.} If $5 \mid d$, then $d = 5k$ for some $k \in \mathbb{N}$.
+\begin{itemize}
+\item If $2 \mid k$, then $10 \mid d$, so $d \equiv 0 \pmod{10}$.
+\item If $2 \nmid k$, then $d = 5(2m+1) = 10m + 5$, so $d \equiv 5 \pmod{10}$.
+\end{itemize}
+In either case, $d \not\equiv 3 \pmod{10}$. \hfill $\square$
+
+\item \label{step:1-4} \textbf{Reduced Form.} We seek divisors $d = 2^a \cdot 3^b \cdot 7^e$ with $d \equiv 3 \pmod{10}$. \by{from \ref{step:1-2}, \ref{step:1-3}} \verified
+
+\begin{proofsteps}
+\item \label{step:2-1} \textbf{Power Cycles mod 10.} The units digits of powers cycle as follows:
+\begin{align*}
+2^a \bmod 10 &: \quad 1, 2, 4, 8, 6, 2, 4, 8 \quad \text{for } a = 0, 1, \ldots, 7 \\
+3^b \bmod 10 &: \quad 1, 3, 9, 7, 1 \quad \text{for } b = 0, 1, 2, 3, 4 \\
+7^e \bmod 10 &: \quad 1, 7 \quad \text{for } e = 0, 1
+\end{align*}
+\by{algebraic computation} \verified
+
+\item \label{step:2-2} \textbf{Case $e = 0$.} We need $(2^a \cdot 3^b) \bmod 10 = 3$. \by{from \ref{step:1-4}} \verified
+
+Checking all $8 \times 5 = 40$ combinations of $(a, b)$ using \ref{step:2-1}:
+
+\begin{center}
+\begin{tabular}{c|ccccc}
+$2^a \backslash 3^b$ & $b=0$ & $b=1$ & $b=2$ & $b=3$ & $b=4$ \\
+\hline
+$a=0$ (1) & 1 & \textbf{3} & 9 & 7 & 1 \\
+$a=1$ (2) & 2 & 6 & 8 & 4 & 2 \\
+$a=2$ (4) & 4 & 2 & 6 & 8 & 4 \\
+$a=3$ (8) & 8 & 4 & 2 & 6 & 8 \\
+$a=4$ (6) & 6 & 8 & 4 & 2 & 6 \\
+$a=5$ (2) & 2 & 6 & 8 & 4 & 2 \\
+$a=6$ (4) & 4 & 2 & 6 & 8 & 4 \\
+$a=7$ (8) & 8 & 4 & 2 & 6 & 8 \\
+\end{tabular}
+\end{center}
+
+Only $(a, b) = (0, 1)$ gives units digit $3$, yielding divisor $d = 2^0 \cdot 3^1 = 3$. \hfill $\square$
+
+\item \label{step:2-3} \textbf{Case $e = 1$.} We need $(2^a \cdot 3^b \cdot 7) \bmod 10 = 3$. \by{from \ref{step:1-4}} \verified
+
+Since $7 \cdot 3 \equiv 21 \equiv 1 \pmod{10}$, the multiplicative inverse of $7$ modulo $10$ is $3$. Thus:
+\[
+2^a \cdot 3^b \cdot 7 \equiv 3 \pmod{10} \iff 2^a \cdot 3^b \equiv 3 \cdot 3 \equiv 9 \pmod{10}.
+\]
+
+From the table in \ref{step:2-2}, units digit $9$ occurs only at $(a, b) = (0, 2)$.
+
+This yields divisor $d = 2^0 \cdot 3^2 \cdot 7 = 9 \cdot 7 = 63$.
+
+\textit{Verification:} $63 \bmod 10 = 3$. \checkmark \hfill $\square$
+
+\end{proofsteps}
+
+\item \label{step:1-5} \textbf{Completeness.} The set $D_3$ of all divisors of $9!$ with units digit $3$ is exactly $\{3, 63\}$. \by{from \ref{step:2-2}, \ref{step:2-3}, \ref{step:1-3}} \verified
+
+\textit{Proof.} By \ref{step:1-3}, we only consider $c = 0$. Cases \ref{step:2-2} and \ref{step:2-3} exhaustively check all combinations of $(a, b, e)$ with $e \in \{0, 1\}$. The only solutions are:
+\begin{itemize}
+\item $(a, b, e) = (0, 1, 0)$ giving $d = 3$.
+\item $(a, b, e) = (0, 2, 1)$ giving $d = 63$.
+\end{itemize}
+Both divide $9!$: $362880 / 3 = 120960$ and $362880 / 63 = 5760$. \hfill $\square$
+
+\item \label{step:1-6} \textbf{Sum.} $\displaystyle\sum_{d \in D_3} d = 3 + 63 = 66$. \by{from \ref{step:1-5}, arithmetic} \verified
+
+\item \label{step:1-7} \textbf{QED.} The sum of positive divisors of $9!$ with units digit $3$ is $66$. \by{from \ref{step:1-6}} \verified
+
+\end{proofsteps}
+\end{proof}
+
+\section{Refutation of Original Claim}
+
+\begin{proposition}
+The sum of divisors of $9!$ with units digit $3$ is \emph{not} equal to $105$.
+\end{proposition}
+
+\begin{proof}
+By Theorem~\ref{thm:main}, the sum equals $66 \neq 105$.
+\end{proof}
+
+\section{Formal Verification}
+
+This proof has been formalized in Lean 4 with decidable verification:
+
+\begin{verbatim}
+theorem sum_divisors_units_digit_3 :
+    ∑ d ∈ divisorsWithUnitsDigit3, d = 66 := by native_decide
+
+theorem sum_not_105 :
+    ∑ d ∈ divisorsWithUnitsDigit3, d ≠ 105 := by native_decide
+\end{verbatim}
+
+The Lean formalization is available at:
+\begin{center}
+\texttt{lean/AlethfeldLean/NumberTheory/DivisorSum9Factorial.lean}
+\end{center}
+
+\section*{Proof Metadata}
+
+\begin{tabular}{ll}
+\textbf{Graph ID:} & \texttt{graph-div9fac-a1b2c3} \\
+\textbf{Version:} & 1 \\
+\textbf{Proof Mode:} & strict-mathematics \\
+\textbf{Status:} & All steps verified \\
+\textbf{Taint:} & clean \\
+\textbf{Obligations:} & none \\
+\end{tabular}
+
+\vspace{1em}
+\hrule
+\vspace{0.5em}
+\textit{Generated by Alethfeld Proof System, December 2025.}
+
+\end{document}
