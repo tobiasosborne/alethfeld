@@ -2,6 +2,7 @@
   "ExtractLemma operation - extracts a verified subgraph as an independent lemma."
   (:require [alethfeld.config :as config]
             [alethfeld.graph :as graph]
+            [alethfeld.validators :as validators]
             [clojure.set :as set]))
 
 ;; =============================================================================
@@ -190,6 +191,8 @@
                        (graph/update-context-budget)
                        (graph/invalidate-caches))]
 
+         ;; Assert graph invariants are maintained
+         (validators/assert-valid-graph! graph "extract-lemma postcondition")
          {:ok graph
           :lemma lemma-entry})))))
 

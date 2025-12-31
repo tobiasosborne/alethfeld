@@ -1,7 +1,8 @@
 (ns alethfeld.ops.update-status
   "UpdateNodeStatus operation - updates verification status of a node."
   (:require [alethfeld.config :as config]
-            [alethfeld.graph :as graph]))
+            [alethfeld.graph :as graph]
+            [alethfeld.validators :as validators]))
 
 ;; =============================================================================
 ;; Valid Statuses
@@ -131,4 +132,6 @@
                     (graph/increment-version)
                     (graph/update-last-modified))]
 
+      ;; Assert graph invariants are maintained
+      (validators/assert-valid-graph! graph "update-status postcondition")
       {:ok graph})))

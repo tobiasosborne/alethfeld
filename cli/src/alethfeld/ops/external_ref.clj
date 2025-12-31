@@ -1,7 +1,8 @@
 (ns alethfeld.ops.external-ref
   "External reference operations - add and update literature citations."
   (:require [alethfeld.config :as config]
-            [alethfeld.graph :as graph]))
+            [alethfeld.graph :as graph]
+            [alethfeld.validators :as validators]))
 
 ;; =============================================================================
 ;; ID Generation
@@ -57,6 +58,8 @@
                         (assoc-in [:external-refs ref-id] complete-ref)
                         (graph/increment-version)
                         (graph/update-last-modified))]
+      ;; Assert graph invariants are maintained
+      (validators/assert-valid-graph! new-graph "add-external-ref postcondition")
       {:ok new-graph :ref-id ref-id})))
 
 ;; =============================================================================
@@ -101,4 +104,6 @@
                                      updates)
                           (graph/increment-version)
                           (graph/update-last-modified))]
+        ;; Assert graph invariants are maintained
+        (validators/assert-valid-graph! new-graph "update-external-ref postcondition")
         {:ok new-graph}))))

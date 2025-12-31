@@ -1,6 +1,7 @@
 (ns alethfeld.ops.delete-node
   "DeleteNode operation - deletes (archives) a node from the graph."
-  (:require [alethfeld.graph :as graph]))
+  (:require [alethfeld.graph :as graph]
+            [alethfeld.validators :as validators]))
 
 ;; =============================================================================
 ;; Precondition Checks
@@ -72,4 +73,6 @@
                     (graph/update-context-budget)
                     (graph/invalidate-caches))]
 
+      ;; Assert graph invariants are maintained
+      (validators/assert-valid-graph! graph "delete-node postcondition")
       {:ok graph})))

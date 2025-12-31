@@ -3,6 +3,7 @@
   (:require [alethfeld.config :as config]
             [alethfeld.schema :as schema]
             [alethfeld.graph :as graph]
+            [alethfeld.validators :as validators]
             [alethfeld.ops.add-node :as add-node]))
 
 ;; =============================================================================
@@ -82,24 +83,26 @@
         (let [old-node (graph/get-node graph old-id)
               new-id (:id new-node)
 
-              ;; Archive the old node
-              graph (-> graph
-                        (assoc-in [:archived-nodes old-id] old-node)
-                        (update :nodes dissoc old-id))
-
               ;; Prepare new node with provenance
               new-node-with-provenance (assoc new-node
                                               :provenance (merge (or (:provenance new-node)
                                                                      (config/default-provenance :prover))
                                                                  {:revision-of old-id}))
 
-              ;; Rewrite dependencies from old to new
-              graph (rewrite-dependencies graph old-id new-id)
-
-              ;; Add the new node using add-node logic
+              ;; Step 1: Add the new node (old node still exists)
               add-result (add-node/add-node graph new-node-with-provenance)]
 
           (if (:error add-result)
-            ;; Rollback: restore old node
             {:error (:error add-result)}
-            {:ok (:ok add-result)}))))))
+            (let [graph (:ok add-result)
+                  ;; Step 2: Rewrite dependencies from old to new
+                  graph (rewrite-dependencies graph old-id new-id)
+                  ;; Step 3: Archive the old node (now safe - no refs to it)
+                  graph (-> graph
+                            (assoc-in [:archived-nodes old-id] old-node)
+                            (update :nodes dissoc old-id))
+                  ;; Step 4: Recompute taints for nodes whose dependencies changed
+                  graph (graph/recompute-all-taints graph)]
+              ;; Assert graph invariants are maintained
+              (validators/assert-valid-graph! graph "replace-node postcondition")
+              {:ok graph})))))))

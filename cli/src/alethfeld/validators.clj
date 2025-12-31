@@ -3,7 +3,8 @@
     Checks referential integrity, acyclicity, scope validity, and taint correctness."
    (:require [clojure.set :as set]
              [clojure.string :as str]
-             [alethfeld.graph :as g]))
+             [alethfeld.graph :as g]
+             [alethfeld.schema :as schema]))
 
 ;; =============================================================================
 ;; Helper Functions
@@ -264,3 +265,51 @@
     (if (empty? errors)
       {:valid true}
       {:valid false :errors (vec errors)})))
+
+;; =============================================================================
+;; Graph Invariant Predicates
+;; =============================================================================
+
+(defn valid-graph?
+  "Check if a graph satisfies all invariants (schema + semantics).
+   Returns true if valid, false otherwise.
+
+   For use in assertions within mutation functions to catch
+   invariant violations at the source."
+  [graph]
+  (and (:valid (schema/validate-schema graph))
+       (:valid (validate-semantics graph))))
+
+(defn validate-graph
+  "Full graph validation combining schema and semantic checks.
+   Returns {:valid true} or {:valid false :schema-errors [...] :semantic-errors [...]}.
+
+   Use this when you need detailed error information.
+   Use valid-graph? when you just need a boolean."
+  [graph]
+  (let [schema-result (schema/validate-schema graph)
+        semantic-result (validate-semantics graph)]
+    (if (and (:valid schema-result) (:valid semantic-result))
+      {:valid true}
+      {:valid false
+       :schema-errors (when-not (:valid schema-result) (:errors schema-result))
+       :semantic-errors (when-not (:valid semantic-result) (:errors semantic-result))})))
+
+(defn assert-valid-graph!
+  "Assert that a graph satisfies all invariants, throwing with details on failure.
+
+   For use in mutation functions:
+   (assert-valid-graph! new-graph \"add-node postcondition\")
+
+   Throws AssertionError with detailed validation errors if invalid."
+  ([graph]
+   (assert-valid-graph! graph "graph invariant"))
+  ([graph context]
+   (let [result (validate-graph graph)]
+     (when-not (:valid result)
+       (throw (AssertionError.
+               (str context " violated: "
+                    (when-let [se (:schema-errors result)]
+                      (str "schema errors: " (pr-str se) " "))
+                    (when-let [ve (:semantic-errors result)]
+                      (str "semantic errors: " (pr-str ve))))))))))

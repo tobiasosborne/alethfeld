@@ -3,6 +3,7 @@
   (:require [alethfeld.config :as config]
             [alethfeld.schema :as schema]
             [alethfeld.graph :as graph]
+            [alethfeld.validators :as validators]
             [clojure.set :as set]))
 
 ;; =============================================================================
@@ -195,6 +196,8 @@
                             (graph/update-last-modified)
                             (graph/update-context-budget)
                             (graph/invalidate-caches))]
+          ;; Assert graph invariants are maintained
+          (validators/assert-valid-graph! new-graph "add-node postcondition")
           {:ok new-graph})))))
 
 (defn generate-node-id

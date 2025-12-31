@@ -225,13 +225,22 @@
 ;; =============================================================================
 
 (defn compute-taint
-  "Compute the expected taint for a node based on its status and dependencies."
+  "Compute the expected taint for a node based on its status and dependencies.
+   Special handling for lemma-ref nodes: their taint is based on the lemma's taint."
   [graph node-id]
   (let [node (get-node graph node-id)
-        status (:status node)]
+        status (:status node)
+        node-type (:type node)]
     (cond
       (= :admitted status) :self-admitted
       (= :rejected status) :tainted
+      ;; Lemma-ref nodes inherit taint from the referenced lemma
+      (= :lemma-ref node-type)
+      (let [lemma-id (:lemma-id node)
+            lemma (get-in graph [:lemmas lemma-id])]
+        (if (and lemma (#{:tainted :self-admitted} (:taint lemma)))
+          :tainted
+          :clean))
       :else
       (let [deps (:dependencies node)
             dep-taints (map #(get-in graph [:nodes % :taint]) deps)]

@@ -1,6 +1,7 @@
 (ns alethfeld.ops.add-node-test
   (:require [clojure.test :refer [deftest testing is]]
             [alethfeld.ops.add-node :as add-node]
+            [alethfeld.graph :as graph]
             [alethfeld.schema :as schema]
             [alethfeld.fixtures :as f]))
 
@@ -144,7 +145,11 @@
       (is (= :clean (:taint (get-in (:ok result) [:nodes :1-new001]))))))
 
   (testing "Tainted dependency produces tainted node"
-    (let [graph (assoc-in f/linear-chain-graph [:nodes :1-aaa111 :taint] :self-admitted)
+    ;; Properly set up a tainted graph by changing status to :admitted
+    ;; and recomputing all taints to maintain invariants
+    (let [graph (-> f/linear-chain-graph
+                    (assoc-in [:nodes :1-aaa111 :status] :admitted)
+                    (graph/recompute-all-taints))
           node (make-partial-node :1-new001
                                   :deps #{:1-aaa111}
                                   :order 4)

@@ -1,7 +1,8 @@
 (ns alethfeld.ops.init
   "Init operation - creates a new semantic proof graph."
   (:require [alethfeld.config :as config]
-            [alethfeld.schema :as schema]))
+            [alethfeld.schema :as schema]
+            [alethfeld.validators :as validators]))
 
 ;; =============================================================================
 ;; Graph Initialization
@@ -53,7 +54,10 @@
         validation (schema/validate-schema graph)]
 
     (if (:valid validation)
-      {:ok graph}
+      (do
+        ;; Assert full graph invariants (schema + semantics)
+        (validators/assert-valid-graph! graph "init-graph postcondition")
+        {:ok graph})
       {:error [{:type :schema-validation
                 :errors (:errors validation)
                 :message "Generated graph fails schema validation"}]})))
@@ -97,4 +101,6 @@
                        (assoc-in g [:nodes node-id] node)))
                    graph
                    assumptions)]
+        ;; Assert graph invariants are maintained
+        (validators/assert-valid-graph! graph "init-with-assumptions postcondition")
         {:ok graph}))))
