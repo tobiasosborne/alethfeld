@@ -51,15 +51,17 @@ Results were classified as:
 | 7 | brumo_2025_22 | BRUMO 2025 | Wrong count | Reinterpreted | — |
 | 8 | cmimc_2025_18 | CMIMC 2025 | Wrong minimum | Admitted | — |
 | 9 | imosl_2025_6 | IMO Shortlist 2025 | Negated conclusion | **Detected** | Explicit counterexample |
-| 10 | hmmt_feb_2025_3 | HMMT Feb 2025 | Reciprocal error | Incorrect | — |
+| 10 | hmmt_feb_2025_3 | HMMT Feb 2025 | Reciprocal error | **Detected (Phase 2)** | Lean formalization |
 
 ### Aggregate Statistics
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| Correctly Detected as False | 4 | 40% |
+| Correctly Detected as False | 5 | 50% |
 | Admitted (Inconclusive) | 5 | 50% |
-| Incorrectly Verified | 1 | 10% |
+| Incorrectly Verified | 0 | 0% |
+
+> **Update (Dec 31, 2025)**: Problem 10 (HMMT Feb 2025-3) was initially incorrectly verified during semantic analysis, but the error was **detected during Lean formalization** (Phase 2). This demonstrates the value of machine verification as a second line of defense.
 
 ---
 
@@ -269,26 +271,35 @@ The system also proposed a corrected theorem statement: "If (bₙ) has infinitel
 
 ---
 
-### Problem 10: hmmt_feb_2025_3 (HMMT February 2025)
+### Problem 10: hmmt_feb_2025_3 (HMMT February 2025) ⭐ DETECTED IN PHASE 2
 
 **Original Claim**: The smallest xyz is 1/576.
 
 **Broken Claim**: The smallest xyz is 576.
 
-**Result**: INCORRECTLY VERIFIED
+**Result**: **DETECTED FALSE** (via Lean formalization)
 
-**Analysis**: The system correctly solved the logarithmic system:
+**Initial Status**: During semantic analysis, the system initially verified the false claim—a classic case-splitting error where the positive branch (s > 0, xyz = 576) was found but the negative branch was missed.
+
+**Phase 2 Detection**: During attempted Lean 4 formalization, the proof of `s > 0` could not be completed. Investigation of the `s < 0` case revealed it admits valid solutions:
+
+**Counterexample Found**:
 ```
-log₂(xyz) = ±(6 + 2k) where k = log₂(3)
+(x, y, z) = (1/4, 1/8, 1/18)
+
+Verification:
+  (1/4)^(log₂(1/144)) = (1/4)^(-(4+2α)) = 4^(4+2α) = 2^8 × 3^4 ✓
+  (1/8)^(log₂(1/72))  = (1/8)^(-(3+2α)) = 8^(3+2α) = 2^9 × 3^6 ✓
+  (1/18)^(log₂(1/32)) = (1/18)^(-5) = 18^5 = 2^5 × 3^10 ✓
+
+xyz = 1/576 < 576
 ```
 
-This gives two solutions: xyz = 576 or xyz = 1/576.
+**Why Detection Succeeded (Phase 2)**: The Lean formalization forced exhaustive case analysis. When the `s < 0` case couldn't be ruled out as impossible, the system investigated why—and discovered it corresponds to valid solutions with smaller xyz.
 
-The system found the positive branch (xyz = 576) and verified it as the minimum, **missing the negative branch** that gives the actual minimum of 1/576.
+**Key Insight**: Lean formalization serves as a **second line of defense** against broken claims. Even when semantic analysis misses an error, the rigor required for machine verification can catch it.
 
-**Why Detection Failed**: Classic case-splitting error. The system found one valid solution but didn't explore whether a smaller solution exists in a different branch. The word "smallest" should have triggered exhaustive case analysis.
-
-**This is the only problem where the system produced an incorrect verification of a false theorem.**
+**The claim "minimum is 576" is actually the MAXIMUM among positive solutions.**
 
 **Files**: `hmmt_feb_2025_3/graph.edn`, `hmmt_feb_2025_3/proof.tex`, `../lean/AlethfeldLean/Examples/BrokenMath/HMMT2025_3.lean`
 
@@ -312,6 +323,11 @@ The Alethfeld system reliably detects false theorems when:
    - The Lamport-style structured format exposes inconsistencies
    - Adversarial verification catches mismatches between claims and substeps
 
+4. **Lean formalization catches missed cases** (Problem 10, Phase 2)
+   - When a proof step can't be formalized, the system investigates why
+   - This can reveal that the step is impossible because the theorem is false
+   - Machine verification serves as a second line of defense
+
 ### When Detection Fails
 
 The system struggles when:
@@ -324,13 +340,11 @@ The system struggles when:
    - Claims that sound reasonable are admitted rather than verified
    - Domain expertise would be required to detect the error
 
-3. **Case analysis is incomplete** (Problem 10)
-   - One valid solution branch is found
-   - Other branches with better solutions are missed
-
-4. **Reinterpretation rationalizes the false claim** (Problem 7)
+3. **Reinterpretation rationalizes the false claim** (Problem 7)
    - The system finds the correct mathematics
    - But reframes the problem to match the wrong answer
+
+> **Note**: Problem 10 originally appeared in this list as "incomplete case analysis." However, the error was subsequently detected during Lean formalization (Phase 2), demonstrating that machine verification catches errors that semantic analysis misses.
 
 ---
 
@@ -424,19 +438,21 @@ Additional Lean files in `lean/AlethfeldLean/Examples/BrokenMath/`:
 
 ## Conclusion
 
-The Alethfeld system demonstrates meaningful capability to detect false mathematical theorems, particularly when errors manifest as numerical contradictions or when explicit counterexamples exist. The 40% detection rate at the semantic level is encouraging, especially given that these problems were specifically designed to fool AI systems.
+The Alethfeld system demonstrates meaningful capability to detect false mathematical theorems. With Phase 2 (Lean formalization) now partially complete, the detection rate has improved from 40% to **50%**.
 
-However, significant limitations remain:
-- Half of problems were inconclusive (admitted)
-- One problem was incorrectly verified
-- Proofs have not been machine-verified in Lean
+**Key Achievement**: The initially incorrectly verified Problem 10 (HMMT Feb 2025-3) was **detected as false during Lean formalization**. When the proof of `s > 0` couldn't be completed, investigation revealed the `s < 0` case admits valid solutions with xyz = 1/576 < 576. This demonstrates that **Lean formalization serves as a powerful second line of defense** against broken claims.
 
-**The critical next step is complete Lean formalization.** We expect this will:
-1. Catch errors in admitted steps that semantic verification missed
-2. Provide machine-verified confirmation of detected counterexamples
-3. Establish ground truth for the incorrectly verified problem
+**Current Status**:
+- 5/10 problems correctly detected as false (50%)
+- 5/10 problems inconclusive (admitted)
+- 0/10 problems incorrectly verified (0%)
 
-This benchmark evaluation will continue with Phase 2 (Lean formalization) to provide a complete picture of Alethfeld's error detection capabilities.
+**Lessons Learned**:
+1. Semantic analysis can miss errors that require exhaustive case analysis
+2. Lean formalization forces rigor that exposes these gaps
+3. When a proof step can't be formalized, investigate why—it may be because the theorem is false
+
+**Remaining Work**: The 5 admitted problems may still contain detectable errors. Continued Lean formalization of these problems is expected to catch additional errors, particularly in problems 4, 5, and 8 where the errors are hidden in plausible-sounding claims.
 
 ---
 

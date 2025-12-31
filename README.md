@@ -56,7 +56,13 @@ Alethfeld has been tested against problems from the [BrokenMath](https://github.
 
 - **Divisor Sum Problem**: Given "Prove that the sum of positive divisors of 9! with units digit 3 is 105", Alethfeld immediately detected the error. The correct sum is **66** (divisors: {3, 63}). The system produced a complete proof of the correct statement with full Lean 4 formalization (0 sorries). See [`examples/divisor-sum-9factorial/`](examples/divisor-sum-9factorial/).
 
-This demonstrates that the adversarial verification approach catches not just proof errors, but also errors in problem statements—a critical capability for reliable mathematical reasoning.
+- **HMMT Feb 2025 Problem 3** (Detected via Lean formalization): The original claim "minimum of xyz is 576" was detected as **FALSE** during attempted Lean 4 formalization. The system discovered a reciprocal solution:
+
+  > (x, y, z) = (1/4, 1/8, 1/18) satisfies all three constraint equations with xyz = **1/576** < 576
+
+  The actual minimum is 1/576, not 576. This error was caught when the proof of `s > 0` failed—the `s < 0` case corresponds to valid solutions with smaller xyz. See [`lean/AlethfeldLean/Examples/BrokenMath/HMMT2025_3.lean`](lean/AlethfeldLean/Examples/BrokenMath/HMMT2025_3.lean).
+
+This demonstrates that the adversarial verification approach catches not just proof errors, but also errors in problem statements—a critical capability for reliable mathematical reasoning. The HMMT example shows how **Lean formalization serves as a powerful error detector**: when a proof can't be completed, the system investigates why and may discover the theorem itself is false.
 
 ## Lamport Structured Proofs
 
