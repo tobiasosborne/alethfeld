@@ -37,7 +37,7 @@ The Alethfeld CLI is a Clojure-based command-line tool for manipulating semantic
 ### Installation
 
 ```bash
-cd alethfeld
+cd cli
 
 # Recommended: Use pre-built wrapper (fast startup)
 ./scripts/alethfeld <command> [options]
@@ -95,7 +95,7 @@ clojure -M:run <command> [options]
 ### Project Structure
 
 ```
-alethfeld/
+cli/
 ├── src/alethfeld/
 │   ├── core.clj              # CLI entry point, command registry
 │   ├── schema.clj            # Main schema (re-exports submodules)
@@ -198,7 +198,7 @@ Operations are pure functions with this signature:
                             (assoc-in [:nodes (:id node)] completed)
                             (graph/increment-version)
                             (graph/update-last-modified))]
-          {:ok new-graph})))))
+          {:ok new-graph}))))))
 ```
 
 **Preconditions checked by `add-node`:**
@@ -363,7 +363,7 @@ Status Change → Compute Self-Taint → Propagate to Descendants
 #### `init` - Create New Graph
 
 ```bash
-alethfeld init [options] <output.edn>
+cli init [options] <output.edn>
 ```
 
 | Option | Description | Default |
@@ -377,13 +377,13 @@ alethfeld init [options] <output.edn>
 
 **Example:**
 ```bash
-./scripts/alethfeld init proof.edn -t "For all \$n\$, \$n^2 \\geq 0\$"
+./scripts/alethfeld init proof.edn -t "For all \$n\$, \$n^2 \\geq 0\""
 ```
 
 #### `validate` - Check Graph Integrity
 
 ```bash
-alethfeld validate [options] <graph.edn>
+cli validate [options] <graph.edn>
 ```
 
 | Option | Description |
@@ -402,8 +402,8 @@ alethfeld validate [options] <graph.edn>
 #### `add-node` - Add Node to Graph
 
 ```bash
-alethfeld add-node [options] <graph.edn> [node.edn]
-alethfeld add-node --stdin [options] <graph.edn>
+cli add-node [options] <graph.edn> [node.edn]
+cli add-node --stdin [options] <graph.edn>
 ```
 
 | Option | Description |
@@ -431,7 +431,7 @@ alethfeld add-node --stdin [options] <graph.edn>
 #### `update-status` - Change Node Status
 
 ```bash
-alethfeld update-status [options] <graph.edn> <node-id> <status>
+cli update-status [options] <graph.edn> <node-id> <status>
 ```
 
 **Statuses:** `proposed`, `verified`, `admitted`, `rejected`
@@ -449,7 +449,7 @@ alethfeld update-status [options] <graph.edn> <node-id> <status>
 #### `replace-node` - Replace Rejected Node
 
 ```bash
-alethfeld replace-node [options] <graph.edn> <old-id> <new-node.edn>
+cli replace-node [options] <graph.edn> <old-id> <new-node.edn>
 ```
 
 **Preconditions:**
@@ -463,7 +463,7 @@ alethfeld replace-node [options] <graph.edn> <old-id> <new-node.edn>
 #### `delete-node` - Archive Node
 
 ```bash
-alethfeld delete-node [options] <graph.edn> <node-id>
+cli delete-node [options] <graph.edn> <node-id>
 ```
 
 **Preconditions:**
@@ -476,7 +476,7 @@ alethfeld delete-node [options] <graph.edn> <node-id>
 #### `extract-lemma` - Extract Verified Subgraph
 
 ```bash
-alethfeld extract-lemma [options] <graph.edn> <root-node-id>
+cli extract-lemma [options] <graph.edn> <root-node-id>
 ```
 
 | Option | Description |
@@ -502,12 +502,12 @@ alethfeld extract-lemma [options] <graph.edn> <root-node-id>
 
 **Add reference:**
 ```bash
-alethfeld external-ref --add [options] <graph.edn> [ref.edn]
+cli external-ref --add [options] <graph.edn> [ref.edn]
 ```
 
 **Update after verification:**
 ```bash
-alethfeld external-ref --update <ref-id> [options] <graph.edn> [result.edn]
+cli external-ref --update <ref-id> [options] <graph.edn> [result.edn]
 ```
 
 **Reference format:**
@@ -527,7 +527,7 @@ alethfeld external-ref --update <ref-id> [options] <graph.edn> [result.edn]
 #### `stats` - Display Statistics
 
 ```bash
-alethfeld stats [options] <graph.edn>
+cli stats [options] <graph.edn>
 ```
 
 | Option | Description |
@@ -544,7 +544,7 @@ alethfeld stats [options] <graph.edn>
 #### `recompute` - Fix Taint Values
 
 ```bash
-alethfeld recompute [options] <graph.edn>
+cli recompute [options] <graph.edn>
 ```
 
 Traverses nodes in topological order and recomputes all taint values. Use after manual edits.
@@ -552,7 +552,7 @@ Traverses nodes in topological order and recomputes all taint values. Use after 
 #### `convert` - Migrate Legacy Format
 
 ```bash
-alethfeld convert <input.edn> <output.edn>
+cli convert <input.edn> <output.edn>
 ```
 
 Converts older proof formats to the current v4 schema.
@@ -568,41 +568,41 @@ Converts older proof formats to the current v4 schema.
 ./scripts/alethfeld init proof.edn -t "Theorem statement"
 
 # 2. Add assumptions (from orchestrator)
-echo '{:id :A1 :type :assumption ...}' | ./scripts/alethfeld add-node --stdin proof.edn
+echo '{:id :A1 :type :assumption ...}' | cli add-node --stdin proof.edn
 
 # 3. Prover adds steps
-./scripts/alethfeld add-node proof.edn step1.edn
+cli add-node proof.edn step1.edn
 
 # 4. Verifier accepts/rejects
-./scripts/alethfeld update-status proof.edn :1-abc123 verified
+cli update-status proof.edn :1-abc123 verified
 # OR
-./scripts/alethfeld update-status proof.edn :1-abc123 rejected
+cli update-status proof.edn :1-abc123 rejected
 
 # 5. If rejected, prover revises
-./scripts/alethfeld replace-node proof.edn :1-abc123 step1-revised.edn
+cli replace-node proof.edn :1-abc123 step1-revised.edn
 
 # 6. Extract verified subgraphs as lemmas
-./scripts/alethfeld extract-lemma proof.edn :2-qed456 -n "Main Result"
+cli extract-lemma proof.edn :2-qed456 -n "Main Result"
 
 # 7. Validate final graph
-./scripts/alethfeld validate proof.edn -v
+cli validate proof.edn -v
 
 # 8. Get statistics
-./scripts/alethfeld stats proof.edn
+cli stats proof.edn
 ```
 
 ### Piping with AI Agents
 
 ```bash
 # Agent generates node, CLI validates and adds
-python prover_agent.py | ./scripts/alethfeld add-node --stdin proof.edn
+python prover_agent.py | cli add-node --stdin proof.edn
 
 # Check validation
-if ./scripts/alethfeld validate proof.edn -q; then
+if cli validate proof.edn -q; then
     echo "Valid"
 else
     echo "Invalid"
-    ./scripts/alethfeld validate proof.edn -v
+    cli validate proof.edn -v
 fi
 ```
 
@@ -633,7 +633,7 @@ fi
   [["-d" "--dry-run" "Validate only"]
    ["-h" "--help" "Show help"]])
 
-(defn usage [] ...)
+(defn usage [])
 
 (defn run [args options]
   (cond
@@ -642,7 +642,7 @@ fi
     (let [result (op/my-operation ...)]
       (if (:ok result)
         {:exit-code 0 :message "Success"}
-        {:exit-code 1 :message (format-errors (:error result))}))))
+        {:exit-code 1 :message (format-errors (:error result))}))))))
 ```
 
 3. **Register in `core.clj`**:

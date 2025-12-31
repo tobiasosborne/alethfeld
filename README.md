@@ -17,6 +17,15 @@ The answer was surprisingly specific:
 
 Alethfeld implements these suggestions. The prompts, the format, and the workflow all derive from what the model identified as its own failure modes and what would help it avoid them.
 
+## Project Structure
+
+- **`cli/`**: The primary CLI tool for all semantic proof graph operations.
+- **`docs/`**: Documentation, architecture, and historical records.
+- **`examples/`**: Curated, verified proof examples (EDN, LaTeX, Lean).
+- **`lean/`**: The Lean 4 formal verification library and environment.
+- **`proofs/`**: Your local sandbox. Git-ignored; use this for your own experiments.
+- **`scripts/`**: Utility scripts for maintenance, validation, and refactoring.
+
 ## The Problem
 
 Large language models can do mathematics. They can also hallucinate, skip steps, cite theorems that don't exist, and produce proofs that look convincing but collapse under scrutiny.
@@ -230,111 +239,21 @@ The agent prompts are in the orchestrator file. You can:
 - Change the proof notation style
 - Add Malli schemas for stricter validation
 
-## The Structured Proof Format
-
-Here's a fragment of a proof in the Alethfeld format:
-
-```clojure
-{:theorem "The composition of continuous functions is continuous"
- :proof-mode :strict-mathematics
- 
- :symbols
- {:f {:type "X → Y" :tex "f"}
-  :g {:type "Y → Z" :tex "g"}
-  :eps {:type "ℝ" :tex "\\varepsilon" :constraints "ε > 0"}}
- 
- :assumptions
- {:A1 "$f: X \\to Y$ is continuous"
-  :A2 "$g: Y \\to Z$ is continuous"}
- 
- :steps
- [{:id :<1>1
-   :claim "For all $\\varepsilon > 0$, there exists $\\gamma > 0$ such that..."
-   :using [:A2]
-   :justification :definition-expansion
-   :status :asserted}
-  {:id :<1>2
-   :claim "For all $\\gamma > 0$, there exists $\\delta > 0$ such that..."
-   :using [:A1 :<1>1]
-   :justification :definition-expansion
-   :status :asserted}
-  {:id :<1>3
-   :claim "QED"
-   :using [:<1>1 :<1>2]
-   :justification :modus-ponens
-   :status :asserted}]}
-```
-
-Every step has:
-- An **ID** (hierarchical: ⟨1⟩3 means level 1, step 3)
-- A **claim** (the mathematical statement)
-- **Using** (what prior steps/assumptions it depends on)
-- A **justification** (the inference rule applied)
-- A **status** (asserted → verified/challenged by Verifier)
-
-External theorems must be cited with DOI or arXiv ID and a full statement. No "by a standard result" or "it is well known."
-
-## Known Failure Modes
-
-The adversarial Prover-Verifier loop catches many errors, but not all. These failure modes have been observed:
-
-### Garbage In, Garbage Out
-
-The system proves theorems as stated. If the theorem statement is wrong—a misplaced bracket, an incorrect quantifier, a sign error—the system will prove the incorrect statement. It cannot know what you *meant* to prove.
-
-**Example:** In a quantum information proof, the theorem statement had brackets in the wrong position, placing an expectation before a tensor product instead of after. The system produced a valid proof of the (incorrect) statement. The error was only caught during human review of the theorem itself, not the proof.
-
-**Mitigation:** Verify theorem statements carefully before running. Consider having the system re-state the theorem in its own words before proving.
-
-### Hidden Quantifier Errors
-
-Despite explicit rules against hidden quantifiers, the system occasionally produces steps where the quantifier structure is subtly wrong (∀∃ vs ∃∀, or implicit universal quantification over a variable that should be existentially quantified).
-
-### Type Drift
-
-Mathematical objects gradually shift meaning across a proof. A variable introduced as "an arbitrary element of X" might later be used as "the specific element satisfying property P" without explicit instantiation.
-
----
-
-These failure modes are why the system produces *candidate* proofs, not *verified* proofs. The Lamport structure makes errors easier to find during human review, but it doesn't eliminate the need for that review.
-
-## Limitations
-
-1. **The Verifier is not a proof assistant.** It's an LLM applying judgment. It catches many errors but not all.
-
-2. **Garbage in, garbage out.** The system proves theorems as stated. If the statement is wrong, the proof will be wrong. See the random purification example.
-
-3. **Context limits apply.** Very long proofs may exceed the context window. The system manages this by keeping substeps inline rather than in separate files.
-
-4. **Reference checking depends on web search.** Obscure references may not be found.
-
-5. **Admitted steps are gaps.** The system is honest about them, but they're still gaps.
-
-6. **This is experimental.** The prompts are evolving. Feedback welcome.
-
-## Why "Alethfeld"?
-
-*Aletheia* (ἀλήθεια) is the Greek word for truth—but not truth as mere correspondence with facts. It means *unconcealment*, the process of bringing what is hidden into the open.
-
-*Feld* is German for field—a space where something is cultivated.
-
-Alethfeld is a field for cultivating unconcealed proofs: every step visible, every inference named, every dependency traced. Truth through structured disclosure.
-
 ## Tools
 
 ### alethfeld CLI
 
-The primary CLI tool for all semantic proof graph operations. Located in [`alethfeld/`](alethfeld/).
+The primary CLI tool for all semantic proof graph operations. Located in [`cli/`](cli/).
 
 **Quick Start (Compiled - Recommended):**
 ```bash
-cd alethfeld
+cd cli
 ./scripts/alethfeld <command> [options]
 ```
 
 **Development (Slow CLI):**
 ```bash
-cd alethfeld
+cd cli
 clojure -M:run <command> [options]
 ```
 
@@ -352,10 +271,10 @@ clojure -M:run <command> [options]
 
 **Example workflow (using compiled version):**
 ```bash
-cd alethfeld
+cd cli
 
 # Initialize a proof
-./scripts/alethfeld init "For all continuous f,g: (g \\circ f) is continuous" -o proof.edn
+./scripts/alethfeld init "For all continuous f,g: (g \circ f) is continuous" -o proof.edn
 
 # Add a claim
 ./scripts/alethfeld add-node proof.edn step1.edn
@@ -367,7 +286,7 @@ cd alethfeld
 ./scripts/alethfeld extract-lemma proof.edn --name "Composition" --root :1-abc123 --nodes :1-abc123
 ```
 
-See [`alethfeld/README.md`](alethfeld/README.md) for complete documentation and build instructions.
+See [`cli/README.md`](cli/README.md) for complete documentation and build instructions.
 
 See [docs/cli-reference.md](docs/cli-reference.md) for complete documentation.
 

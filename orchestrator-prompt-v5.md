@@ -87,7 +87,7 @@ Rules:
 
 ## III. Graph Operations via CLI
 
-All mutations use the `alethfeld` CLI. Run from the `alethfeld/` directory.
+All mutations use the `alethfeld` CLI. Run from the `cli/` directory.
 
 ### III.1 Initialize Graph
 

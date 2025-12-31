@@ -129,8 +129,8 @@ ENTRYPOINT ["java", "-jar", "/app/alethfeld.jar"]
 ## Project Structure
 
 ```
-alethfeld/
-├── src/alethfeld/
+cli/ (formerly alethfeld/)
+├── src/alethfeld/         # Clojure source (alethfeld.* namespaces)
 │   ├── core.clj           # CLI entry point
 │   ├── schema.clj         # Malli schemas
 │   ├── validators.clj     # Validation logic
@@ -138,21 +138,9 @@ alethfeld/
 │   ├── io.clj             # EDN I/O
 │   ├── config.clj         # Constants
 │   ├── ops/               # Graph operations
-│   │   ├── add_node.clj
-│   │   ├── update_status.clj
-│   │   ├── delete_node.clj
-│   │   ├── replace_node.clj
-│   │   ├── extract_lemma.clj
-│   │   ├── external_ref.clj
-│   │   └── init.clj
 │   └── commands/          # CLI commands
-│       ├── validate.clj
-│       ├── add_node.clj
-│       ├── update_status.clj
-│       └── ...
-├── test/alethfeld/
-│   ├── ops/               # Operation unit tests
-│   └── integration/       # Integration tests
+├── test/alethfeld/        # Unit and integration tests
+├── bench/alethfeld/       # Performance benchmarks
 └── deps.edn
 ```
 

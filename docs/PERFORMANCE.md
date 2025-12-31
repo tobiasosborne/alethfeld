@@ -136,7 +136,7 @@ The graph module uses metadata-based caching for reverse dependencies:
 
 ## Adding New Benchmarks
 
-Edit `alethfeld/bench/alethfeld/bench.clj` to add new benchmarks.
+Edit `cli/bench/alethfeld/bench.clj` to add new benchmarks.
 
 ```clojure
 (defn bench-my-operation

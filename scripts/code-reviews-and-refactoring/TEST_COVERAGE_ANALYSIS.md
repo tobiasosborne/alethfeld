@@ -375,7 +375,7 @@ java -jar target/alethfeld.jar validate resources/sample.edn
 clojure -M:test
 
 # Specific namespace
-clojure -M:test test/alethfeld/graph_test.clj
+clojure -M:test test/cli/graph_test.clj
 
 # Specific test
 clojure -M:test --filter "get-ancestors-dedup"
