@@ -13,12 +13,12 @@
 \newtheorem{definition}[theorem]{Definition}
 \newtheorem{assumption}{Assumption}
 
-\newcommand{\Fib}{\mathrm{Fib}}
-\newcommand{\Vec}{\mathrm{Vec}}
-\newcommand{\FPdim}{\mathrm{FPdim}}
-\newcommand{\Mod}{\mathrm{Mod}}
-\newcommand{\Hom}{\mathrm{Hom}}
-\newcommand{\id}{\mathrm{id}}
+\newcommand{\Fib}{\ensuremath{\mathrm{Fib}}}
+\newcommand{\Vecc}{\ensuremath{\mathrm{Vec}}}
+\newcommand{\FPdim}{\ensuremath{\mathrm{FPdim}}}
+\newcommand{\Modd}{\ensuremath{\mathrm{Mod}}}
+\newcommand{\Homm}{\ensuremath{\mathrm{Hom}}}
+\newcommand{\idd}{\ensuremath{\mathrm{id}}}
 \newcommand{\by}[1]{\hfill\textit{(#1)}}
 
 \title{Module Category Coherences for the Fibonacci Fusion Category}
@@ -29,7 +29,7 @@
 \maketitle
 
 \begin{abstract}
-We prove that the Fibonacci fusion category $\Fib$ is completely anisotropic (contains no non-trivial separable algebra objects) and therefore has a unique indecomposable semisimple module category: $\Fib$ itself with the regular action. The module associator coherence is given by the Fibonacci F-matrix satisfying the pentagon equation. We also prove that $\Vec$ cannot be a $\Fib$-module category. The proof was verified through adversarial rounds using the Alethfeld protocol.
+We prove that the Fibonacci fusion category \Fib{} is completely anisotropic (contains no non-trivial separable algebra objects) and therefore has a unique indecomposable semisimple module category: \Fib{} itself with the regular action. The module associator coherence is given by the Fibonacci F-matrix satisfying the pentagon equation. We also prove that \Vecc{} cannot be a \Fib-module category. The proof was verified through adversarial rounds using the Alethfeld protocol.
 \end{abstract}
 
 \section{Introduction}
@@ -42,7 +42,7 @@ For the Fibonacci fusion category $\Fib$ with simple objects $\{1, \tau\}$ and f
     \item[(1)] \textbf{Complete Anisotropy}: $\Fib$ contains no non-trivial separable algebra objects;
     \item[(2)] \textbf{Unique Module Category}: The unique indecomposable semisimple left $\Fib$-module category is $\Fib$ itself with regular action;
     \item[(3)] \textbf{Pentagon Coherence}: The module associator is the Fibonacci F-matrix satisfying the pentagon equation;
-    \item[(4)] \textbf{Vec Impossibility}: $\Vec$ is NOT a $\Fib$-module category.
+    \item[(4)] \textbf{Vec Impossibility}: \Vecc{} is NOT a \Fib-module category.
 \end{enumerate}
 \end{theorem}
 
@@ -69,7 +69,7 @@ Module categories over a fusion category $\mathcal{C}$ are classified by separab
 \end{assumption}
 
 \begin{definition}[D1: Separable Algebra Object]\label{def:separable}
-An algebra object $(A, m: A \otimes A \to A, \eta: 1 \to A)$ in a fusion category $\mathcal{C}$ is \emph{separable} if there exists a section $\sigma: A \to A \otimes A$ of $m$ (i.e., $m \circ \sigma = \id_A$) that is an $A$-bimodule map.
+An algebra object $(A, m: A \otimes A \to A, \eta: 1 \to A)$ in a fusion category $\mathcal{C}$ is \emph{separable} if there exists a section $\sigma: A \to A \otimes A$ of $m$ (i.e., $m \circ \sigma = \idd_A$) that is an $A$-bimodule map.
 \end{definition}
 
 \begin{definition}[D2: $\Fib$-Module Category]\label{def:modcat}
@@ -77,7 +77,7 @@ A left $\Fib$-module category is a semisimple category $\mathcal{M}$ equipped wi
 \end{definition}
 
 \begin{definition}[D3: F-Matrix]\label{def:fmatrix}
-The F-matrix for $\Fib$ encodes the associator. The only non-trivial component is $F^{\tau\tau\tau}_\tau$, a $2 \times 2$ matrix acting on $\Hom((\tau \otimes \tau) \otimes \tau, \tau)$.
+The F-matrix for \Fib{} encodes the associator. The only non-trivial component is $F^{\tau\tau\tau}_\tau$, a $2 \times 2$ matrix acting on $\Homm((\tau \otimes \tau) \otimes \tau, \tau)$.
 \end{definition}
 
 \begin{definition}[D4: Completely Anisotropic]\label{def:anisotropic}
@@ -89,13 +89,13 @@ A fusion category $\mathcal{C}$ is \emph{completely anisotropic} if the only sep
 \subsection{Part 4: Vec Cannot Be a Fib-Module Category}
 
 \begin{proposition}[1-001]\label{prop:vec}
-$\Vec$ cannot be a $\Fib$-module category.
+\Vecc{} cannot be a \Fib-module category.
 \end{proposition}
 
 \begin{proof}
-Suppose $\Vec$ were a $\Fib$-module category with action $\triangleright$.
+Suppose \Vecc{} were a \Fib-module category with action $\triangleright$.
 
-\textbf{Step 2-vec001.} Since $\Vec$ has unique simple object $k = \mathbb{C}$, the action is determined by $1 \triangleright k \cong k$ and $\tau \triangleright k \cong \mathbb{C}^n$ for some $n \in \mathbb{Z}_{>0}$.
+\textbf{Step 2-vec001.} Since \Vecc{} has unique simple object $k = \mathbb{C}$, the action is determined by $1 \triangleright k \cong k$ and $\tau \triangleright k \cong \mathbb{C}^n$ for some $n \in \mathbb{Z}_{>0}$.
 
 \textbf{Step 2-vec002.} We have $\tau \triangleright k \cong k^{\oplus n} = n \cdot k$ for multiplicity $n \geq 1$.
 
@@ -162,7 +162,7 @@ Any connected algebra in $\Fib$ has $\FPdim \in \{1, 1+\varphi\}$.
 \begin{proof}
 \textbf{Step 2-alg001.} Any object $A \cong 1^{\oplus a} \oplus \tau^{\oplus b}$ has $\FPdim(A) = a + b\varphi$.
 
-\textbf{Step 2-alg002.} Connected algebras have $\Hom(1, A) \cong \mathbb{C}$, forcing $a \geq 1$.
+\textbf{Step 2-alg002.} Connected algebras have $\Homm(1, A) \cong \mathbb{C}$, forcing $a \geq 1$.
 
 \textbf{Step 2-alg003.} The multiplication must be compatible with the F-matrix.
 
@@ -214,7 +214,7 @@ The unique indecomposable semisimple $\Fib$-module category is $\Fib$ itself.
 
 \textbf{Step 2-uni002.} By complete anisotropy, the only separable algebra is $A = 1$.
 
-\textbf{Step 2-uni003.} $\Mod_\Fib(1) \cong \Fib$ as categories.
+\textbf{Step 2-uni003.} $\Modd_\Fib(1) \cong \Fib$ as categories.
 
 \textbf{Step 2-uni004.} The action is regular: $X \triangleright Y := X \otimes Y$.
 
