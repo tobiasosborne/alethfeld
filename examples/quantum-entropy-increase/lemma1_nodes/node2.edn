@@ -1,0 +1,15 @@
+{:id :1-d4e5f6
+ :type :definition
+ :statement "Define $L_f = \\sum_{x \\in \\{0,1\\}^n} f(x) |x\\rangle\\langle x|$ as the diagonal observable associated with $f$."
+ :dependencies #{:1-a1b2c3}
+ :scope #{}
+ :justification :definition-expansion
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 2
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

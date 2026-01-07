@@ -1,0 +1,15 @@
+{:id :1-t1a013
+ :type :qed
+ :statement "**Theorem 1 Complete.** All three parts established: (i) $H(\\tilde{L}_f) = H(f) + \\mathrm{Inf}(f)$, (ii) $\\mathrm{Inf}(\\tilde{L}_f) = \\mathrm{Inf}(f)$, (iii) $\\frac{H(\\tilde{L}_f)}{\\mathrm{Inf}(\\tilde{L}_f)} = \\frac{H(f)}{\\mathrm{Inf}(f)} + 1$. QED."
+ :dependencies #{:1-t1a005 :1-t1a011 :1-t1a012}
+ :scope #{}
+ :justification :qed
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 13
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

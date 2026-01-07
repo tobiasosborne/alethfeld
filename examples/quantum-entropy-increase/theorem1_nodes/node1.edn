@@ -1,0 +1,15 @@
+{:id :1-t1a001
+ :type :assumption
+ :statement "Let $f: \\{0,1\\}^n \\to \\{+1,-1\\}$ be a Boolean function. By Lemma 1, $L_f = \\sum_{S \\subseteq [n]} \\hat{f}(S) Z_S$ is the Pauli expansion of the diagonal observable."
+ :dependencies #{}
+ :scope #{}
+ :justification :assumption
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 1
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

@@ -1,0 +1,15 @@
+{:id :1-l6a001
+ :type :assumption
+ :statement "Let $\\pi$ be a probability distribution on finite set $\\Omega$ with Shannon entropy $H(\\pi) = -\\sum_{\\omega \\in \\Omega} \\pi(\\omega) \\log_2 \\pi(\\omega)$ (with convention $0 \\log_2 0 = 0$)."
+ :dependencies #{}
+ :scope #{}
+ :justification :assumption
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 1
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

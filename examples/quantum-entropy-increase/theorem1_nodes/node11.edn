@@ -1,0 +1,15 @@
+{:id :1-t1a011
+ :type :claim
+ :statement "**Part (i) Complete**: Since $H(L_f) = H(f)$ and $\\mathrm{Inf}(L_f) = \\mathrm{Inf}(f)$ (by Lemma 1), we have $H(\\tilde{L}_f) = H(L_f) + \\mathrm{Inf}(L_f) = H(f) + \\mathrm{Inf}(f)$."
+ :dependencies #{:1-t1a010 :1-t1a004}
+ :scope #{}
+ :justification :conjunction-intro
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 11
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

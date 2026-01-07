@@ -1,0 +1,15 @@
+{:id :1-j1k2l3
+ :type :claim
+ :statement "For all $x \\in \\{0,1\\}^n$ and $S \\subseteq [n]$, we have $\\langle x | Z_S | x \\rangle = (-1)^{\\sum_{i \\in S} x_i} = \\chi_S(x)$."
+ :dependencies #{:1-g7h8i9}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 4
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

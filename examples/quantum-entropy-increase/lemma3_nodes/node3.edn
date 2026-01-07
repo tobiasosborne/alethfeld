@@ -1,0 +1,15 @@
+{:id :1-t3a003
+ :type :claim
+ :statement "$T Z T^\\dagger = Z$: Since both $T$ and $Z$ are diagonal, $T Z T^\\dagger = \\text{diag}(1, \\omega) \\cdot \\text{diag}(1, -1) \\cdot \\text{diag}(1, \\omega^*) = \\text{diag}(1, -\\omega\\omega^*) = \\text{diag}(1, -1) = Z$."
+ :dependencies #{:1-t3a001}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 3
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

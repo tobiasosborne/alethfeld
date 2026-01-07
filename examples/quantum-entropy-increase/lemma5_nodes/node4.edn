@@ -1,0 +1,15 @@
+{:id :1-l5a004
+ :type :claim
+ :statement "Under conjugation by $U$, the Pauli expansion of $A = \\sum_P \\hat{a}(P) P$ transforms to $U A U^\\dagger = \\sum_P \\hat{a}(P) (U P U^\\dagger)$. Since $U P U^\\dagger$ spans the Pauli group bijectively (up to phases that don't affect coefficient magnitudes), the squared norm is preserved: $\\|U A U^\\dagger\\|_2^2 = \\|A\\|_2^2$. The Pauli spectral distribution of $U A U^\\dagger$ has $\\pi_{UAU^\\dagger}(Q) = \\pi_A(U^\\dagger Q U)$ where $Q = UPU^\\dagger$ for each $P$."
+ :dependencies #{:1-l5a003}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 4
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

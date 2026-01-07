@@ -19,6 +19,7 @@ examples/
 ├── n-copy-purification-channel/       # Quantum channel existence
 ├── prop-infinite-Z/                   # Permutation vs function expectations
 ├── qbf-rank1/                         # QBF entropy-influence (verified)
+├── quantum-entropy-increase/          # Quantum Entropy Increase Theorem ⭐ VERIFIED
 └── reconstruction-conjecture-small/   # Reconstruction conjecture n=3,4,5 ⭐ VERIFIED
 ```
 
@@ -31,7 +32,7 @@ Additional Lean formalizations in `lean/AlethfeldLean/Examples/BrokenMath/`:
 
 The EDN and LaTeX outputs may contain errors. Most Lean 4 files are unverified and should be regarded as untrusted—they may not compile, may contain incorrect formalizations, or may have `sorry` markers that hide significant gaps.
 
-**Exceptions:** The QBF Rank-1, Halting Undecidability, Dobinski's Formula, Divisor Sum 9!, and Reconstruction Conjecture (Kelly's Lemma) examples are fully machine-verified with 0 sorries in Lean 4.
+**Exceptions:** The QBF Rank-1, Halting Undecidability, Dobinski's Formula, Divisor Sum 9!, Quantum Entropy Increase Theorem, and Reconstruction Conjecture (Kelly's Lemma) examples are fully machine-verified with 0 sorries in Lean 4.
 
 ---
 
@@ -480,6 +481,77 @@ where $\mathcal{C}$ is regarded as both a left and right $\mathcal{C}$-module ca
 
 ---
 
+## Example 14: Quantum Entropy Increase Theorem ⭐ VERIFIED
+
+**Status:** ✅ **Fully verified in Lean 4 (0 sorries)**
+
+**Theorem:** For any Boolean function $f: \{0,1\}^n \to \{\pm 1\}$, let $L_f$ be its diagonal observable and $\tilde{L}_f = (T^{\otimes n} H^{\otimes n}) L_f (H^{\otimes n})^\dagger (T^{\otimes n})^\dagger$. Then:
+
+**(i)** $H(\tilde{L}_f) = H(f) + \mathrm{Inf}(f)$ — Entropy increases by exactly the influence
+
+**(ii)** $\mathrm{Inf}(\tilde{L}_f) = \mathrm{Inf}(f)$ — Influence is preserved
+
+**(iii)** $\frac{H(\tilde{L}_f)}{\mathrm{Inf}(\tilde{L}_f)} = \frac{H(f)}{\mathrm{Inf}(f)} + 1$ — The entropy-influence ratio increases by exactly 1
+
+**Why this example:** This is a fundamental result connecting classical Boolean function analysis (Fourier entropy, total influence) to quantum information theory (Pauli spectral distribution). The proof uses:
+- T-expansion structure for Pauli conjugation
+- Trace cycling identities for coefficient computation
+- Character orthogonality for Fourier-Pauli correspondence
+
+**Mathematical Background:**
+- **Pauli spectral distribution:** For observable $A$, $\pi_A(P) = |\hat{a}(P)|^2 / \|A\|_2^2$
+- **Spectral entropy:** $H(A) = -\sum_P \pi_A(P) \log_2 \pi_A(P)$
+- **Quantum influence:** $\mathrm{Inf}(A) = \sum_P \mathrm{wt}(P) \cdot \pi_A(P)$
+- The T-gate splits each X-type Pauli into $2^{|S|}$ terms of equal magnitude, increasing entropy
+
+**Files:**
+- `quantum-entropy-increase/quantum_lex_theorem.md` — Full mathematical exposition (10 definitions, 6 lemmas, 1 theorem)
+- `quantum-entropy-increase/lemma{1-6}.edn` — Individual lemma EDN proofs
+- `quantum-entropy-increase/theorem1.edn` — Main theorem EDN proof
+- `quantum-entropy-increase/proof.tex` — LaTeX output
+- `quantum-entropy-increase/proof.pdf` — Compiled PDF
+
+**Lean 4 Formalization:**
+```
+lean/AlethfeldLean/Quantum/
+├── Basic.lean                    ✅ 0 sorries — Core types (Mat2, QubitMat, MultiIndex)
+├── Pauli.lean                    ✅ 0 sorries — Pauli matrices, pauliString, trace
+├── BoolFunc.lean                 ✅ 0 sorries — Boolean functions, Fourier analysis
+├── Gates.lean                    ✅ 0 sorries — Hadamard/T gates, conjugation theorems
+├── TExpansion.lean               ✅ 0 sorries — T-expansion structure, weight preservation
+├── DiagonalObs.lean              ✅ 0 sorries — Diagonal observable L_f, Pauli expansion
+├── SpectralDist.lean             ✅ 0 sorries — Spectral distribution, entropy, influence
+├── ZIndexEquiv.lean              ✅ 0 sorries — Z-index bijection, classical-quantum equivalence
+├── PauliDiag/                    ✅ 0 sorries — 5 submodules for diagonal properties
+└── EntropyIncrease/              ✅ 0 sorries — 7 submodules for main theorem
+    ├── KroneckerPow.lean         ✅ Kronecker power structure
+    ├── TransformDefs.lean        ✅ Transformed observable definition
+    ├── BackTransform.lean        ✅ Back-transform diagonal lemmas
+    ├── SourceSubset.lean         ✅ T-expansion disjointness
+    ├── PauliCoeff.lean           ✅ Coefficient magnitude formulas
+    ├── SpectralDistTransform.lean ✅ Spectral distribution characterization
+    └── Entropy.lean              ✅ Final entropy/influence computation
+```
+
+**Total:** ~3800 lines of Lean 4 across 21 modules, all fully verified.
+
+Key theorems:
+```lean
+theorem quantum_entropy_increase_theorem {n : ℕ} (f : BoolFunc n) :
+    -- Part (i): H(L̃_f) = H(f) + Inf(f)
+    spectralEntropy (transformedObs f) = fourierEntropy f + totalInfluence f ∧
+    -- Part (ii): Inf(L̃_f) = Inf(f)
+    quantumInfluence (transformedObs f) = totalInfluence f ∧
+    -- Part (iii): H(L̃_f)/Inf(L̃_f) = H(f)/Inf(f) + 1
+    (totalInfluence f ≠ 0 →
+      spectralEntropy (transformedObs f) / quantumInfluence (transformedObs f) =
+      fourierEntropy f / totalInfluence f + 1)
+```
+
+See `lean/AlethfeldLean/Quantum/MANIFEST.md` for full module documentation.
+
+---
+
 ## How to Read These Examples
 
 Each proof is in three formats:
@@ -508,6 +580,7 @@ Publication-ready output. Compile with `pdflatex`. Uses Lamport-style step numbe
 | **Halting Undecidability** | 18 | 0 | ✅ **0 sorries, 0 axioms** | Fully machine-verified |
 | **Dobinski's Formula** | 23+ | 0 | ✅ **0 sorries** | Classic combinatorics; ratio test |
 | **Divisor Sum 9!** | 10 | 0 | ✅ **0 sorries** | BrokenMath: error detected + corrected |
+| **Quantum Entropy Increase** | 50+ | 0 | ✅ **0 sorries** | ~3800 lines Lean 4; flagship result |
 | **Deligne Tensor** | 39 | 0 | ❌ | Orchestrator v5.1; 4 verification rounds |
 | **Fib Modules** | 45 | 0 | ❌ | Orchestrator v5.1; adversarial verified |
 | **HMMT 2025-3** | 31 | 1 | ⚠️ **1 sorry** | BrokenMath: **THEOREM IS FALSE** |

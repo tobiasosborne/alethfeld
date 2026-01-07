@@ -1,0 +1,15 @@
+{:id :1-t1a009
+ :type :claim
+ :statement "This is exactly the setup of Lemma 6 (Entropy of Uniform Splitting) with $\\pi = $ Pauli spectral distribution after $H^{\\otimes n}$ (where $\\pi(X_S) = \\hat{f}(S)^2$) and $k_S = 2^{|S|}$ (splitting factor for each $X_S$)."
+ :dependencies #{:1-t1a007 :1-t1a008}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 9
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

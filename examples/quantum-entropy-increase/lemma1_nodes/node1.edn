@@ -1,0 +1,15 @@
+{:id :1-a1b2c3
+ :type :assumption
+ :statement "Let $f: \\{0,1\\}^n \\to \\{+1,-1\\}$ be a Boolean function with Fourier expansion $f(x) = \\sum_{S \\subseteq [n]} \\hat{f}(S) \\chi_S(x)$ where $\\chi_S(x) = (-1)^{\\sum_{i \\in S} x_i}$."
+ :dependencies #{}
+ :scope #{}
+ :justification :assumption
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 1
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

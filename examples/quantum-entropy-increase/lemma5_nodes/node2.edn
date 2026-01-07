@@ -1,0 +1,15 @@
+{:id :1-l5a002
+ :type :claim
+ :statement "For any single-qubit unitary $V$, conjugation maps the Pauli group to itself (up to phases): $V I V^\\dagger = I$ and $V P V^\\dagger \\in \\{\\pm X, \\pm Y, \\pm Z, \\pm iX, \\pm iY, \\pm iZ\\}$ for $P \\in \\{X, Y, Z\\}$. In particular, $\\mathrm{wt}(V P V^\\dagger) = \\mathrm{wt}(P)$ for any single-qubit Pauli $P$."
+ :dependencies #{}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 2
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

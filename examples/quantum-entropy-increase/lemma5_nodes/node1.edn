@@ -1,0 +1,15 @@
+{:id :1-l5a001
+ :type :definition
+ :statement "Recall the quantum influence of $A$ is defined as $\\mathrm{Inf}(A) = \\sum_{P \\in \\mathcal{P}_n} \\mathrm{wt}(P) \\cdot \\pi_A(P) = \\mathbb{E}_{P \\sim \\pi_A}[\\mathrm{wt}(P)]$ where $\\pi_A(P) = \\frac{\\hat{a}(P)^2}{\\|A\\|_2^2}$ is the Pauli spectral distribution and $\\mathrm{wt}(P) = |\\{i : P_i \\neq I\\}|$ is the weight."
+ :dependencies #{}
+ :scope #{}
+ :justification :definition-expansion
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 1
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

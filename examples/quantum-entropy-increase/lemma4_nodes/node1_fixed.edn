@@ -1,0 +1,15 @@
+{:id :1-l4a001
+ :type :assumption
+ :statement "By Lemma 3 (T Gate Conjugation): $T X T^\\dagger = \\frac{1}{\\sqrt{2}}(X + Y)$ and $T I T^\\dagger = I$."
+ :dependencies #{}
+ :scope #{}
+ :justification :assumption
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 1
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

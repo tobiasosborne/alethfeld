@@ -1,0 +1,15 @@
+{:id :1-t1a012
+ :type :claim
+ :statement "**Part (iii): Ratio increase.** From Parts (i) and (ii): $\\frac{H(\\tilde{L}_f)}{\\mathrm{Inf}(\\tilde{L}_f)} = \\frac{H(f) + \\mathrm{Inf}(f)}{\\mathrm{Inf}(f)} = \\frac{H(f)}{\\mathrm{Inf}(f)} + 1$."
+ :dependencies #{:1-t1a005 :1-t1a011}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 12
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

@@ -1,0 +1,15 @@
+{:id :1-l6a006
+ :type :claim
+ :statement "Sum over $j$ first. For the first term: $\\sum_{j=1}^{k_\\omega} \\frac{\\pi(\\omega)}{k_\\omega} = \\pi(\\omega)$, so $-\\sum_{\\omega} \\sum_j \\frac{\\pi(\\omega)}{k_\\omega} \\log_2 \\pi(\\omega) = -\\sum_{\\omega} \\pi(\\omega) \\log_2 \\pi(\\omega) = H(\\pi)$."
+ :dependencies #{:1-l6a005 :1-l6a001}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 6
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

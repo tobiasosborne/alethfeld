@@ -1,0 +1,15 @@
+{:id :1-t1a006
+ :type :claim
+ :statement "**Part (i): Entropy increase.** By Lemma 1, $L_f = \\sum_S \\hat{f}(S) Z_S$. By Lemma 2, $H^{\\otimes n} L_f (H^{\\otimes n})^\\dagger = \\sum_S \\hat{f}(S) X_S$ (Hadamard maps $Z_S \\to X_S$)."
+ :dependencies #{:1-t1a001}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 6
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

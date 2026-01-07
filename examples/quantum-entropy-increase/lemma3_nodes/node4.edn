@@ -1,0 +1,15 @@
+{:id :1-t3a004
+ :type :claim
+ :statement "$T X T^\\dagger = \\frac{1}{\\sqrt{2}}(X + Y)$: Computing $T X T^\\dagger = \\begin{pmatrix} 1 & 0 \\\\ 0 & \\omega \\end{pmatrix} \\begin{pmatrix} 0 & 1 \\\\ 1 & 0 \\end{pmatrix} \\begin{pmatrix} 1 & 0 \\\\ 0 & \\omega^* \\end{pmatrix} = \\begin{pmatrix} 0 & \\omega^* \\\\ \\omega & 0 \\end{pmatrix}$. Since $\\omega = e^{i\\pi/4} = \\frac{1+i}{\\sqrt{2}}$ and $\\omega^* = \\frac{1-i}{\\sqrt{2}}$, we have $\\begin{pmatrix} 0 & \\omega^* \\\\ \\omega & 0 \\end{pmatrix} = \\frac{1}{\\sqrt{2}} \\begin{pmatrix} 0 & 1-i \\\\ 1+i & 0 \\end{pmatrix} = \\frac{1}{\\sqrt{2}} \\left( \\begin{pmatrix} 0 & 1 \\\\ 1 & 0 \\end{pmatrix} + \\begin{pmatrix} 0 & -i \\\\ i & 0 \\end{pmatrix} \\right) = \\frac{1}{\\sqrt{2}}(X + Y)$."
+ :dependencies #{:1-t3a001}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 4
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

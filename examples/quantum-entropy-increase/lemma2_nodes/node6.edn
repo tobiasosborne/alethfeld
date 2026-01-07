@@ -1,0 +1,15 @@
+{:id :1-h2a006
+ :type :claim
+ :statement "For $Z_S = \\bigotimes_{i \\in S} Z_i \\otimes \\bigotimes_{i \\notin S} I_i$, using the tensor product property $(A \\otimes B)(C \\otimes D) = (AC) \\otimes (BD)$ and $(A \\otimes B)^\\dagger = A^\\dagger \\otimes B^\\dagger$, we have $H^{\\otimes n} Z_S (H^{\\otimes n})^\\dagger = \\bigotimes_{i=1}^n H P_i H^\\dagger$ where $P_i = Z$ for $i \\in S$ and $P_i = I$ for $i \\notin S$."
+ :dependencies #{:1-h2a001}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 6
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

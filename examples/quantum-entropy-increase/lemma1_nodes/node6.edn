@@ -1,0 +1,15 @@
+{:id :1-p7q8r9
+ :type :claim
+ :statement "For the operator $\\sum_{S \\subseteq [n]} \\hat{f}(S) Z_S$, the diagonal matrix element is $\\langle x | \\sum_{S} \\hat{f}(S) Z_S | x \\rangle = \\sum_{S} \\hat{f}(S) \\chi_S(x) = f(x)$ by the Fourier expansion of $f$."
+ :dependencies #{:1-j1k2l3 :1-a1b2c3}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 6
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

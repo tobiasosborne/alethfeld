@@ -1,0 +1,15 @@
+{:id :1-t1a002
+ :type :claim
+ :statement "**Part (ii): Influence invariance.** The transformation $\\mathcal{U} = T^{\\otimes n} H^{\\otimes n}$ is a product unitary, being a tensor product of single-qubit gates $T H$ on each qubit."
+ :dependencies #{:1-t1a001}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 2
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

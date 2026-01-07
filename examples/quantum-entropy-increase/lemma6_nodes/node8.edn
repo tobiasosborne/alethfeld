@@ -1,0 +1,15 @@
+{:id :1-l6a008
+ :type :qed
+ :statement "Combining: $H(\\pi') = H(\\pi) + \\sum_{\\omega \\in \\Omega} \\pi(\\omega) \\log_2 k_\\omega$. This is the entropy of the original distribution plus the expected $\\log_2$ of the splitting factors. QED."
+ :dependencies #{:1-l6a006 :1-l6a007}
+ :scope #{}
+ :justification :qed
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 8
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

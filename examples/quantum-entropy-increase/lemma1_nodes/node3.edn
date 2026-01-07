@@ -1,0 +1,15 @@
+{:id :1-g7h8i9
+ :type :definition
+ :statement "Define $Z_S = \\bigotimes_{i=1}^n P_i$ where $P_i = Z$ if $i \\in S$ and $P_i = I$ otherwise. This is a diagonal Pauli operator with eigenvalues $\\pm 1$."
+ :dependencies #{}
+ :scope #{}
+ :justification :definition-expansion
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 3
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

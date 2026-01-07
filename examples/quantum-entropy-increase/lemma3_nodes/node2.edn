@@ -1,0 +1,15 @@
+{:id :1-t3a002
+ :type :claim
+ :statement "$T I T^\\dagger = I$: Since $T$ is diagonal, $T \\cdot I \\cdot T^\\dagger = T T^\\dagger = I$ (T is unitary)."
+ :dependencies #{:1-t3a001}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 2
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

@@ -1,0 +1,15 @@
+{:id :1-l5a005
+ :type :qed
+ :statement "Therefore $\\mathrm{Inf}(U A U^\\dagger) = \\sum_Q \\mathrm{wt}(Q) \\cdot \\pi_{UAU^\\dagger}(Q) = \\sum_P \\mathrm{wt}(UPU^\\dagger) \\cdot \\pi_A(P) = \\sum_P \\mathrm{wt}(P) \\cdot \\pi_A(P) = \\mathrm{Inf}(A)$, where the second-to-last equality uses $\\mathrm{wt}(UPU^\\dagger) = \\mathrm{wt}(P)$. QED."
+ :dependencies #{:1-l5a001 :1-l5a003 :1-l5a004}
+ :scope #{}
+ :justification :qed
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 5
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

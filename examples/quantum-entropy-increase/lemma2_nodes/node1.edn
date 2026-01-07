@@ -1,0 +1,15 @@
+{:id :1-h2a001
+ :type :definition
+ :statement "The Hadamard gate is defined as $H = \\frac{1}{\\sqrt{2}} \\begin{pmatrix} 1 & 1 \\\\ 1 & -1 \\end{pmatrix}$. Note that $H^\\dagger = H$ (Hermitian) and $H^2 = I$ (involutory)."
+ :dependencies #{}
+ :scope #{}
+ :justification :definition-expansion
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 1
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

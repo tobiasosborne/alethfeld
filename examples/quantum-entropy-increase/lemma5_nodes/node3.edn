@@ -1,0 +1,15 @@
+{:id :1-l5a003
+ :type :claim
+ :statement "For a product unitary $U = U_1 \\otimes \\cdots \\otimes U_n$ and Pauli string $P = P_1 \\otimes \\cdots \\otimes P_n$, we have $U P U^\\dagger = (U_1 P_1 U_1^\\dagger) \\otimes \\cdots \\otimes (U_n P_n U_n^\\dagger)$. Since each $U_i P_i U_i^\\dagger$ has the same weight contribution as $P_i$ (either 0 for $I$ or 1 for non-$I$), we have $\\mathrm{wt}(U P U^\\dagger) = \\sum_i \\mathbf{1}[P_i \\neq I] = \\mathrm{wt}(P)$."
+ :dependencies #{:1-l5a002}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 3
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

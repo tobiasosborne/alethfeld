@@ -1,0 +1,15 @@
+{:id :1-l4a002
+ :type :claim
+ :statement "For $X_S = \\bigotimes_{i \\in S} X_i \\otimes \\bigotimes_{i \\notin S} I_i$, using tensor product properties: $T^{\\otimes n} X_S (T^{\\otimes n})^\\dagger = \\bigotimes_{i \\in S} (T X T^\\dagger) \\otimes \\bigotimes_{i \\notin S} (T I T^\\dagger) = \\bigotimes_{i \\in S} \\frac{1}{\\sqrt{2}}(X + Y) \\otimes \\bigotimes_{i \\notin S} I$."
+ :dependencies #{:1-l4a001}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 2
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

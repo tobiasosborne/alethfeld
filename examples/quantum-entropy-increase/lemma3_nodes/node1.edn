@@ -1,0 +1,15 @@
+{:id :1-t3a001
+ :type :definition
+ :statement "The T gate is defined as $T = \\begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\\pi/4} \\end{pmatrix} = \\text{diag}(1, \\omega)$ where $\\omega = e^{i\\pi/4} = \\frac{1+i}{\\sqrt{2}}$. Note $T^\\dagger = \\text{diag}(1, \\omega^*)$ where $\\omega^* = e^{-i\\pi/4}$."
+ :dependencies #{}
+ :scope #{}
+ :justification :definition-expansion
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 1
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

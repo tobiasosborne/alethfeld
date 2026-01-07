@@ -1,0 +1,15 @@
+{:id :1-l6a007
+ :type :claim
+ :statement "For the second term: $\\sum_{j=1}^{k_\\omega} \\frac{\\pi(\\omega)}{k_\\omega} \\log_2 k_\\omega = \\pi(\\omega) \\log_2 k_\\omega$ (summing $k_\\omega$ identical terms), so $\\sum_{\\omega} \\sum_j \\frac{\\pi(\\omega)}{k_\\omega} \\log_2 k_\\omega = \\sum_{\\omega} \\pi(\\omega) \\log_2 k_\\omega = \\mathbb{E}_\\pi[\\log_2 k_\\omega]$."
+ :dependencies #{:1-l6a005}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 7
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

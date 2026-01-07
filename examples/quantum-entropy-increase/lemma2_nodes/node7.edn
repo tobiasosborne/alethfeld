@@ -1,0 +1,15 @@
+{:id :1-h2a007
+ :type :qed
+ :statement "Therefore $H^{\\otimes n} Z_S (H^{\\otimes n})^\\dagger = \\bigotimes_{i \\in S} (H Z H^\\dagger) \\otimes \\bigotimes_{i \\notin S} (H I H^\\dagger) = \\bigotimes_{i \\in S} X_i \\otimes \\bigotimes_{i \\notin S} I_i = X_S$. QED."
+ :dependencies #{:1-h2a004 :1-h2a005 :1-h2a006}
+ :scope #{}
+ :justification :qed
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 7
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

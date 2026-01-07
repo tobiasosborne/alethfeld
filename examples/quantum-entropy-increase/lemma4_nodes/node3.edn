@@ -1,0 +1,15 @@
+{:id :1-l4a003
+ :type :claim
+ :statement "Expanding the tensor product over $i \\in S$: $\\bigotimes_{i \\in S} \\frac{1}{\\sqrt{2}}(X_i + Y_i) = \\frac{1}{2^{|S|/2}} \\bigotimes_{i \\in S}(X_i + Y_i) = \\frac{1}{2^{|S|/2}} \\sum_{R \\subseteq S} \\prod_{i \\in S \\setminus R} X_i \\prod_{j \\in R} Y_j$ where each term in the sum corresponds to a choice of subset $R \\subseteq S$ representing positions where $Y$ is chosen instead of $X$."
+ :dependencies #{:1-l4a002}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 3
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

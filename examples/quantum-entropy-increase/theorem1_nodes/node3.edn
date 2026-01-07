@@ -1,0 +1,15 @@
+{:id :1-t1a003
+ :type :claim
+ :statement "By Lemma 5 (Weight Preservation), for any product unitary $U$: $\\mathrm{Inf}(U A U^\\dagger) = \\mathrm{Inf}(A)$. Applying this twice: $\\mathrm{Inf}(\\tilde{L}_f) = \\mathrm{Inf}(T^{\\otimes n} H^{\\otimes n} L_f (H^{\\otimes n})^\\dagger (T^{\\otimes n})^\\dagger) = \\mathrm{Inf}(L_f)$."
+ :dependencies #{:1-t1a002}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 3
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

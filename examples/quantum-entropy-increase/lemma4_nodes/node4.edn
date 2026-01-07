@@ -1,0 +1,15 @@
+{:id :1-l4a004
+ :type :claim
+ :statement "Each term $\\prod_{i \\in S \\setminus R} X_i \\prod_{j \\in R} Y_j$ is a Pauli operator with weight exactly $|S|$: there are $|S \\setminus R| + |R| = |S|$ non-identity factors, each being either $X$ or $Y$. The phases $\\omega_R$ arise from commutation relations $XY = iZ$ when reordering products, but do not affect the weight."
+ :dependencies #{:1-l4a003}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 4
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

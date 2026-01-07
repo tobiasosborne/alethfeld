@@ -1,0 +1,15 @@
+{:id :1-t1a008
+ :type :claim
+ :statement "By Lemma 4, applying $T^{\\otimes n}$ splits each $X_S$ into $2^{|S|}$ Paulis of equal coefficient magnitude $2^{-|S|/2} \\cdot |\\hat{f}(S)|$. The squared coefficients become $\\frac{\\hat{f}(S)^2}{2^{|S|}}$ for each of $2^{|S|}$ Paulis."
+ :dependencies #{:1-t1a006}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 8
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

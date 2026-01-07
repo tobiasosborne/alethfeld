@@ -1,0 +1,15 @@
+{:id :1-l4a006
+ :type :qed
+ :statement "Therefore $T^{\\otimes n} X_S (T^{\\otimes n})^\\dagger = \\frac{1}{2^{|S|/2}} \\sum_{R \\subseteq S} \\omega_R \\cdot X_{S \\setminus R} Y_R I_{S^c}$ where all $2^{|S|}$ resulting Paulis have weight $|S|$ and coefficients of equal magnitude $2^{-|S|/2}$. QED."
+ :dependencies #{:1-l4a003 :1-l4a004 :1-l4a005}
+ :scope #{}
+ :justification :qed
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 6
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

@@ -1,0 +1,15 @@
+{:id :2-m4n5o6
+ :type :claim
+ :statement "Proof of $\\langle x | Z_S | x \\rangle = \\chi_S(x)$: Since $Z = \\begin{pmatrix} 1 & 0 \\\\ 0 & -1 \\end{pmatrix}$, we have $\\langle x_i | Z | x_i \\rangle = (-1)^{x_i}$ for each qubit. For $i \\in S$, the $Z_S$ operator has $Z$ at position $i$, and $\\langle x_i | Z | x_i \\rangle = (-1)^{x_i}$. For $i \\notin S$, $Z_S$ has $I$, and $\\langle x_i | I | x_i \\rangle = 1$. By tensor product structure, $\\langle x | Z_S | x \\rangle = \\prod_{i \\in S} (-1)^{x_i} = (-1)^{\\sum_{i \\in S} x_i} = \\chi_S(x)$."
+ :dependencies #{:1-j1k2l3 :1-g7h8i9}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 2
+ :parent :1-j1k2l3
+ :display-order 5
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

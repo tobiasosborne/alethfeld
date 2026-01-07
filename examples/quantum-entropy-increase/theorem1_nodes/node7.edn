@@ -1,0 +1,15 @@
+{:id :1-t1a007
+ :type :claim
+ :statement "The Pauli spectral distribution after Hadamard is $\\pi(X_S) = \\hat{f}(S)^2$ - the distribution is the same as before (just relabeled $Z_S \\to X_S$). Hence $H(H^{\\otimes n} L_f (H^{\\otimes n})^\\dagger) = H(L_f) = H(f)$ (entropy unchanged by relabeling)."
+ :dependencies #{:1-t1a006}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 7
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

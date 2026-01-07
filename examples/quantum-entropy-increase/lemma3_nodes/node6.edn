@@ -1,0 +1,15 @@
+{:id :1-t3a006
+ :type :qed
+ :statement "The four conjugation relations are established: $T I T^\\dagger = I$, $T Z T^\\dagger = Z$, $T X T^\\dagger = \\frac{1}{\\sqrt{2}}(X + Y)$, and $T Y T^\\dagger = \\frac{1}{\\sqrt{2}}(Y - X)$. QED."
+ :dependencies #{:1-t3a002 :1-t3a003 :1-t3a004 :1-t3a005}
+ :scope #{}
+ :justification :qed
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 6
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

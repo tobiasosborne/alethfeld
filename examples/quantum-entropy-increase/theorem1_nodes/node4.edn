@@ -1,0 +1,15 @@
+{:id :1-t1a004
+ :type :claim
+ :statement "By Lemma 1, the Pauli spectral distribution $\\pi_{L_f}(Z_S) = \\hat{f}(S)^2$ (with all other Paulis having zero weight). Thus $\\mathrm{Inf}(L_f) = \\sum_S |S| \\cdot \\hat{f}(S)^2 = \\mathrm{Inf}(f)$ by Definition 8.2."
+ :dependencies #{:1-t1a001}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 4
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

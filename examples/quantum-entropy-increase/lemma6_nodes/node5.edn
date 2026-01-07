@@ -1,0 +1,15 @@
+{:id :1-l6a005
+ :type :claim
+ :statement "Using $\\log_2 \\frac{\\pi(\\omega)}{k_\\omega} = \\log_2 \\pi(\\omega) - \\log_2 k_\\omega$, we get: $H(\\pi') = -\\sum_{\\omega} \\sum_{j=1}^{k_\\omega} \\frac{\\pi(\\omega)}{k_\\omega} (\\log_2 \\pi(\\omega) - \\log_2 k_\\omega) = -\\sum_{\\omega} \\sum_{j=1}^{k_\\omega} \\frac{\\pi(\\omega)}{k_\\omega} \\log_2 \\pi(\\omega) + \\sum_{\\omega} \\sum_{j=1}^{k_\\omega} \\frac{\\pi(\\omega)}{k_\\omega} \\log_2 k_\\omega$."
+ :dependencies #{:1-l6a004}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 5
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

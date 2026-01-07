@@ -1,0 +1,15 @@
+{:id :1-l6a004
+ :type :claim
+ :statement "Compute the entropy of $\\pi'$: $H(\\pi') = -\\sum_{(\\omega,j) \\in \\Omega'} \\pi'(\\omega,j) \\log_2 \\pi'(\\omega,j) = -\\sum_{\\omega \\in \\Omega} \\sum_{j=1}^{k_\\omega} \\frac{\\pi(\\omega)}{k_\\omega} \\log_2 \\frac{\\pi(\\omega)}{k_\\omega}$."
+ :dependencies #{:1-l6a002}
+ :scope #{}
+ :justification :definition-expansion
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 4
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

@@ -1,0 +1,15 @@
+{:id :1-l4a005
+ :type :claim
+ :statement "The number of terms is $2^{|S|}$ (one for each subset $R \\subseteq S$), each with coefficient magnitude $\\frac{1}{2^{|S|/2}}$. The squared coefficient magnitudes are $\\frac{1}{2^{|S|}}$, summing to 1 over all $2^{|S|}$ terms."
+ :dependencies #{:1-l4a003}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 5
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

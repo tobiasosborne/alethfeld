@@ -1,0 +1,15 @@
+{:id :1-l6a002
+ :type :assumption
+ :statement "For each $\\omega \\in \\Omega$, let $k_\\omega \\geq 1$ be a positive integer. Define $\\Omega' = \\bigsqcup_{\\omega \\in \\Omega} \\{(\\omega, j) : j \\in [k_\\omega]\\}$ and distribution $\\pi'(\\omega, j) = \\frac{\\pi(\\omega)}{k_\\omega}$ for each $j \\in [k_\\omega]$."
+ :dependencies #{:1-l6a001}
+ :scope #{}
+ :justification :assumption
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 2
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

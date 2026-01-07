@@ -1,0 +1,15 @@
+{:id :1-t1a010
+ :type :claim
+ :statement "By Lemma 6: $H(\\tilde{L}_f) = H(L_f) + \\sum_S \\pi(X_S) \\log_2 k_S = H(L_f) + \\sum_S \\hat{f}(S)^2 \\log_2(2^{|S|}) = H(L_f) + \\sum_S \\hat{f}(S)^2 \\cdot |S| = H(L_f) + \\mathrm{Inf}(f)$."
+ :dependencies #{:1-t1a009}
+ :scope #{}
+ :justification :substitution
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 10
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}

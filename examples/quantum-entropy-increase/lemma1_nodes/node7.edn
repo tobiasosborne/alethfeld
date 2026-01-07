@@ -1,0 +1,15 @@
+{:id :1-s1t2u3
+ :type :claim
+ :statement "Since $Z_S$ is diagonal (tensor product of diagonal matrices $Z$ and $I$), and $L_f$ is diagonal by definition, the off-diagonal elements of $\\sum_S \\hat{f}(S) Z_S$ are zero, matching those of $L_f$."
+ :dependencies #{:1-g7h8i9 :1-d4e5f6}
+ :scope #{}
+ :justification :algebraic-rewrite
+ :status :verified
+ :taint :clean
+ :depth 1
+ :parent nil
+ :display-order 7
+ :provenance {:created-at "2026-01-06T18:00:00Z"
+              :created-by :prover
+              :round 1
+              :revision-of nil}}
