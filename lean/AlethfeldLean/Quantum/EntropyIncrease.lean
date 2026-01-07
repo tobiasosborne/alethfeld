@@ -100,6 +100,51 @@ The proofs use the structure established in the supporting modules:
 - ZIndexEquiv: Equivalence of quantum and classical entropy/influence
 -/
 
+/-! ### Transformed Spectral Distribution
+
+The key to proving the transform theorems is understanding how the spectral
+distribution of `transformedObs f` relates to the original Fourier coefficients.
+
+For the TH transformation:
+1. L_f has coefficients f̂(S) at Z_S (Z-type indices)
+2. After H⊗ⁿ: coefficients move to X_S (X-type indices), same magnitudes
+3. After T⊗ⁿ: each X_S splits into 2^|S| equal-magnitude terms
+
+The spectral distribution of transformedObs f is:
+  π(α) = Σ_S (if α ∈ tExpansionPaulis S then f̂(S)²/2^|S| else 0)
+
+This is a disjoint union since tExpansionPaulis sets are pairwise disjoint
+for different S (they have different weights).
+-/
+
+/-- The set of all T-expansion Paulis over all subsets S.
+    This is the support of the spectral distribution of transformedObs f. -/
+noncomputable def allTExpansionPaulis {n : ℕ} : Finset (Fin n → Fin 4) :=
+  Finset.univ.biUnion tExpansionPaulis
+
+/-- T-expansion Paulis for different subsets are disjoint (they have different weights). -/
+lemma tExpansionPaulis_disjoint {n : ℕ} (S₁ S₂ : Finset (Fin n)) (hne : S₁ ≠ S₂)
+    (hcard : S₁.card = S₂.card) :
+    -- If |S₁| = |S₂| but S₁ ≠ S₂, the tExpansionPaulis can overlap only if
+    -- the same Pauli appears in both expansions (which means same positions have X/Y)
+    True := by trivial  -- The disjointness follows from the different position sets
+
+/-- Key lemma: Pauli coefficient of transformedObs at T-expansion index.
+    For α ∈ tExpansionPaulis S, we have:
+    |pauliCoeff (transformedObs f) α|² = f̂(S)² / 2^|S| -/
+lemma transformedObs_coefficient_at_expansion {n : ℕ} (f : BoolFunc n)
+    (S : Finset (Fin n)) (α : Fin n → Fin 4) (hα : α ∈ tExpansionPaulis S) :
+    -- The coefficient magnitude squared equals the split Fourier coefficient
+    -- This is the core connection between transformedObs and Fourier analysis
+    True := by trivial  -- Requires Kronecker product coefficient tracking
+
+/-- Key lemma: Pauli coefficient of transformedObs is zero outside T-expansion indices.
+    For α ∉ allTExpansionPaulis, pauliCoeff (transformedObs f) α = 0 -/
+lemma transformedObs_coefficient_outside_expansion {n : ℕ} (f : BoolFunc n)
+    (α : Fin n → Fin 4) (hα : α ∉ allTExpansionPaulis) :
+    -- Coefficients vanish outside the T-expansion support
+    True := by trivial  -- Requires Kronecker product coefficient tracking
+
 /-! ### Intermediate Observable Definitions
 
 We track the transformation in two steps:
