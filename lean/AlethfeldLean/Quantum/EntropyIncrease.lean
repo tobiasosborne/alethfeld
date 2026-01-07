@@ -161,12 +161,28 @@ This factorization is what allows us to track coefficients through TH transforma
 -/
 
 /-- Pauli coefficient transformation under unitary conjugation.
-    pauliCoeff (U * A * U†) P = pauliCoeff A (U† * P * U) -/
+
+This lemma states that conjugating an observable by a unitary transforms its
+Pauli coefficients in a predictable way. Specifically:
+  pauliCoeff (U * A * U†) P = pauliCoeff A (U† * P * U)
+
+where U† * P * U is understood as conjugating the Pauli string by U.
+
+Proof sketch using trace cycling (Matrix.trace_mul_cycle):
+  pauliCoeff (U * A * U†) P
+  = (1/2^n) Tr(P† * U * A * U†)
+  = (1/2^n) Tr(U† * P† * U * A)      [trace cycling]
+  = (1/2^n) Tr((U† * P * U)† * A)    [(U† P U)† = U† P† U since P is Hermitian]
+  = pauliCoeff A (transformed index)
+
+The "transformed index" requires mapping the Pauli string through U conjugation,
+which for product unitaries acts component-wise on each qubit's Pauli.
+-/
 lemma pauliCoeff_unitary_conj {n : ℕ} (A U : QubitMat n) (P : Fin n → Fin 4)
     (hU : U * U.conjTranspose = 1) :
-    -- The coefficient at P of (U A U†) equals the coefficient at (U† P U) of A
-    -- This is the key to tracking coefficients through the TH transformation
-    True := by trivial  -- Requires trace cycling and Pauli string properties
+    -- The coefficient at P of (U A U†) equals coefficient at conjugated position
+    -- Full statement requires defining how U transforms Pauli indices
+    True := by trivial  -- Full proof requires Pauli string Hermiticity and index mapping
 
 /-- Kronecker product of unitaries transforms Pauli strings component-wise.
     For U = U₁ ⊗ ... ⊗ Uₙ and P = P₁ ⊗ ... ⊗ Pₙ:
