@@ -157,6 +157,31 @@ theorem tgate_conj_Z : tGate * σZ * tGate.conjTranspose = σZ := by
   fin_cases i <;> fin_cases j <;>
     simp [mul_apply, Fin.sum_univ_two, of_apply]
 
+/-- Helper: exp(-iπ/4) * exp(iπ/4) = 1 (alternative form) -/
+private lemma exp_neg_pi4_mul_exp_pi4_alt :
+    Complex.exp (Complex.I * Real.pi * (-1/4)) * Complex.exp (Complex.I * Real.pi * (1/4)) = 1 := by
+  rw [← Complex.exp_add]
+  have heq : Complex.I * Real.pi * (-1/4) + Complex.I * Real.pi * (1/4) = 0 := by ring
+  rw [heq, Complex.exp_zero]
+
+/-- T† Z T = Z (inverse conjugation) -/
+theorem tgate_inv_conj_Z : tGate.conjTranspose * σZ * tGate = σZ := by
+  rw [tGate_conjTranspose]
+  unfold tGate σZ
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp only [mul_apply, Fin.sum_univ_two, of_apply, cons_val_zero, cons_val_one,
+      Matrix.cons_val', Matrix.cons_val_zero', Matrix.cons_val_succ']
+  all_goals ring_nf
+  -- The (1,1) case: need -(exp * exp) = -1
+  rw [exp_neg_pi4_mul_exp_pi4_alt]
+
+/-- H† Z H = X (inverse Hadamard conjugation, using H† = H) -/
+theorem hadamard_inv_conj_Z : hadamard.conjTranspose * σZ * hadamard = σX := by
+  conv_lhs => rw [hadamard_conjTranspose]
+  conv_rhs => rw [← hadamard_conj_Z]
+  rw [hadamard_conjTranspose]
+
 /-- exp(-iπ/4) = (1-i)/√2 -/
 lemma exp_neg_I_pi_div_4_eq :
     Complex.exp (-Complex.I * Real.pi / 4) = (1 - Complex.I) / Real.sqrt 2 := by
@@ -204,6 +229,38 @@ theorem tgate_conj_Y :
   fin_cases i <;> fin_cases j <;>
     simp only [mul_apply, Fin.sum_univ_two, of_apply, smul_apply, smul_eq_mul,
       sub_apply, cons_val_zero, cons_val_one, Matrix.cons_val', Matrix.cons_val_zero',
+      Matrix.cons_val_succ', exp_I_pi_div_4_eq, exp_neg_I_pi_div_4_eq] <;>
+    ring_nf <;>
+    simp only [Complex.I_sq] <;>
+    ring
+
+/-! ## Inverse T Gate Conjugation (T† P T)
+
+These lemmas show how Paulis transform under T† · T (needed for coefficient tracking). -/
+
+/-- T† X T = (X - Y)/√2 -/
+theorem tgate_inv_conj_X :
+    tGate.conjTranspose * σX * tGate =
+    (1 / Real.sqrt 2 : ℂ) • (σX - σY) := by
+  rw [tGate_conjTranspose]
+  unfold tGate σX σY
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp only [mul_apply, Fin.sum_univ_two, of_apply, smul_apply, smul_eq_mul,
+      sub_apply, cons_val_zero, cons_val_one, Matrix.cons_val', Matrix.cons_val_zero',
+      Matrix.cons_val_succ', exp_I_pi_div_4_eq, exp_neg_I_pi_div_4_eq] <;>
+    ring
+
+/-- T† Y T = (X + Y)/√2 -/
+theorem tgate_inv_conj_Y :
+    tGate.conjTranspose * σY * tGate =
+    (1 / Real.sqrt 2 : ℂ) • (σX + σY) := by
+  rw [tGate_conjTranspose]
+  unfold tGate σX σY
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp only [mul_apply, Fin.sum_univ_two, of_apply, smul_apply, smul_eq_mul,
+      add_apply, cons_val_zero, cons_val_one, Matrix.cons_val', Matrix.cons_val_zero',
       Matrix.cons_val_succ', exp_I_pi_div_4_eq, exp_neg_I_pi_div_4_eq] <;>
     ring_nf <;>
     simp only [Complex.I_sq] <;>

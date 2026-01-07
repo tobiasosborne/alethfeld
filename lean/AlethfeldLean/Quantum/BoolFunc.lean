@@ -218,6 +218,97 @@ lemma character_completeness {n : ℕ} (x y : Fin n → Bool) :
       intro S _
       simp only [φ, symmDiff_symmDiff_cancel_right]
 
+/-- Parseval's identity: Σ_S f̂(S)² = 1 for Boolean functions with values ±1.
+
+For functions f : {0,1}^n → {±1}:
+Σ_S f̂(S)² = (1/2^n)² · Σ_x Σ_y f(x)f(y) · Σ_S χ_S(x)χ_S(y)
+          = (1/2^n)² · Σ_x f(x)² · 2^n  (by character_completeness)
+          = (1/2^n) · 2^n · 1 = 1
+
+since f(x)² = 1 for all x ∈ {±1}. -/
+lemma parseval_identity {n : ℕ} (f : BoolFunc n)
+    (hf : ∀ x, f x = 1 ∨ f x = -1) :
+    ∑ S : Finset (Fin n), (fourierCoeff f S)^2 = 1 := by
+  -- Use character orthogonality. Proof strategy:
+  -- Σ_S f̂(S)² = (1/2^n)² Σ_x Σ_y f(x)f(y) Σ_S χ_S(x)χ_S(y)
+  --           = (1/2^n)² Σ_x f(x)² · 2^n  (by character_completeness: only x=y survives)
+  --           = (1/2^n) · 2^n = 1  (since f(x)² = 1)
+  have h2n_ne : (2 : ℝ)^n ≠ 0 := pow_ne_zero n (by norm_num)
+  have h2n_pos : (0 : ℝ) < 2^n := by positivity
+  -- Expand fourierCoeff
+  unfold fourierCoeff
+  -- Step 1: Factor out (1/2^n)^2 from each term
+  -- (1/2^n * sum)^2 = (1/2^n)^2 * sum * sum
+  have h1 : ∑ S : Finset (Fin n), (1 / (2 : ℝ)^n * ∑ x, (f x : ℝ) * parityFunc S x)^2 =
+      (1 / (2 : ℝ)^n)^2 * ∑ S : Finset (Fin n),
+          (∑ x, (f x : ℝ) * parityFunc S x) * (∑ y, (f y : ℝ) * parityFunc S y) := by
+    simp_rw [mul_pow, sq, one_div]
+    rw [← Finset.mul_sum]
+  rw [h1]; clear h1
+  -- Step 2: Expand products and swap sum order
+  have h2 : ∑ S : Finset (Fin n),
+          (∑ x, (f x : ℝ) * parityFunc S x) * (∑ y, (f y : ℝ) * parityFunc S y) =
+      ∑ x : Fin n → Bool, ∑ y : Fin n → Bool,
+          (f x : ℝ) * f y * ∑ S : Finset (Fin n), (parityFunc S x : ℝ) * parityFunc S y := by
+    simp only [Finset.sum_mul, Finset.mul_sum]
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl; intro x _
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl; intro y _
+    apply Finset.sum_congr rfl; intro S _
+    ring
+  rw [h2]; clear h2
+  -- Step 3: Apply character completeness
+  have h3 : ∀ x y : Fin n → Bool, ∑ S : Finset (Fin n), (parityFunc S x : ℝ) * parityFunc S y =
+      if x = y then (2 : ℝ)^n else 0 := by
+    intro x y
+    have h := character_completeness x y
+    split_ifs with hxy
+    · -- x = y case: each term is χ_S(x)² = 1, sum = 2^n
+      subst hxy
+      simp only [← sq]
+      have hsq1 : ∀ S, (parityFunc S x : ℝ)^2 = 1 := by
+        intro S; unfold parityFunc; split_ifs <;> norm_num
+      simp only [hsq1, Finset.sum_const, Finset.card_univ, Fintype.card_finset,
+        Fintype.card_fin, nsmul_eq_mul, mul_one]
+      norm_cast
+    · -- x ≠ y case: use character_completeness
+      simp only [hxy, ↓reduceIte] at h
+      -- The real sum equals the real part of the complex sum
+      have hconv : ∑ S : Finset (Fin n), (parityFunc S x : ℝ) * parityFunc S y =
+          (∑ S : Finset (Fin n), (parityFunc S x : ℂ) * parityFunc S y).re := by
+        rw [Complex.re_sum]
+        apply Finset.sum_congr rfl; intro S _
+        simp only [Complex.mul_re, Complex.intCast_re, Complex.intCast_im, mul_zero, sub_zero]
+      rw [hconv, h]
+      simp
+  simp_rw [h3]
+  -- Step 4: Sum collapses to x = y using sum_ite_eq
+  simp only [mul_ite, mul_zero]
+  -- Need to match pattern: ∑ y, if x = y then ... else 0 = if x ∈ univ then ... else 0
+  have h4 : ∀ x : Fin n → Bool, ∑ y : Fin n → Bool, (if x = y then (f x : ℝ) * f y * (2 : ℝ)^n else 0) =
+      (f x : ℝ) * f x * (2 : ℝ)^n := by
+    intro x
+    rw [Finset.sum_ite_eq]
+    simp only [Finset.mem_univ, ↓reduceIte]
+  simp_rw [h4]
+  -- Step 5: f(x)² = 1
+  have hfx_sq : ∀ x, (f x : ℝ) * f x = 1 := fun x => by
+    cases hf x with
+    | inl h => simp [h]
+    | inr h => simp [h]
+  simp only [hfx_sq, one_mul]
+  -- Step 6: Sum of 2^n over 2^n elements
+  rw [Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool, Fintype.card_fin]
+  simp only [nsmul_eq_mul]
+  -- Final: (1/2^n)² * (2^n * 2^n) = 1
+  -- Note: nsmul_eq_mul introduces ↑(2^n) as a Nat cast
+  norm_cast
+  field_simp
+  -- Goal: ↑(2 ^ n * 2 ^ n) = ↑(2 ^ n) ^ 2
+  push_cast
+  ring
+
 /-- Fourier inversion formula: f(x) = Σ_S f̂(S) χ_S(x)
 
 This is the standard Fourier inversion on {±1}^n. The proof uses character orthogonality:

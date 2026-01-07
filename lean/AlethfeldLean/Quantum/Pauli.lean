@@ -62,6 +62,32 @@ theorem trace_σ (j : Fin 4) : Matrix.trace (σ j) = if j = 0 then 2 else 0 := b
 theorem trace_σ_ne_zero {j : Fin 4} (hj : j ≠ 0) : Matrix.trace (σ j) = 0 := by
   simp [trace_σ, hj]
 
+/-! ## Pauli Hermitian Properties -/
+
+/-- σZ is Hermitian (self-adjoint): σZ† = σZ -/
+lemma σZ_hermitian : σZ.conjTranspose = σZ := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [σZ, Matrix.conjTranspose_apply, of_apply, cons_val_zero, cons_val_one]
+
+/-- σX is Hermitian -/
+lemma σX_hermitian : σX.conjTranspose = σX := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [σX, Matrix.conjTranspose_apply, of_apply, cons_val_zero, cons_val_one]
+
+/-- σI is Hermitian -/
+lemma σI_hermitian : σI.conjTranspose = σI := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [σI, Matrix.conjTranspose_apply, of_apply, cons_val_zero, cons_val_one]
+
+/-- σY is Hermitian -/
+lemma σY_hermitian : σY.conjTranspose = σY := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [σY, Matrix.conjTranspose_apply, of_apply, cons_val_zero, cons_val_one, Complex.conj_I]
+
 /-! ## Pauli Strings (Tensor Products) -/
 
 /-- Equivalence between Fin (2^(n+1)) and Fin (2^n) × Fin 2 -/
