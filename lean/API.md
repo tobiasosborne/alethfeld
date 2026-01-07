@@ -7,6 +7,14 @@ This document serves as a guide for **Prover** and **Formalizer** agents using t
 *   **Package Name**: `AlethfeldLean`
 *   **Dependency**: `mathlib` (v4.26.0)
 *   **Verification Status**: (As of Jan 2026)
+    *   **Quantum Entropy Increase Theorem**: ⚠️ 2 axioms remaining
+        *   BoolFunc: ✅ 0 sorries (character completeness, Fourier inversion)
+        *   PauliDiag: ✅ 0 sorries (diagonal lemmas)
+        *   Gates: ✅ 0 sorries (H/T conjugation)
+        *   DiagonalObs: ✅ 0 sorries (Pauli expansion)
+        *   SpectralDist: ✅ 0 sorries (coefficient lemmas)
+        *   ZIndexEquiv: ✅ 0 sorries (entropy/influence equality)
+        *   EntropyIncrease: ⚠️ 2 axioms (transform behavior)
     *   L1 (Fourier): ✅ 0 sorries
     *   L2 (Influence): ✅ 0 sorries
     *   L3 (Entropy): ✅ 0 sorries
@@ -29,10 +37,19 @@ This document serves as a guide for **Prover** and **Formalizer** agents using t
 The library is organized under the `AlethfeldLean` namespace.
 
 *   **`AlethfeldLean`** (Root)
-    *   **`Quantum`** (Core definitions)
+    *   **`Quantum`** (Core definitions and Entropy Increase Theorem)
         *   `Basic`: Fundamental types (`Mat2`, `QubitMat`) and index tools.
         *   `Pauli`: Pauli matrices, strings, and trace properties.
         *   `Bloch`: Bloch sphere representations and expectation values.
+        *   **Entropy Increase Theorem** (modular structure):
+            *   `BoolFunc`: Boolean functions, Fourier coefficients, character orthogonality.
+            *   `PauliDiag`: Pauli diagonal properties, `pauliString_diag` lemmas.
+            *   `Gates`: Hadamard/T gate definitions and conjugation theorems.
+            *   `TExpansion`: T expansion of X_S, Pauli weight, Shannon entropy.
+            *   `DiagonalObs`: Diagonal observables L_f, Z_S strings, Pauli expansion.
+            *   `SpectralDist`: Pauli coefficients, spectral distribution, quantum entropy.
+            *   `ZIndexEquiv`: Z-index bijection, entropy/influence equality theorems.
+            *   `EntropyIncrease`: Main theorem, Kronecker powers, transform axioms.
     *   **`QBF`** (Quantum Boolean Functions)
         *   `Rank1`
             *   `L1Fourier`: Fourier analysis of rank-1 product state QBFs (Lemma L1).
@@ -87,6 +104,51 @@ The library is organized under the `AlethfeldLean` namespace.
 | `BlochVector.r` | `Fin 4 → ℝ` | Extended components: $r^{(0)}=1, r^{(1)}=x, \dots$ |
 | `blochState θ φ` | `ℝ → ℝ → QubitState` | State vector $\cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$. |
 | `blochProduct` | `(Fin n → BlochVector) → MultiIndex n → ℝ` | Product $\prod_k r_k^{(\alpha_k)}$. |
+
+### Quantum Entropy Increase Theorem (`AlethfeldLean.Quantum.EntropyIncrease`)
+
+The Quantum Entropy Increase Theorem establishes that applying the T⊗ⁿ H⊗ⁿ transformation to a diagonal observable L_f increases its spectral entropy by exactly the classical influence of f.
+
+**Import for full theorem:**
+```lean
+import AlethfeldLean.Quantum.EntropyIncrease
+```
+
+#### Boolean Functions (`AlethfeldLean.Quantum.BoolFunc`)
+
+| Symbol | Definition | Description |
+| :--- | :--- | :--- |
+| `BoolFunc n` | `(Fin n → Bool) → ℤ` | Boolean function f : {0,1}ⁿ → {±1}. |
+| `parityFunc S x` | `(-1)^|S ∩ x|` | Character χ_S(x). |
+| `fourierCoeff f S` | `(1/2ⁿ) Σ_x f(x) χ_S(x)` | Fourier coefficient f̂(S). |
+| `fourierEntropy f` | `-Σ_S f̂(S)² log₂ f̂(S)²` | Classical Fourier entropy. |
+| `totalInfluence f` | `Σ_S |S| · f̂(S)²` | Classical total influence. |
+
+#### Diagonal Observables (`AlethfeldLean.Quantum.DiagonalObs`)
+
+| Symbol | Definition | Description |
+| :--- | :--- | :--- |
+| `pauliZ_S S` | `pauliString (i ↦ if i∈S then 3 else 0)` | Z_S Pauli string. |
+| `pauliX_S S` | `pauliString (i ↦ if i∈S then 1 else 0)` | X_S Pauli string. |
+| `diagonalObs f` | `diagonal (x ↦ f(bits(x)))` | L_f diagonal observable. |
+
+#### Spectral Distribution (`AlethfeldLean.Quantum.SpectralDist`)
+
+| Symbol | Definition | Description |
+| :--- | :--- | :--- |
+| `pauliCoeff A P` | `(1/2ⁿ) Tr(P† A)` | Pauli coefficient â(P). |
+| `spectralDist A P` | `|pauliCoeff A P|²` | Spectral distribution π_A(P). |
+| `spectralEntropy A` | `-Σ_P π(P) log₂ π(P)` | Quantum spectral entropy H(A). |
+| `quantumInfluence A` | `Σ_P wt(P) · π(P)` | Quantum influence Inf(A). |
+
+#### Gates (`AlethfeldLean.Quantum.Gates`)
+
+| Symbol | Definition | Description |
+| :--- | :--- | :--- |
+| `hadamard` | `(1/√2) [[1,1],[1,-1]]` | Hadamard gate H. |
+| `tGate` | `[[1,0],[0,e^{iπ/4}]]` | T gate. |
+| `kroneckerPow n M` | `M ⊗ ... ⊗ M` (n times) | n-fold Kronecker power. |
+| `transformedObs f` | `T⊗ⁿ H⊗ⁿ L_f (H⊗ⁿ)† (T⊗ⁿ)†` | Transformed observable L̃_f. |
 
 ### QBF Structures (`AlethfeldLean.QBF.Rank1.L1Fourier`)
 
@@ -170,6 +232,45 @@ These are the primary verified results available for use in higher-level proofs.
 *   **`expectation_σ (θ φ) (j)`**:
     $$\langle \psi | \sigma_j | \psi \rangle = r^{(j)}$$ 
     *Usage*: Converting quantum expectations to algebraic Bloch components.
+
+### Quantum Entropy Increase (`AlethfeldLean.Quantum.EntropyIncrease`)
+
+*   **`character_completeness (x y)`** (`BoolFunc`):
+    $$\sum_S \chi_S(x) \chi_S(y) = \begin{cases} 2^n & \text{if } x = y \\ 0 & \text{otherwise} \end{cases}$$
+    *Usage*: Character orthogonality relation for (ℤ/2)ⁿ.
+
+*   **`fourier_inversion (f) (x)`** (`BoolFunc`):
+    $$f(x) = \sum_S \hat{f}(S) \chi_S(x)$$
+    *Usage*: Standard Fourier inversion formula on Boolean functions.
+
+*   **`diagonal_pauli_expansion (f)`** (`DiagonalObs`):
+    $$L_f = \sum_S \hat{f}(S) \cdot Z_S$$
+    *Usage*: Pauli expansion of diagonal observable (Lemma 1).
+
+*   **`hadamard_conj_Z`** (`Gates`):
+    $$H Z H^\dagger = X$$
+    *Usage*: Hadamard conjugation of Pauli Z.
+
+*   **`tgate_conj_X`** (`Gates`):
+    $$T X T^\dagger = \frac{1}{\sqrt{2}}(X + Y)$$
+    *Usage*: T gate conjugation of Pauli X.
+
+*   **`diagonalObs_spectralEntropy_eq (f)`** (`ZIndexEquiv`):
+    $$H(L_f) = H_{\text{Fourier}}(f)$$
+    *Usage*: Spectral entropy of diagonal observable equals classical Fourier entropy.
+
+*   **`diagonalObs_quantumInfluence_eq (f)`** (`ZIndexEquiv`):
+    $$\text{Inf}(L_f) = \text{Inf}_{\text{classical}}(f)$$
+    *Usage*: Quantum influence of diagonal observable equals classical influence.
+
+*   **`quantum_entropy_increase_theorem (f)`** (`EntropyIncrease`) — **Main Theorem**:
+    For transformed observable $\tilde{L}_f = T^{\otimes n} H^{\otimes n} L_f (H^{\otimes n})^\dagger (T^{\otimes n})^\dagger$:
+    1. $H(\tilde{L}_f) = H(f) + \text{Inf}(f)$ — Entropy increases by influence
+    2. $\text{Inf}(\tilde{L}_f) = \text{Inf}(f)$ — Influence preserved
+    3. $H(\tilde{L}_f)/\text{Inf}(\tilde{L}_f) = H(f)/\text{Inf}(f) + 1$ — Ratio increases by 1
+    *Usage*: **Main result** — TH transformation increases entropy by exactly the influence.
+
+**Verification Status:** ✅ All supporting lemmas proven (0 sorries). Main theorem relies on 2 axioms (`spectral_entropy_transform_axiom`, `quantum_influence_transform_axiom`) encoding transform behavior verified in EDN proof graph.
 
 ### Fourier Analysis (`AlethfeldLean.QBF.Rank1.L1Fourier`)
 
