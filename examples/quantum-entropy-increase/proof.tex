@@ -69,7 +69,7 @@
 \textbf{Graph ID:} & \texttt{graph-50d508-cb496c} (Theorem 1) \\
 \textbf{Version:} & 14 \\
 \textbf{Status:} & Verified \\
-\textbf{Lean 4 Verification:} & 0 sorries (axiom-based) \\
+\textbf{Lean 4 Verification:} & Fully verified (0 sorries, 0 axioms) \\
 \end{tabular}
 \end{center}
 
@@ -407,7 +407,7 @@ H(\tilde{L}_f) = H(L_f) + \Inf(L_f) = H(f) + \Inf(f)
 
 \section{Lean 4 Formalization}
 
-The proof has been formalized in Lean 4 with zero sorries. The core structure uses axioms for mathematical facts requiring infrastructure not yet in Mathlib (Kronecker powers, Pauli coefficient extraction), with the detailed mathematical justifications provided in the EDN proof graphs.
+The proof has been fully formalized in Lean 4 with zero sorries and zero axioms. All lemmas and theorems are completely proved, including the diagonal Pauli expansion, spectral distribution characterization, and the main entropy increase theorem.
 
 \subsection{Key Definitions}
 
@@ -469,11 +469,11 @@ theorem quantum_entropy_increase_theorem {n : N} (f : BoolFunc n) :
 \texttt{tgate\_conj\_Y} & theorem & 257--269 & Proved \\
 \texttt{tExpansion\_weight\_preserved} & theorem & 283--297 & Proved \\
 \texttt{tExpansion\_card} & theorem & 300--318 & Proved \\
-\texttt{diagonal\_pauli\_expansion} & axiom & 81--82 & Axiom \\
-\texttt{diagonalObs\_spectralEntropy\_eq} & axiom & 387--388 & Axiom \\
-\texttt{diagonalObs\_quantumInfluence\_eq} & axiom & 391--392 & Axiom \\
-\texttt{th\_transform\_entropy\_increase} & axiom & 395--397 & Axiom \\
-\texttt{th\_transform\_influence\_preserved} & axiom & 400--401 & Axiom \\
+\texttt{diagonal\_pauli\_expansion} & theorem & 93 & Proved \\
+\texttt{diagonalObs\_spectralEntropy\_eq} & theorem & ZIndexEquiv.lean:78 & Proved \\
+\texttt{diagonalObs\_quantumInfluence\_eq} & theorem & ZIndexEquiv.lean:95 & Proved \\
+\texttt{th\_transform\_entropy\_increase} & theorem & 81 & Proved \\
+\texttt{th\_transform\_influence\_preserved} & theorem & 99 & Proved \\
 \texttt{entropy\_increase} & theorem & 406--409 & Proved \\
 \texttt{influence\_preserved} & theorem & 412--414 & Proved \\
 \texttt{ratio\_increase} & theorem & 422--427 & Proved \\
@@ -483,6 +483,6 @@ theorem quantum_entropy_increase_theorem {n : N} (f : BoolFunc n) :
 \end{center}
 
 \vspace{1em}
-\textbf{Summary:} 14 theorems/lemmas proved, 5 axioms (encoding established mathematical facts requiring additional Mathlib infrastructure), 0 sorries.
+\textbf{Summary:} All 19 theorems/lemmas fully proved, 0 axioms, 0 sorries.
 
 \end{document}
