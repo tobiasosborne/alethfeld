@@ -23,7 +23,7 @@
 
 % Lamport-style proof steps
 \newcommand{\proofstep}[2]{\item[$\langle #1 \rangle$#2.]}
-\newcommand{\leanref}[1]{\textcolor{blue}{\small [Lean: L#1]}}
+\newcommand{\leanref}[2]{\textcolor{blue}{\small [Lean: \texttt{#1}:#2]}}
 
 % Lean code listings
 \lstdefinelanguage{Lean4}{
@@ -163,7 +163,7 @@ where $\hat{f}(S)$ are the Fourier coefficients of $f$.
 
 \proofstep{1}{7} Therefore $L_f = \sum_{S \subseteq [n]} \hat{f}(S) Z_S$. \textbf{QED.}
 \end{enumerate}
-\leanref{81--82}
+\leanref{DiagonalObs.lean}{93}
 \end{proof}
 
 \subsection{Lemma 2: Hadamard Conjugation}
@@ -199,7 +199,7 @@ H^{\otimes n} Z_S (H^{\otimes n})^\dagger = \bigotimes_{i \in S} (HZH^\dagger) \
 \]
 \textbf{QED.}
 \end{enumerate}
-\leanref{110--140}
+\leanref{Gates.lean}{57--75}
 \end{proof}
 
 \subsection{Lemma 3: T Gate Conjugation}
@@ -235,7 +235,7 @@ $\text{diag}(1, \omega) \cdot \text{diag}(1, -1) \cdot \text{diag}(1, \omega^*) 
 where $i\omega = e^{i3\pi/4} = \frac{-1+i}{\sqrt{2}}$ and $-i\omega^* = e^{-i3\pi/4} = \frac{-1-i}{\sqrt{2}}$.
 \textbf{QED.}
 \end{enumerate}
-\leanref{203--269}
+\leanref{Gates.lean}{168--246}
 \end{proof}
 
 \subsection{Lemma 4: T Expansion}
@@ -267,7 +267,7 @@ where each term corresponds to choosing subset $R \subseteq S$ for positions whe
 
 \proofstep{1}{5} The number of terms is $2^{|S|}$ (one for each $R \subseteq S$), each with coefficient magnitude $2^{-|S|/2}$. The squared magnitudes are $2^{-|S|}$, summing to 1. \textbf{QED.}
 \end{enumerate}
-\leanref{283--318}
+\leanref{TExpansion.lean}{35--52}
 \end{proof}
 
 \subsection{Lemma 5: Weight Preservation}
@@ -296,7 +296,7 @@ Since each $U_i P_i U_i^\dagger$ has the same weight contribution as $P_i$, we h
 \]
 \textbf{QED.}
 \end{enumerate}
-\leanref{320--336}
+\leanref{TExpansion.lean}{85}
 \end{proof}
 
 \subsection{Lemma 6: Entropy of Uniform Splitting}
@@ -332,7 +332,7 @@ H(\pi') = -\sum_{\omega} \sum_{j=1}^{k_\omega} \frac{\pi(\omega)}{k_\omega} \log
 
 \proofstep{1}{8} Combining: $H(\pi') = H(\pi) + \sum_{\omega \in \Omega} \pi(\omega) \log_2 k_\omega$. \textbf{QED.}
 \end{enumerate}
-\leanref{341--350}
+\leanref{TExpansion.lean}{157}
 \end{proof}
 
 \section{Main Result}
@@ -402,7 +402,7 @@ H(\tilde{L}_f) = H(L_f) + \Inf(L_f) = H(f) + \Inf(f)
 
 \proofstep{1}{13} \textbf{Theorem 1 Complete.} All three parts established. \textbf{QED.}
 \end{enumerate}
-\leanref{406--445}
+\leanref{EntropyIncrease.lean}{133}
 \end{proof}
 
 \section{Lean 4 Formalization}
