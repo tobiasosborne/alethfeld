@@ -131,12 +131,25 @@ lemma tExpansionPaulis_disjoint {n : ℕ} (S₁ S₂ : Finset (Fin n)) (hne : S�
 
 /-- Key lemma: Pauli coefficient of transformedObs at T-expansion index.
     For α ∈ tExpansionPaulis S, we have:
-    |pauliCoeff (transformedObs f) α|² = f̂(S)² / 2^|S| -/
+    |pauliCoeff (transformedObs f) α|² = f̂(S)² / 2^|S|
+
+Proof structure:
+1. transformedObs f = T⊗ⁿ H⊗ⁿ L_f (H⊗ⁿ)† (T⊗ⁿ)†
+2. L_f = Σ_S f̂(S) Z_S (by diagonal_pauli_expansion)
+3. H⊗ⁿ Z_S (H⊗ⁿ)† = X_S (by Kronecker product of hadamard_conj_Z)
+4. T⊗ⁿ X_S (T⊗ⁿ)† = (1/√2)^|S| Σ_{R⊆S} ω_R P_{S,R} (by T expansion)
+5. The coefficient at α ∈ tExpansionPaulis S is f̂(S) · (1/√2)^|S| · ω_R
+6. |coefficient|² = f̂(S)² / 2^|S|
+
+The key missing piece is connecting Kronecker powers to component-wise action.
+-/
 lemma transformedObs_coefficient_at_expansion {n : ℕ} (f : BoolFunc n)
     (S : Finset (Fin n)) (α : Fin n → Fin 4) (hα : α ∈ tExpansionPaulis S) :
-    -- The coefficient magnitude squared equals the split Fourier coefficient
-    -- This is the core connection between transformedObs and Fourier analysis
-    True := by trivial  -- Requires Kronecker product coefficient tracking
+    -- The spectral distribution at α equals the split Fourier coefficient squared
+    -- spectralDist (transformedObs f) α = (fourierCoeff f S)^2 / 2^S.card
+    -- This requires connecting transformedObs to Pauli coefficients
+    -- Placeholder pending Kronecker coefficient tracking infrastructure
+    True := by trivial
 
 /-- Key lemma: Pauli coefficient of transformedObs is zero outside T-expansion indices.
     For α ∉ allTExpansionPaulis, pauliCoeff (transformedObs f) α = 0 -/
