@@ -122,12 +122,8 @@ for different S (they have different weights).
 noncomputable def allTExpansionPaulis {n : ℕ} : Finset (Fin n → Fin 4) :=
   Finset.univ.biUnion tExpansionPaulis
 
-/-- T-expansion Paulis for different subsets are disjoint (they have different weights). -/
-lemma tExpansionPaulis_disjoint {n : ℕ} (S₁ S₂ : Finset (Fin n)) (hne : S₁ ≠ S₂)
-    (hcard : S₁.card = S₂.card) :
-    -- If |S₁| = |S₂| but S₁ ≠ S₂, the tExpansionPaulis can overlap only if
-    -- the same Pauli appears in both expansions (which means same positions have X/Y)
-    True := by trivial  -- The disjointness follows from the different position sets
+-- T-expansion Paulis for different subsets are disjoint (proved below after sourceSubset).
+-- See tExpansionPaulis_pairwiseDisjoint for the full statement
 
 /-- Key lemma: Pauli coefficient of transformedObs at T-expansion index.
     For α ∈ tExpansionPaulis S, we have:
@@ -250,6 +246,24 @@ lemma sourceSubset_of_tExpansion {n : ℕ} (S : Finset (Fin n)) (α : Fin n → 
       simp [Finset.mem_sdiff, hiR]
     · left  -- α i = 1 (X)
       simp [Finset.mem_sdiff, hiS, hiR]
+
+/-- T-expansion Paulis for different subsets are disjoint.
+    If α ∈ tExpansionPaulis S₁ and α ∈ tExpansionPaulis S₂, then S₁ = S₂.
+    This follows from sourceSubset_of_tExpansion: sourceSubset α = S for α ∈ tExpansionPaulis S. -/
+lemma tExpansionPaulis_pairwiseDisjoint {n : ℕ} (S₁ S₂ : Finset (Fin n)) (hne : S₁ ≠ S₂) :
+    Disjoint (tExpansionPaulis S₁) (tExpansionPaulis S₂) := by
+  rw [Finset.disjoint_left]
+  intro α hα₁ hα₂
+  have h1 := sourceSubset_of_tExpansion S₁ α hα₁
+  have h2 := sourceSubset_of_tExpansion S₂ α hα₂
+  rw [h1] at h2
+  exact hne h2
+
+/-- PairwiseDisjoint version for use with sum_biUnion. -/
+lemma tExpansionPaulis_pairwise {n : ℕ} :
+    (Set.univ : Set (Finset (Fin n))).PairwiseDisjoint tExpansionPaulis := by
+  intro S₁ _ S₂ _ hne
+  exact tExpansionPaulis_pairwiseDisjoint S₁ S₂ hne
 
 /-! ### Intermediate Observable Definitions
 
