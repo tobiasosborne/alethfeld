@@ -1,7 +1,7 @@
 # Quantum Entropy Increase Theorem - Handoff Document
 
-**Date:** 2026-01-06
-**Status:** In Progress - 6 sorries remaining in Lean formalization
+**Date:** 2026-01-07
+**Status:** In Progress - 3 compile errors + 2 axioms to remove
 
 ## Overview
 
@@ -19,55 +19,42 @@ From `ralph-prompt.md`:
 ### Lean File Location
 `/home/tobiasosborne/Projects/alethfeld/lean/AlethfeldLean/Quantum/EntropyIncrease.lean`
 
-### Sorry Count: 6 (down from 7)
+### Remaining Issues: 3 compile errors + 2 axioms
 
-| Line | Lemma/Theorem | Status | Difficulty |
-|------|---------------|--------|------------|
-| 534 | `fourier_inversion` | Sorry | Medium - needs character completeness |
-| 911 | `pauliCoeff_diagonalObs_Z_S` | Sorry | Medium - needs bijection lemmas |
-| 946 | `diagonalObs_spectralEntropy_eq` | Sorry | Hard - depends on above |
-| 953 | `diagonalObs_quantumInfluence_eq` | Sorry | Hard - depends on above |
-| 960 | `th_transform_entropy_increase` | Sorry | Hard - needs Kronecker power infra |
-| 969 | `th_transform_influence_preserved` | Sorry | Hard - needs Kronecker power infra |
+| Line | Issue | Status | Difficulty |
+|------|-------|--------|------------|
+| 879 | `pauliCoeff_diagonalObs_Z_S` - sum_congr type mismatch | Error | Medium - needs sum bijection |
+| 1052 | `diagonalObs_spectralEntropy_eq` - sum_bij' mismatch | Error | Hard - needs filter bijection |
+| 1115 | `diagonalObs_quantumInfluence_eq` - sum_bij' mismatch | Error | Hard - needs filter bijection |
+| 1190 | `spectral_entropy_transform_axiom` | Axiom to remove | Hard |
+| 1221 | `quantum_influence_transform_axiom` | Axiom to remove | Hard |
 
-### Completed Proofs
+### Completed Proofs This Session
 
-1. **`pauliString_diag_zero_of_XY`** (lines 262-280)
-   - Proves pauliString has zero diagonal if any component is X or Y
-   - Key for showing Pauli coefficients vanish for non-Z indices
+1. **`character_completeness`** (lines 378-443) - **FIXED**
+   - Uses `Finset.sum_involution` for the x ≠ y case
+   - Fixed type issues with explicit `interval_cases` handling
 
-2. **`pauliCoeff_diagonalObs_nonZ`** (lines 759-789)
-   - Proves Pauli coefficient of diagonal observable is zero for non-Z_S indices
-   - Uses `pauliString_diag_zero_of_XY` and diagonal matrix properties
+2. **`fourier_inversion`** (lines 457-489) - **FIXED**
+   - Uses `character_completeness` to show only x = y term survives
+   - Fixed by using `simp only [Finset.sum_mul, Finset.mul_sum, mul_assoc]`
 
-3. **`character_completeness`** (lines 378-524) - **PARTIAL**
-   - The x = y case is fully proved
-   - The x ≠ y case has the correct structure (involution argument) but technical issues remain
-   - Errors in lines 428, 437, 465, 468, 471, 490, 503
+3. **`pauliString_diag_zero_of_XY`** - was already working
 
-### In-Progress Work
+4. **`pauliCoeff_diagonalObs_nonZ`** - was already working
 
-#### Character Completeness Lemma (lines 378-524)
+### Core Issue: Sum Type Mismatches
 
-The lemma states:
+The main remaining challenge is that several proofs require showing equality between:
+- Sums over `Fin (2^n)` (matrix indices)
+- Sums over `Fin n → Bool` (Boolean function inputs)
+
+These are finite types of the same cardinality, related by the bijection:
 ```lean
-lemma character_completeness {n : ℕ} (x y : Fin n → Bool) :
-    (∑ S : Finset (Fin n), (parityFunc S x : ℂ) * (parityFunc S y : ℂ)) =
-      if x = y then (2 : ℂ)^n else 0
+fun x : Fin (2^n) => fun i : Fin n => x.val.testBit i.val
 ```
 
-**Proof Strategy:**
-- x = y case: Each term is χ_S(x)² = 1, sum = 2^n (number of subsets) ✓ DONE
-- x ≠ y case: Use `Finset.sum_involution` with φ(S) = S ∆ {i} where i is a position where x and y differ
-
-**Technical Issues:**
-1. Line 428: `simp_all` doesn't close goal in inr case
-2. Lines 437, 471: Trivial modular arithmetic goals not closing
-3. Line 465: Type mismatch with `h'` and `hi_in`
-4. Lines 468-469: omega can't prove and "no goals" error
-5. Lines 490, 503: `h_card_change` not being used correctly as a function
-
-**Root Cause:** The `h_card_change` lemma is parameterized by `z : Fin n → Bool` but the proof tries to specialize it incorrectly. Need to restructure the case analysis.
+The current code uses `sum_congr rfl` which fails because Lean doesn't automatically see these types as the same. Need to use `Finset.sum_bij` with this explicit bijection.
 
 ## Key Definitions
 
@@ -79,55 +66,40 @@ noncomputable def fourierCoeff {n : ℕ} (f : BoolFunc n) (S : Finset (Fin n)) :
 noncomputable def diagonalObs {n : ℕ} (f : BoolFunc n) : QubitMat n  -- L_f
 ```
 
-### Pauli Operators
+### Bijection (defined in code but needs lemmas)
 ```lean
-noncomputable def pauliZ_S {n : ℕ} (S : Finset (Fin n)) : QubitMat n  -- Z at S, I elsewhere
-noncomputable def pauliX_S {n : ℕ} (S : Finset (Fin n)) : QubitMat n  -- X at S, I elsewhere
+let toBoolFunc : Fin (2^n) → (Fin n → Bool) := fun x i => x.val.testBit i.val
 ```
-
-## Dependencies
-
-### Required Infrastructure (Not Yet Built)
-1. **Kronecker powers**: `kroneckerPow n M` for n-fold tensor product
-2. **Bijection lemmas**: Connection between `Fin (2^n)` and `Fin n → Bool` via testBit
-3. **Trace of Kronecker products**: `trace (A ⊗ B) = trace A * trace B`
-
-### Available from Pauli.lean
-- `pauliString` - n-fold tensor product of Pauli matrices
-- `trace_pauliString` - Trace is 2^n if all identity, 0 otherwise
-- `finPow2SuccEquiv` - Equivalence between Fin (2^(n+1)) and Fin (2^n) × Fin 2
 
 ## Recommended Next Steps
 
-### Priority 1: Fix `character_completeness`
-1. Restructure the x ≠ y case to properly use h_card_change
-2. Alternative: Prove a simpler `parityFunc_symmDiff_parity` lemma first
-3. The mathematical argument is sound; issues are purely technical
+### Priority 1: Fix `pauliCoeff_diagonalObs_Z_S` (line 879)
 
-### Priority 2: Prove `fourier_inversion`
-Once character_completeness works:
-```lean
-lemma fourier_inversion {n : ℕ} (f : BoolFunc n) (x : Fin n → Bool) :
-    (f x : ℂ) = ∑ S : Finset (Fin n), (fourierCoeff f S : ℂ) * (parityFunc S x : ℂ)
-```
-Proof outline:
-1. Expand fourierCoeff definition
-2. Swap sums
-3. Apply character_completeness
-4. Only the y = x term survives
+Replace `apply Finset.sum_congr rfl` with `Finset.sum_bij` using the testBit bijection.
 
-### Priority 3: Prove `pauliCoeff_diagonalObs_Z_S`
-```lean
-lemma pauliCoeff_diagonalObs_Z_S {n : ℕ} (f : BoolFunc n) (S : Finset (Fin n)) :
-    pauliCoeff (diagonalObs f) (fun i => if i ∈ S then 3 else 0) = (fourierCoeff f S : ℂ)
-```
-Requires:
-- Connection between testBit and Bool function representation
-- Trace computation through diagonal matrices
+Need to prove:
+1. `toBoolFunc` is a bijection between `Fin (2^n)` and `Fin n → Bool`
+2. For each `x : Fin (2^n)`, the term transformation is correct
 
-### Priority 4: Remaining Theorems
-- `diagonalObs_spectralEntropy_eq` and `diagonalObs_quantumInfluence_eq` follow from above
-- `th_transform_entropy_increase` and `th_transform_influence_preserved` need Kronecker power infrastructure
+### Priority 2: Fix `diagonalObs_spectralEntropy_eq` (line 1052)
+
+The `sum_bij'` with `toZIndex` is failing because:
+- LHS sums over `{α : Fin n → Fin 4 | ¬∃ i, α i ∈ {1, 2}}`
+- RHS sums over `Finset (Fin n)`
+
+Need to adjust the bijection arguments or restructure the proof.
+
+### Priority 3: Fix `diagonalObs_quantumInfluence_eq` (line 1115)
+
+Same issue as Priority 2 - `sum_bij'` arguments don't unify.
+
+### Priority 4: Remove Axioms (lines 1190, 1221)
+
+Replace `axiom spectral_entropy_transform_axiom` and `axiom quantum_influence_transform_axiom` with actual proofs. These encode:
+- TH transformation effect on spectral entropy
+- TH transformation preserves influence
+
+These require the Kronecker power infrastructure that's partially built.
 
 ## File Structure
 
@@ -143,7 +115,7 @@ proofs/quantum_lex_theorem/
 lean/AlethfeldLean/Quantum/
 ├── Basic.lean               # Core quantum definitions
 ├── Pauli.lean               # Pauli matrices and pauliString
-└── EntropyIncrease.lean     # Main theorem (820+ lines)
+└── EntropyIncrease.lean     # Main theorem (~1170 lines)
 ```
 
 ## Mathematical Background
@@ -167,20 +139,29 @@ Where:
 5. **Weight Preservation**: Product unitaries preserve Pauli weight
 6. **Entropy of Uniform Splitting**: Entropy increases by log(k) when splitting into k equal parts
 
-## Notes for Next Session
+## Technical Notes
 
-1. The `character_completeness` proof is ~150 lines and structurally correct but has technical bugs
-2. Consider using `native_decide` or `decide` for finite case analysis
-3. The `Finset.sum_involution` API requires careful argument ordering
-4. All EDN proofs and LaTeX are complete; only Lean formalization remains
-5. The git status shows uncommitted changes in `.claude/` hooks and scripts
+1. The `Fin (2^n) ≃ (Fin n → Bool)` equivalence is established via testBit
+2. The `toZIndex` function maps `Finset (Fin n)` to `Fin n → Fin 4` (for Z-indices)
+3. All EDN proofs and LaTeX are complete; only Lean formalization remains
+4. The file has ~1170 lines with substantial infrastructure already built
 
 ## Commands to Resume
 
 ```bash
-cd /home/tobiasosborne/Projects/alethfeld
-# Check current sorry count
-grep -n "sorry" lean/AlethfeldLean/Quantum/EntropyIncrease.lean | wc -l
-# Run Lean type checker
-lake build AlethfeldLean.Quantum.EntropyIncrease
+cd /home/tobiasosborne/Projects/alethfeld/lean
+# Build to see errors
+lake build AlethfeldLean.Quantum.EntropyIncrease 2>&1 | grep "^error:"
+# Check for axioms (should be 2)
+grep -n "^axiom" AlethfeldLean/Quantum/EntropyIncrease.lean
+# Check for sorries (should be 0)
+grep -n "sorry" AlethfeldLean/Quantum/EntropyIncrease.lean
 ```
+
+## Session History
+
+### 2026-01-07 Session
+- Fixed `character_completeness` proof using `interval_cases` approach
+- Fixed `fourier_inversion` proof using proper sum manipulation
+- Fixed various simp/ring issues throughout the file
+- Identified remaining issues: 3 compile errors (sum bijection problems) + 2 axioms
