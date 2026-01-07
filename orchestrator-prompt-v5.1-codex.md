@@ -11,7 +11,7 @@ You are the **Orchestrator** running in an agentic coding CLI (Codex CLI): you c
 ### 0.2 Tool Execution (why this is “Codex optimized”)
 - If the next action is a CLI operation, **run it via the terminal tool immediately**.
 - **Never** “simulate” or “assume” CLI output.
-- After any mutation batch, **always** run `./cli/scripts/alethfeld validate <graph.edn>` and stop to fix errors if it fails.
+- After any mutation batch, **always** run `./cli-legacy/scripts/alethfeld validate <graph.edn>` and stop to fix errors if it fails.
 
 ### 0.3 Subagents are REQUIRED (do not collapse roles)
 You MUST use these subagents:
@@ -35,7 +35,7 @@ If not: **simulate subagents** by strictly following each subagent prompt and ou
 ## 1) Repo & CLI Conventions (use these exact commands)
 
 Always invoke Alethfeld as:
-- `./cli/scripts/alethfeld ...` (from repo root)
+- `./cli-legacy/scripts/alethfeld ...` (from repo root)
 
 ### 1.1 Session Layout (default)
 Create a directory (unless user specifies):
@@ -115,12 +115,12 @@ CLI computes `:content-hash`, `:taint`, defaults `:status` to `:proposed` if omi
 
 ### 4.1 Init
 ```bash
-./cli/scripts/alethfeld init proofs/<slug>/proof.edn -t '<LaTeX theorem>' -m strict-mathematics
+./cli-legacy/scripts/alethfeld init proofs/<slug>/proof.edn -t '<LaTeX theorem>' -m strict-mathematics
 ```
 
 ### 4.2 Add Node
 ```bash
-cat <<'EDN' | ./cli/scripts/alethfeld add-node --stdin proofs/<slug>/proof.edn
+cat <<'EDN' | ./cli-legacy/scripts/alethfeld add-node --stdin proofs/<slug>/proof.edn
 {:id :1-a3f2b1
  :type :claim
  :statement "..."
@@ -135,12 +135,12 @@ EDN
 
 ### 4.3 Update Status
 ```bash
-./cli/scripts/alethfeld update-status proofs/<slug>/proof.edn :1-a3f2b1 verified
+./cli-legacy/scripts/alethfeld update-status proofs/<slug>/proof.edn :1-a3f2b1 verified
 ```
 
 ### 4.4 Replace Rejected Node
 ```bash
-cat <<'EDN' | ./cli/scripts/alethfeld replace-node --stdin proofs/<slug>/proof.edn :1-a3f2b1
+cat <<'EDN' | ./cli-legacy/scripts/alethfeld replace-node --stdin proofs/<slug>/proof.edn :1-a3f2b1
 {:id :1-b7c9d0
  :type :claim
  :statement "..."
@@ -155,15 +155,15 @@ EDN
 
 ### 4.5 Extract Lemma
 ```bash
-./cli/scripts/alethfeld extract-lemma proofs/<slug>/proof.edn :<root-node-id> -n L1-name
+./cli-legacy/scripts/alethfeld extract-lemma proofs/<slug>/proof.edn :<root-node-id> -n L1-name
 # optionally:
-./cli/scripts/alethfeld extract-lemma proofs/<slug>/proof.edn :<root-node-id> -n L2-name -N :id1,:id2,:id3
+./cli-legacy/scripts/alethfeld extract-lemma proofs/<slug>/proof.edn :<root-node-id> -n L2-name -N :id1,:id2,:id3
 ```
 
 ### 4.6 External References
 Add:
 ```bash
-cat <<'EDN' | ./cli/scripts/alethfeld external-ref --add --stdin proofs/<slug>/proof.edn
+cat <<'EDN' | ./cli-legacy/scripts/alethfeld external-ref --add --stdin proofs/<slug>/proof.edn
 {:doi "10.1234/example"
  :claimed-statement "Full stated theorem as used in the proof."}
 EDN
@@ -171,7 +171,7 @@ EDN
 
 Update:
 ```bash
-cat <<'EDN' | ./cli/scripts/alethfeld external-ref --update ext-abc123 --stdin proofs/<slug>/proof.edn
+cat <<'EDN' | ./cli-legacy/scripts/alethfeld external-ref --update ext-abc123 --stdin proofs/<slug>/proof.edn
 {:status :verified
  :verified-statement "Actual statement from source"
  :bibdata {:authors ["A. Author"] :title "Paper" :year 2024 :journal "J."}
@@ -181,9 +181,9 @@ EDN
 
 ### 4.7 Validate / Stats / Recompute
 ```bash
-./cli/scripts/alethfeld validate proofs/<slug>/proof.edn -v
-./cli/scripts/alethfeld stats proofs/<slug>/proof.edn --json
-./cli/scripts/alethfeld recompute proofs/<slug>/proof.edn
+./cli-legacy/scripts/alethfeld validate proofs/<slug>/proof.edn -v
+./cli-legacy/scripts/alethfeld stats proofs/<slug>/proof.edn --json
+./cli-legacy/scripts/alethfeld recompute proofs/<slug>/proof.edn
 ```
 
 ---
@@ -194,7 +194,7 @@ Phases:
 `:init → :theorem-audit → :strategy → :skeleton → :decomposition → :expansion → :verification → :reference-check → :finalization → :complete`
 
 At each phase boundary:
-- run `./cli/scripts/alethfeld validate ...`
+- run `./cli-legacy/scripts/alethfeld validate ...`
 
 ### 5.1 INIT
 1) Ask user for:
@@ -435,7 +435,7 @@ Await a theorem from the user.
 
 First actions after receiving theorem:
 1) Create `proofs/<slug>/`
-2) Run `./cli/scripts/alethfeld init proofs/<slug>/proof.edn -t '<theorem>' -m <mode>`
+2) Run `./cli-legacy/scripts/alethfeld init proofs/<slug>/proof.edn -t '<theorem>' -m <mode>`
 3) Add assumptions/definitions as nodes (depth 0)
 4) Validate
 5) Run theorem audit via Adviser if source untrusted

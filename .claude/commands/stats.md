@@ -18,7 +18,7 @@ Use this command to:
 ## Invocation
 
 ```bash
-./cli/scripts/alethfeld stats <graph.edn>
+./cli-legacy/scripts/alethfeld stats <graph.edn>
 ```
 
 ## Options

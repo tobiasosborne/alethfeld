@@ -1,162 +1,62 @@
-# Alethfeld CLI
+# Alethfeld CLI v0.1.0
 
-A Clojure CLI tool for semantic proof graph operations.
+Semantic proof graph operations with context emission (implementing spec v2.3).
+
+## Status
+
+**In Development** - This is the next-generation CLI implementing the v2.3 specification.
+
+For the current stable CLI, see [`cli-legacy/`](../cli-legacy/).
+
+## New Features (v2.3 spec)
+
+- **Context emission**: `context` command emits phase-specific prompt fragments
+- **Next suggestions**: `next` command suggests optimal next action
+- **Self-documenting**: `help` and `schema` commands provide on-demand documentation
+- **FSM workflow**: State machine with enforced phase transitions
+- **Triple-verifier**: Multi-verifier voting system
+- **Subgraphs**: Split and merge independent subproofs
+- **Checkpoints**: Save and restore graph state
 
 ## Quick Start
 
-### Using Compiled Uberjar (Recommended - 67% Faster)
-
 ```bash
-# Build the uberjar (one-time)
-clojure -T:build uber
-
-# Run via wrapper script
-./scripts/alethfeld <command> [options]
-./scripts/alethfeld --help
-
-# Or run directly with Java
-java -jar target/alethfeld.jar <command> [options]
-```
-
-**Performance:** 1.1s startup (67% faster than Clojure CLI)
-
-### Using Clojure CLI (Development)
-
-```bash
-clojure -M:run <command> [options]
+# Run via Clojure CLI (development)
 clojure -M:run --help
-```
+clojure -M:run --version
 
-**Performance:** 3.3s startup (convenient for development)
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `init` | Initialize a new semantic proof graph |
-| `validate` | Validate graph against schema |
-| `add-node` | Add a node to the graph |
-| `update-status` | Update node verification status |
-| `replace-node` | Replace a rejected node |
-| `delete-node` | Archive a leaf node |
-| `extract-lemma` | Extract subgraph as independent lemma |
-| `external-ref` | Manage external references |
-| `stats` | Display graph statistics |
-| `recompute` | Recalculate taint propagation |
-| `convert` | Convert legacy format to v4 schema |
-
-## Common Workflows
-
-### Initialize a proof
-
-```bash
-./scripts/alethfeld init "For all continuous f,g: (g \\circ f) is continuous" \
-  --mode strict-mathematics \
-  --output proof.edn
-```
-
-### Add nodes
-
-```bash
-# From file
-./scripts/alethfeld add-node proof.edn node.edn
-
-# From stdin
-echo '{:id :1-abc :type :claim :statement "..." ...}' | \
-  ./scripts/alethfeld add-node --stdin proof.edn
-```
-
-### Verification loop
-
-```bash
-# Verify a step
-./scripts/alethfeld update-status proof.edn :1-abc123 verified
-
-# Reject a step
-./scripts/alethfeld update-status proof.edn :1-abc123 rejected
-
-# Replace rejected with revision
-./scripts/alethfeld replace-node proof.edn :1-abc123 revised.edn
-```
-
-### Extract lemmas
-
-```bash
-./scripts/alethfeld extract-lemma proof.edn \
-  --name "Intermediate Value Theorem" \
-  --root :2-ivt456 \
-  --nodes :2-ivt456,:3-sub1,:3-sub2
-```
-
-### Validate
-
-```bash
-./scripts/alethfeld validate proof.edn -v
-```
-
-## Development
-
-### Run tests
-
-```bash
+# Run tests
 clojure -M:test
 ```
 
-### Build and Distribution
-
-**Uberjar (Recommended for Distribution):**
-```bash
-# Build
-clojure -T:build uber
-
-# Test
-java -jar target/alethfeld.jar --help
-
-# Or use wrapper script
-./scripts/alethfeld --help
-
-# Size: 7.3 MB (includes all dependencies)
-# Startup: ~1.1 seconds (67% faster than Clojure CLI)
-```
-
-**Docker:**
-```dockerfile
-FROM eclipse-temurin:21-jre-alpine
-COPY target/alethfeld.jar /app/
-ENTRYPOINT ["java", "-jar", "/app/alethfeld.jar"]
-```
-
-## Project Structure
+## Directory Structure
 
 ```
-cli/ (formerly alethfeld/)
-├── src/alethfeld/         # Clojure source (alethfeld.* namespaces)
+cli/
+├── src/alethfeld/
 │   ├── core.clj           # CLI entry point
-│   ├── schema.clj         # Malli schemas
-│   ├── validators.clj     # Validation logic
-│   ├── graph.clj          # Graph query functions
-│   ├── io.clj             # EDN I/O
-│   ├── config.clj         # Constants
+│   ├── version.clj        # Version info
+│   ├── schema/            # Malli schemas
 │   ├── ops/               # Graph operations
-│   └── commands/          # CLI commands
-├── test/alethfeld/        # Unit and integration tests
-├── bench/alethfeld/       # Performance benchmarks
+│   ├── commands/          # CLI command handlers
+│   ├── fsm/               # State machine
+│   └── context/           # Context emission
+├── test/alethfeld/        # Tests
+├── resources/templates/   # Phase templates (markdown)
 └── deps.edn
 ```
 
-## Graph Schema
+## Implementation Progress
 
-See [docs/proof-format.md](../docs/proof-format.md) for the full EDN schema.
+See beads issues with prefix `Phase` for tracking:
+- Phase 0: Setup and migration
+- Phase 1: FSM foundation
+- Phase 2: Context emission
+- Phase 3: CLI commands
+- Phase 4: Advanced operations
+- Phase 5: Migration and integration
+- Phase 6: Testing and build
 
-Key concepts:
-- **Nodes**: Claims, assumptions, definitions, lemma-refs
-- **Dependencies**: DAG of what each node uses
-- **Scope**: Active local assumptions
-- **Taint**: Propagates from admitted steps
-- **Status**: proposed, verified, admitted, rejected
+## Specification
 
-## Full Documentation
-
-- [CLI Reference](../docs/cli-reference.md) - Complete command documentation
-- [Architecture](../docs/architecture.md) - System design
-- [Proof Format](../docs/proof-format.md) - EDN schema details
+See [`cli-requirements-v2.3.md`](../cli-requirements-v2.3.md) for the full specification.

@@ -19,7 +19,7 @@ Use this command when the Prover needs to add a new step to a proof, including:
 ## Invocation
 
 ```bash
-./cli/scripts/alethfeld add-node <graph.edn> <node.edn>
+./cli-legacy/scripts/alethfeld add-node <graph.edn> <node.edn>
 ```
 
 Or with stdin:

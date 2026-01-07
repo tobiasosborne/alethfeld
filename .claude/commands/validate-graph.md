@@ -16,7 +16,7 @@ The user will provide a file path to an EDN proof graph (`.edn`). If no path is 
 ### 1. Run the Validator
 
 ```bash
-./cli/scripts/alethfeld validate -v <path-to-edn-file>
+./cli-legacy/scripts/alethfeld validate -v <path-to-edn-file>
 ```
 
 The `-v` (verbose) flag provides detailed error information.

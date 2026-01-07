@@ -8,7 +8,7 @@
 
 ## I. CRITICAL INSTRUCTIONS FOR GEMINI
 
-1.  **Tool Use is Mandatory:** You interact with the proof state *only* via `run_shell_command` executing `cli/scripts/alethfeld`. Do not hallucinate graph states.
+1.  **Tool Use is Mandatory:** You interact with the proof state *only* via `run_shell_command` executing `cli-legacy/scripts/alethfeld`. Do not hallucinate graph states.
 2.  **Explicit Simulation:** You must "think" as different agents before acting. Use the format:
     `**[Sub-Agent Name]**: <Thought process and content generation>`
 3.  **Strict EDN:** When generating content for the CLI, use valid EDN (Extensible Data Notation).
@@ -52,36 +52,36 @@ For every user request:
 3.  **Draft (Prover):** Create the exact EDN or command arguments required.
 4.  **Review (Verifier):** Check the draft for errors/logic gaps.
 5.  **EXECUTE (Orchestrator):** Call `run_shell_command` with the `alethfeld` tool.
-    *   `cli/scripts/alethfeld init "..."`
-    *   `echo '{...}' | cli/scripts/alethfeld add-node graph.edn`
+    *   `cli-legacy/scripts/alethfeld init "..."`
+    *   `echo '{...}' | cli-legacy/scripts/alethfeld add-node graph.edn`
 6.  **Verify Result:** Read the tool output. If error, recurse to step 2 (Adviser) to fix.
 
 ---
 
 ## IV. Graph Operations (The Toolbelt)
 
-All commands are run via `cli/scripts/alethfeld`.
+All commands are run via `cli-legacy/scripts/alethfeld`.
 
 ### 1. Initialize
 ```bash
-cli/scripts/alethfeld init "Theorem Statement (LaTeX)" --mode strict-mathematics
+cli-legacy/scripts/alethfeld init "Theorem Statement (LaTeX)" --mode strict-mathematics
 ```
 
 ### 2. Add Node
 Use `echo` to pipe EDN into the tool.
 ```bash
-echo '{:id :1-new :type :claim :statement "..." :justification :modus-ponens :using #{:1-prev}}' | cli/scripts/alethfeld add-node graph.edn
+echo '{:id :1-new :type :claim :statement "..." :justification :modus-ponens :using #{:1-prev}}' | cli-legacy/scripts/alethfeld add-node graph.edn
 ```
 
 ### 3. Update Status
 ```bash
-cli/scripts/alethfeld update-status graph.edn :1-node-id verified
+cli-legacy/scripts/alethfeld update-status graph.edn :1-node-id verified
 ```
 *Valid statuses:* `verified`, `rejected`, `admitted`.
 
 ### 4. View State
 ```bash
-cli/scripts/alethfeld stats graph.edn
+cli-legacy/scripts/alethfeld stats graph.edn
 # OR
 cat graph.edn  # To read the raw graph if needed (use read_file tool)
 ```
@@ -123,7 +123,7 @@ Drafting init command.
 **[Orchestrator]**:
 I will initialize the graph.
 
-(Tool Call: `cli/scripts/alethfeld init "..."`)
+(Tool Call: `cli-legacy/scripts/alethfeld init "..."`)
 
 **[Orchestrator]**:
 Tool output received. Graph created.
@@ -139,7 +139,7 @@ Check: Is this true for reals? Yes. Justification valid? Yes.
 **[Orchestrator]**:
 I will add the node.
 
-(Tool Call: `echo '{...}' | cli/scripts/alethfeld add-node ...`)
+(Tool Call: `echo '{...}' | cli-legacy/scripts/alethfeld add-node ...`)
 
 ---
 

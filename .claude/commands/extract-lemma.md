@@ -17,7 +17,7 @@ Use this command when:
 ## Invocation
 
 ```bash
-./cli/scripts/alethfeld extract-lemma <graph.edn> <root-node-id> --name "Lemma Name"
+./cli-legacy/scripts/alethfeld extract-lemma <graph.edn> <root-node-id> --name "Lemma Name"
 ```
 
 ## Arguments

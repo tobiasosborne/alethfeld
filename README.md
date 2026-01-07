@@ -19,7 +19,8 @@ Alethfeld implements these suggestions. The prompts, the format, and the workflo
 
 ## Project Structure
 
-- **`cli/`**: The primary CLI tool for all semantic proof graph operations.
+- **`cli-legacy/`**: The current stable CLI tool for semantic proof graph operations (v0.0.x).
+- **`cli/`**: CLI v0.1.0 (in development) - implementing spec v2.3 with context emission.
 - **`docs/`**: Documentation, architecture, and historical records.
 - **`examples/`**: Curated, verified proof examples (EDN, LaTeX, Lean).
 - **`lean/`**: The Lean 4 formal verification library and environment.
@@ -267,17 +268,17 @@ The agent prompts are in the orchestrator file. You can:
 
 ### alethfeld CLI
 
-The primary CLI tool for all semantic proof graph operations. Located in [`cli/`](cli/).
+The primary CLI tool for all semantic proof graph operations. Currently located in [`cli-legacy/`](cli-legacy/) (v0.0.x). Version 0.1.0 is in development.
 
 **Quick Start (Compiled - Recommended):**
 ```bash
-cd cli
+cd cli-legacy
 ./scripts/alethfeld <command> [options]
 ```
 
 **Development (Slow CLI):**
 ```bash
-cd cli
+cd cli-legacy
 clojure -M:run <command> [options]
 ```
 
@@ -295,7 +296,7 @@ clojure -M:run <command> [options]
 
 **Example workflow:**
 ```bash
-cd cli
+cd cli-legacy
 
 # Initialize a proof
 ./scripts/alethfeld init "For all continuous f,g: (g \circ f) is continuous"
@@ -310,7 +311,7 @@ cd cli
 ./scripts/alethfeld extract-lemma proof.edn --name "Composition" --root :1-abc123 --nodes :1-abc123
 ```
 
-See [`cli/README.md`](cli/README.md) and [docs/cli-reference.md](docs/cli-reference.md) for complete documentation.
+See [`cli-legacy/README.md`](cli-legacy/README.md) and [docs/cli-reference.md](docs/cli-reference.md) for complete documentation.
 
 ### ansi-viz
 

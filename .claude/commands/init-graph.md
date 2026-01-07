@@ -14,7 +14,7 @@ Use this command when starting a new proof project.
 ## Invocation
 
 ```bash
-./cli/scripts/alethfeld init <output.edn> --theorem "Theorem statement"
+./cli-legacy/scripts/alethfeld init <output.edn> --theorem "Theorem statement"
 ```
 
 ## Required Arguments

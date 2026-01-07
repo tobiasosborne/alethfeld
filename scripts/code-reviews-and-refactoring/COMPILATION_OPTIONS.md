@@ -232,7 +232,7 @@ Skip unless performance testing proves otherwise.
 
 **Status:** build.clj created and tested ✅
 
-1. **✅ build.clj created** in cli/ directory
+1. **✅ build.clj created** in cli-legacy/ directory
 ```clojure
 (ns build
   (:require [clojure.tools.build.api :as b]))
@@ -286,12 +286,12 @@ java -jar target/alethfeld.jar --version    # Works ✅
 # Startup time: 1.1-1.2s (60% faster than CLI)
 ```
 
-4. **TODO: Create wrapper script** (cli/scripts/alethfeld):
+4. **TODO: Create wrapper script** (cli-legacy/scripts/alethfeld):
 ```bash
 #!/bin/bash
 java -jar "$(dirname "$0")/../target/alethfeld.jar" "$@"
-chmod +x cli/scripts/alethfeld
-./cli/scripts/alethfeld --help
+chmod +x cli-legacy/scripts/alethfeld
+./cli-legacy/scripts/alethfeld --help
 ```
 
 5. **TODO: Update README** with distribution instructions.

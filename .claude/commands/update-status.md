@@ -17,7 +17,7 @@ Use this command when:
 ## Invocation
 
 ```bash
-./cli/scripts/alethfeld update-status <graph.edn> <node-id> <status>
+./cli-legacy/scripts/alethfeld update-status <graph.edn> <node-id> <status>
 ```
 
 ## Arguments
