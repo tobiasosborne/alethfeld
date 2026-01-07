@@ -116,6 +116,29 @@ private lemma exp_pi4_mul_exp_neg_pi4 :
   have : Complex.I * Real.pi / 4 + -Complex.I * Real.pi / 4 = 0 := by ring
   rw [this, Complex.exp_zero]
 
+/-- exp(-iπ/4) * exp(iπ/4) = 1 (commuted form) -/
+lemma exp_neg_pi4_mul_exp_pi4 :
+    Complex.exp (-Complex.I * Real.pi / 4) * Complex.exp (Complex.I * Real.pi / 4) = 1 := by
+  rw [mul_comm]; exact exp_pi4_mul_exp_neg_pi4
+
+/-- T gate is unitary: T† T = 1 -/
+lemma tGate_conjTranspose_mul_tGate : tGate.conjTranspose * tGate = 1 := by
+  rw [tGate_conjTranspose]
+  unfold tGate
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp only [mul_apply, Fin.sum_univ_two, of_apply, cons_val_zero, cons_val_one,
+      Matrix.cons_val', Matrix.cons_val_zero', Matrix.cons_val_succ', one_apply]
+  -- (0,0) case: 1*1 + 0*0 = if 0=0 then 1 else 0
+  · simp
+  -- (0,1) case: 1*0 + 0*exp = if 0=1 then 1 else 0
+  · simp
+  -- (1,0) case: 0*1 + exp*0 = if 1=0 then 1 else 0
+  · simp
+  -- (1,1) case: 0*0 + exp(-iπ/4)*exp(iπ/4) = if 1=1 then 1 else 0
+  · simp only [mul_zero, zero_mul, add_zero, zero_add, ite_true]
+    exact exp_neg_pi4_mul_exp_pi4
+
 /-- Variant with grouped negation -/
 @[simp] private lemma exp_pi4_mul_exp_neg_pi4' :
     Complex.exp (Complex.I * Real.pi / 4) * Complex.exp (-(Complex.I * Real.pi) / 4) = 1 := by
@@ -265,5 +288,80 @@ theorem tgate_inv_conj_Y :
     ring_nf <;>
     simp only [Complex.I_sq] <;>
     ring
+
+/-! ## Combined H T† P T H Conjugation
+
+These lemmas show the full conjugation H† T† P T H = H T† P T H (using H† = H).
+Key for coefficient tracking: the diagonal is (1/√2) times the diagonal of Z. -/
+
+/-- H σX H = σZ (from H being self-adjoint and hadamard_conj_X) -/
+lemma hadamard_σX_hadamard : hadamard * σX * hadamard = σZ := by
+  rw [show hadamard * σX * hadamard = hadamard * σX * hadamard.conjTranspose by
+    rw [hadamard_conjTranspose]]
+  exact hadamard_conj_X
+
+/-- H σY H = -σY (from H being self-adjoint and hadamard_conj_Y) -/
+lemma hadamard_σY_hadamard : hadamard * σY * hadamard = -σY := by
+  rw [show hadamard * σY * hadamard = hadamard * σY * hadamard.conjTranspose by
+    rw [hadamard_conjTranspose]]
+  exact hadamard_conj_Y
+
+/-- H T† X T H = (Z + Y)/√2 -/
+theorem hadamard_tgate_inv_conj_X :
+    hadamard * (tGate.conjTranspose * σX * tGate) * hadamard = (1 / Real.sqrt 2 : ℂ) • (σZ + σY) := by
+  rw [tgate_inv_conj_X]
+  simp only [Matrix.smul_mul, Matrix.mul_smul]
+  congr 1
+  -- H (σX - σY) H = H σX H - H σY H = σZ - (-σY) = σZ + σY
+  rw [Matrix.mul_sub, Matrix.sub_mul]
+  -- Need to reassociate: hadamard * (σX - σY) = hadamard * σX - hadamard * σY
+  -- Then: (hadamard * σX - hadamard * σY) * hadamard = hadamard * σX * hadamard - hadamard * σY * hadamard
+  have hX : hadamard * σX * hadamard = σZ := hadamard_σX_hadamard
+  have hY : hadamard * σY * hadamard = -σY := hadamard_σY_hadamard
+  calc hadamard * σX * hadamard - hadamard * σY * hadamard
+      = σZ - (-σY) := by rw [hX, hY]
+    _ = σZ + σY := by ext i j; fin_cases i <;> fin_cases j <;>
+        simp [σZ, σY, of_apply, sub_apply, add_apply, neg_apply, cons_val_zero, cons_val_one]
+
+/-- H T† Y T H = (Z - Y)/√2 -/
+theorem hadamard_tgate_inv_conj_Y :
+    hadamard * (tGate.conjTranspose * σY * tGate) * hadamard = (1 / Real.sqrt 2 : ℂ) • (σZ - σY) := by
+  rw [tgate_inv_conj_Y]
+  simp only [Matrix.smul_mul, Matrix.mul_smul]
+  congr 1
+  -- H (σX + σY) H = H σX H + H σY H = σZ + (-σY) = σZ - σY
+  rw [Matrix.mul_add, Matrix.add_mul]
+  have hX : hadamard * σX * hadamard = σZ := hadamard_σX_hadamard
+  have hY : hadamard * σY * hadamard = -σY := hadamard_σY_hadamard
+  calc hadamard * σX * hadamard + hadamard * σY * hadamard
+      = σZ + (-σY) := by rw [hX, hY]
+    _ = σZ - σY := by ext i j; fin_cases i <;> fin_cases j <;>
+        simp [σZ, σY, of_apply, add_apply, sub_apply, neg_apply, cons_val_zero, cons_val_one]
+
+/-- Diagonal of (Z + Y) is the same as diagonal of Z (since Y has zero diagonal) -/
+lemma diag_Z_plus_Y : ∀ i : Fin 2, (σZ + σY) i i = σZ i i := by
+  intro i
+  fin_cases i <;> simp [σZ, σY, of_apply, add_apply, cons_val_zero, cons_val_one]
+
+/-- Diagonal of (Z - Y) is the same as diagonal of Z (since Y has zero diagonal) -/
+lemma diag_Z_minus_Y : ∀ i : Fin 2, (σZ - σY) i i = σZ i i := by
+  intro i
+  fin_cases i <;> simp [σZ, σY, of_apply, sub_apply, cons_val_zero, cons_val_one]
+
+/-- Diagonal entry of H T† X T H is (1/√2) times diagonal of Z -/
+lemma hadamard_tgate_inv_conj_X_diag (i : Fin 2) :
+    (hadamard * (tGate.conjTranspose * σX * tGate) * hadamard) i i =
+    (1 / Real.sqrt 2 : ℂ) * σZ i i := by
+  rw [hadamard_tgate_inv_conj_X]
+  simp only [smul_apply, smul_eq_mul]
+  rw [diag_Z_plus_Y]
+
+/-- Diagonal entry of H T† Y T H is (1/√2) times diagonal of Z -/
+lemma hadamard_tgate_inv_conj_Y_diag (i : Fin 2) :
+    (hadamard * (tGate.conjTranspose * σY * tGate) * hadamard) i i =
+    (1 / Real.sqrt 2 : ℂ) * σZ i i := by
+  rw [hadamard_tgate_inv_conj_Y]
+  simp only [smul_apply, smul_eq_mul]
+  rw [diag_Z_minus_Y]
 
 end Alethfeld.Quantum.Gates
