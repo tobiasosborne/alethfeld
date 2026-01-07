@@ -33,6 +33,93 @@ open Alethfeld.Quantum.EntropyIncrease.BackTransform
 open Alethfeld.Quantum.EntropyIncrease.SourceSubset
 open Alethfeld.Quantum.EntropyIncrease.PauliCoeff
 
+/-! ### Helper Definitions for Inductive Proofs -/
+
+/-- The shifted subset: positions j such that j.succ ∈ S -/
+def shiftedSubset {n : ℕ} (S : Finset (Fin (n + 1))) : Finset (Fin n) :=
+  Finset.filter (fun j => j.succ ∈ S) Finset.univ
+
+/-- Cardinality of S when 0 ∈ S equals cardinality of shiftedSubset plus 1 -/
+lemma card_eq_shiftedSubset_add_one {n : ℕ} (S : Finset (Fin (n + 1))) (h0 : (0 : Fin (n + 1)) ∈ S) :
+    S.card = (shiftedSubset S).card + 1 := by
+  -- The bijection between S \ {0} and shiftedSubset is j ↔ j.succ
+  have h_eq : S.card = 1 + (S.erase 0).card := by
+    have h1 := Finset.card_erase_of_mem h0
+    have h2 : 1 ≤ S.card := Finset.one_le_card.mpr ⟨0, h0⟩
+    omega
+  rw [h_eq, add_comm]
+  congr 1
+  unfold shiftedSubset
+  apply Finset.card_bij (fun j hj => j.pred (by
+    simp only [Finset.mem_erase] at hj
+    exact hj.1))
+  · intro i hi
+    simp only [Finset.mem_erase] at hi
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    rw [Fin.succ_pred i hi.1]
+    exact hi.2
+  · intro i₁ hi₁ i₂ hi₂ heq
+    simp only [Finset.mem_erase] at hi₁ hi₂
+    exact Fin.pred_inj.mp heq
+  · intro j hj
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hj
+    refine ⟨j.succ, ?_, ?_⟩
+    · simp only [Finset.mem_erase, ne_eq, Fin.succ_ne_zero, not_false_eq_true, hj, and_self]
+    · simp only [Fin.pred_succ]
+
+/-- Cardinality of S when 0 ∉ S equals cardinality of shiftedSubset -/
+lemma card_eq_shiftedSubset {n : ℕ} (S : Finset (Fin (n + 1))) (h0 : (0 : Fin (n + 1)) ∉ S) :
+    S.card = (shiftedSubset S).card := by
+  unfold shiftedSubset
+  apply Finset.card_bij (fun i hi => i.pred (fun heq => h0 (heq ▸ hi)))
+  · intro i hi
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    have h_ne : i ≠ 0 := fun heq => h0 (heq ▸ hi)
+    rw [Fin.succ_pred i h_ne]
+    exact hi
+  · intro i₁ hi₁ i₂ hi₂ heq
+    exact Fin.pred_inj.mp heq
+  · intro j hj
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hj
+    refine ⟨j.succ, hj, ?_⟩
+    simp only [Fin.pred_succ]
+
+/-- The shifted T-expansion: if α ∈ tExpansionPaulis S, then (fun m => α m.succ) ∈ tExpansionPaulis (shiftedSubset S) -/
+lemma tExpansion_shift {n : ℕ} (S : Finset (Fin (n + 1))) (α : Fin (n + 1) → Fin 4)
+    (hα : α ∈ tExpansionPaulis S) :
+    (fun m => α m.succ) ∈ tExpansionPaulis (shiftedSubset S) := by
+  unfold tExpansionPaulis at hα ⊢
+  simp only [Finset.mem_image, Finset.mem_powerset] at hα ⊢
+  obtain ⟨R, hRS, hα_eq⟩ := hα
+  -- The shifted R' = {j : j.succ ∈ R}
+  use Finset.filter (fun j => j.succ ∈ R) Finset.univ
+  refine ⟨?_, ?_⟩
+  · -- R' ⊆ shiftedSubset S
+    intro j hj
+    simp only [shiftedSubset, Finset.mem_filter, Finset.mem_univ, true_and] at hj ⊢
+    exact hRS hj
+  · -- The shifted α matches the T-expansion formula
+    ext m
+    subst hα_eq
+    simp only [shiftedSubset, Finset.mem_sdiff, Finset.mem_filter, Finset.mem_univ, true_and]
+
+/-- pauliZ_S diagonal decomposes as Kronecker product of shifted Z_S' and single-qubit Z/I -/
+lemma pauliZ_S_diag_decompose {n : ℕ} (S : Finset (Fin (n + 1))) (x : Fin (2^(n+1))) :
+    pauliZ_S S x x =
+    pauliZ_S (shiftedSubset S) (finPow2SuccEquiv n x).1 (finPow2SuccEquiv n x).1 *
+    (if (0 : Fin (n+1)) ∈ S then σZ else σI) (finPow2SuccEquiv n x).2 (finPow2SuccEquiv n x).2 := by
+  unfold pauliZ_S
+  simp only [pauliString, Matrix.submatrix_apply]
+  rw [Alethfeld.Quantum.PauliDiag.Kronecker.kronecker_diag_entry]
+  congr 1
+  · -- First factor: pauliString for shifted indices
+    congr 1
+    ext m
+    simp only [shiftedSubset, Finset.mem_filter, Finset.mem_univ, true_and]
+  · -- Second factor: σZ or σI depending on whether 0 ∈ S
+    simp only [σ]
+    by_cases h0 : (0 : Fin (n+1)) ∈ S <;> simp [h0]
+
 /-! ### Back-Transformed Pauli Diagonal for T-Expansion
 
 For α ∈ tExpansionPaulis S, the back-transformed Pauli H† T† α† T H has diagonal
@@ -104,7 +191,20 @@ lemma backTransformed_pauli_diag_of_tExpansion {n : ℕ} (S : Finset (Fin n))
           simp only [smul_apply, smul_eq_mul]
           rw [Alethfeld.Quantum.Gates.diag_Z_minus_Y]
       rw [h_single_diag]
-      sorry
+      -- Apply IH to first factor
+      have h_shifted := tExpansion_shift S α (by
+        unfold tExpansionPaulis
+        simp only [Finset.mem_image, Finset.mem_powerset]
+        exact ⟨R, hRS, hα_eq⟩)
+      have h_ih := ih (shiftedSubset S) (fun m => α m.succ) h_shifted (finPow2SuccEquiv n x).1
+      rw [h_ih]
+      -- Use pauliZ_S decomposition
+      rw [pauliZ_S_diag_decompose S x]
+      simp only [h0S, ↓reduceIte]
+      -- Use cardinality lemma
+      have h_card := card_eq_shiftedSubset_add_one S h0S
+      rw [h_card]
+      ring
     · -- Case: 0 ∉ S, so α 0 = 0 (I)
       have hα0_I : α 0 = 0 := by
         subst hα_eq
@@ -150,7 +250,23 @@ lemma backTransformed_pauli_diag_of_tExpansion {n : ℕ} (S : Finset (Fin n))
         rw [h_HH]
         simp only [one_apply_eq]
       rw [h_single_diag, mul_one]
-      sorry
+      -- Apply IH to first factor
+      have h_shifted := tExpansion_shift S α (by
+        unfold tExpansionPaulis
+        simp only [Finset.mem_image, Finset.mem_powerset]
+        exact ⟨R, hRS, hα_eq⟩)
+      have h_ih := ih (shiftedSubset S) (fun m => α m.succ) h_shifted (finPow2SuccEquiv n x).1
+      rw [h_ih]
+      -- Use pauliZ_S decomposition
+      rw [pauliZ_S_diag_decompose S x]
+      simp only [h0S, ↓reduceIte]
+      -- σI diagonal is 1
+      have h_σI_diag : σI (finPow2SuccEquiv n x).2 (finPow2SuccEquiv n x).2 = 1 :=
+        Alethfeld.Quantum.PauliDiag.Single.σI_diag_entry (finPow2SuccEquiv n x).2
+      rw [h_σI_diag, mul_one]
+      -- Use cardinality lemma
+      have h_card := card_eq_shiftedSubset S h0S
+      rw [h_card]
 
 /-- Key lemma: pauliCoeff of transformedObs at T-expansion index. -/
 lemma pauliCoeff_transformedObs_at_expansion {n : ℕ} (f : BoolFunc n)
@@ -163,14 +279,108 @@ lemma pauliCoeff_transformedObs_at_expansion {n : ℕ} (f : BoolFunc n)
       ((kroneckerPow n hadamard).conjTranspose * (kroneckerPow n tGate).conjTranspose *
         (pauliString α).conjTranspose * kroneckerPow n tGate * kroneckerPow n hadamard *
         diagonalObs f).trace := by
-    sorry
+    -- Use trace cyclic property: Tr(AB) = Tr(BA)
+    let P := pauliString α
+    let T := kroneckerPow n tGate
+    let H := kroneckerPow n hadamard
+    let L := diagonalObs f
+    calc (Pᴴ * (T * H * L * Hᴴ * Tᴴ)).trace
+        = (Tᴴ * Pᴴ * T * H * L * Hᴴ).trace := by
+          rw [← Matrix.mul_assoc, ← Matrix.mul_assoc, ← Matrix.mul_assoc, ← Matrix.mul_assoc]
+          rw [Matrix.trace_mul_comm (Pᴴ * T * H * L * Hᴴ) Tᴴ]
+          simp only [Matrix.mul_assoc]
+      _ = (Hᴴ * Tᴴ * Pᴴ * T * H * L).trace := by
+          rw [Matrix.trace_mul_comm (Tᴴ * Pᴴ * T * H * L) Hᴴ]
+          simp only [Matrix.mul_assoc]
   rw [h_cycle]
   let M := (kroneckerPow n hadamard).conjTranspose * (kroneckerPow n tGate).conjTranspose *
             (pauliString α).conjTranspose * kroneckerPow n tGate * kroneckerPow n hadamard
   let L := diagonalObs f
   have h_diag := backTransformed_pauli_diag_of_tExpansion S α hα
   have h_src := sourceSubset_of_tExpansion S α hα
-  sorry
+  -- The trace is ∑_x M(x,x) * L(x,x)
+  have h_trace_eq : (M * L).trace = ∑ x : Fin (2^n), M x x * L x x := by
+    unfold Matrix.trace Matrix.diag
+    apply Finset.sum_congr rfl
+    intro x _
+    simp only [Matrix.mul_apply]
+    have h_L_diag : ∀ i j, i ≠ j → L i j = 0 := fun i j hij => by
+      simp only [L, diagonalObs]
+      exact Matrix.diagonal_apply_ne _ hij
+    have h_offdiag_zero : ∀ y : Fin (2^n), y ≠ x → M x y * L y x = 0 := by
+      intro y hyx
+      have h_ne : x ≠ y := fun h => hyx h.symm
+      rw [h_L_diag y x h_ne.symm, mul_zero]
+    rw [Fintype.sum_eq_single x (fun y hy => h_offdiag_zero y hy)]
+  rw [h_trace_eq]
+  -- Substitute the diagonal values using h_diag
+  have h_sum_eq : ∑ x : Fin (2^n), M x x * L x x =
+      ∑ x : Fin (2^n), (1 / Real.sqrt 2 : ℂ)^S.card * pauliZ_S S x x * L x x := by
+    apply Finset.sum_congr rfl
+    intro x _
+    simp only [M]
+    rw [h_diag x]
+  rw [h_sum_eq]
+  -- L(x,x) = f(idxToBool x) since diagonalObs f is diagonal with entries f
+  have h_L_diag_val : ∀ x : Fin (2^n), L x x =
+      (f (fun i => x.val.testBit i.val) : ℂ) := fun x => by
+    simp only [L, diagonalObs, Matrix.diagonal_apply_eq]
+  simp_rw [h_L_diag_val]
+  -- Rewrite the sum using distributivity
+  have h_sum_factor : ∑ x : Fin (2^n), (1 / Real.sqrt 2 : ℂ)^S.card * pauliZ_S S x x *
+      (f (fun i => x.val.testBit i.val) : ℂ) =
+      (1 / Real.sqrt 2 : ℂ)^S.card * ∑ x : Fin (2^n), pauliZ_S S x x *
+      (f (fun i => x.val.testBit i.val) : ℂ) := by
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro x _
+    ring
+  rw [h_sum_factor]
+  -- Now show the sum of pauliZ_S * f = 2^n * fourierCoeff f S
+  -- This follows from: pauliZ_S S x x = parityFunc S (bits x)
+  -- and fourierCoeff f S = (1/2^n) Σ_x f(x) * parityFunc S x
+  have h_pauliZ_S_sum : ∑ x : Fin (2^n), pauliZ_S S x x * (f (fun i => x.val.testBit i.val) : ℂ) =
+      (2 : ℂ)^n * (fourierCoeff f S : ℂ) := by
+    -- pauliZ_S S x x = parityFunc S (bits x)
+    have h_eq : ∀ x : Fin (2^n), pauliZ_S S x x =
+        (parityFunc S (fun i => x.val.testBit i.val) : ℂ) := by
+      intro x
+      rw [pauliZ_S_diag_entry]
+      simp only [parityFunc]
+      -- Use neg_one_pow_eq_ite: (-1)^n = if Even n then 1 else -1
+      rw [neg_one_pow_eq_ite]
+      -- Convert Even to % 2 = 0
+      simp only [Nat.even_iff]
+      norm_cast
+    simp_rw [h_eq]
+    -- Use boolFuncEquiv to reindex the sum
+    have h_sum_reindex : ∑ x : Fin (2^n), (parityFunc S (fun i => x.val.testBit i.val) : ℂ) *
+        (f (fun i => x.val.testBit i.val) : ℂ) =
+        ∑ v : Fin n → Bool, (parityFunc S v : ℂ) * (f v : ℂ) := by
+      rw [← Equiv.sum_comp (boolFuncEquiv n)]
+      apply Finset.sum_congr rfl
+      intro v _
+      congr 2 <;>
+        · congr 1
+          funext i
+          rw [← boolFuncEquiv_symm_apply (boolFuncEquiv n v) i]
+          simp only [Equiv.symm_apply_apply]
+    rw [h_sum_reindex]
+    -- fourierCoeff f S = (1/2^n) * Σ_v f(v) * parityFunc S v
+    unfold fourierCoeff
+    have h2n_pos : (0 : ℝ) < 2^n := pow_pos (by norm_num) n
+    have h2n_ne : (2 : ℝ)^n ≠ 0 := ne_of_gt h2n_pos
+    simp only [Complex.ofReal_mul, Complex.ofReal_div, Complex.ofReal_pow, Complex.ofReal_ofNat,
+      Complex.ofReal_sum, Complex.ofReal_intCast]
+    -- Goal: Σ_v χ(v) * f(v) = 2^n * (1/2^n * Σ_v f(v) * χ(v))
+    have h_comm : ∀ v, (parityFunc S v : ℂ) * (f v : ℂ) = (f v : ℂ) * (parityFunc S v : ℂ) :=
+      fun v => mul_comm _ _
+    simp_rw [h_comm]
+    field_simp
+    simp only [Complex.ofReal_one, mul_one]
+  rw [h_pauliZ_S_sum]
+  have h2n_ne : (2 : ℂ)^n ≠ 0 := pow_ne_zero n (by norm_num)
+  field_simp
 
 /-- Helper: Pauli coefficient magnitude at T-expansion index. -/
 lemma normSq_pauliCoeff_transformedObs_at_expansion {n : ℕ} (f : BoolFunc n)

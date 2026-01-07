@@ -194,21 +194,19 @@ This imports all necessary submodules automatically.
 | ├─ Trace | ✅ 0 sorries | Trace lemmas |
 | ├─ Orthogonality | ✅ 0 sorries | Pauli orthogonality |
 | └─ General | ✅ 0 sorries | General lemmas |
-| **EntropyIncrease** | ⚠️ 4 sorries | See SpectralDistTransform |
+| **EntropyIncrease** | ✅ 0 sorries | **Fully verified!** |
 | ├─ KroneckerPow | ✅ 0 sorries | Kronecker power |
 | ├─ TransformDefs | ✅ 0 sorries | Transform definition |
 | ├─ BackTransform | ✅ 0 sorries | Back-transform diagonal |
 | ├─ SourceSubset | ✅ 0 sorries | T-expansion disjointness |
 | ├─ PauliCoeff | ✅ 0 sorries | Coefficient formulas |
-| ├─ SpectralDistTransform | ⚠️ 4 sorries | Inductive proofs needed |
+| ├─ SpectralDistTransform | ✅ 0 sorries | **All proofs complete** |
 | └─ Entropy | ✅ 0 sorries | Entropy computation |
 
-### Remaining Sorries (SpectralDistTransform.lean)
+### Verification Complete
 
-1. **Line 107**: `backTransformed_pauli_diag_of_tExpansion` — inductive case 0 ∈ S
-2. **Line 153**: `backTransformed_pauli_diag_of_tExpansion` — inductive case 0 ∉ S
-3. **Line 166**: `pauliCoeff_transformedObs_at_expansion` — trace cycling
-4. **Line 173**: `pauliCoeff_transformedObs_at_expansion` — coefficient computation
+All lemmas and theorems in the Quantum Entropy Increase formalization have been fully proved.
+No sorries remain. The main theorem `quantum_entropy_increase_theorem` is complete.
 
 **Build Command:**
 ```bash
