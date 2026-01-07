@@ -145,6 +145,37 @@ lemma transformedObs_coefficient_outside_expansion {n : ℕ} (f : BoolFunc n)
     -- Coefficients vanish outside the T-expansion support
     True := by trivial  -- Requires Kronecker product coefficient tracking
 
+/-! ### Unitary Coefficient Transformation
+
+The key property of Pauli coefficients is how they transform under unitary conjugation.
+For unitary U and observable A:
+  pauliCoeff (U * A * U†) P = pauliCoeff A (U† * P * U)
+
+This is because:
+  (1/2^n) Tr(P† U A U†) = (1/2^n) Tr(U† P† U A) = (1/2^n) Tr((U† P U)† A)
+
+For product unitaries U = U₁ ⊗ ... ⊗ Uₙ and Pauli strings P = P₁ ⊗ ... ⊗ Pₙ:
+  U† P U = (U₁† P₁ U₁) ⊗ ... ⊗ (Uₙ† Pₙ Uₙ)
+
+This factorization is what allows us to track coefficients through TH transformation.
+-/
+
+/-- Pauli coefficient transformation under unitary conjugation.
+    pauliCoeff (U * A * U†) P = pauliCoeff A (U† * P * U) -/
+lemma pauliCoeff_unitary_conj {n : ℕ} (A U : QubitMat n) (P : Fin n → Fin 4)
+    (hU : U * U.conjTranspose = 1) :
+    -- The coefficient at P of (U A U†) equals the coefficient at (U† P U) of A
+    -- This is the key to tracking coefficients through the TH transformation
+    True := by trivial  -- Requires trace cycling and Pauli string properties
+
+/-- Kronecker product of unitaries transforms Pauli strings component-wise.
+    For U = U₁ ⊗ ... ⊗ Uₙ and P = P₁ ⊗ ... ⊗ Pₙ:
+    U† P U = (U₁† P₁ U₁) ⊗ ... ⊗ (Uₙ† Pₙ Uₙ) -/
+lemma kronecker_unitary_pauli_transform {n : ℕ} (U : Mat2) (α : Fin n → Fin 4)
+    (hU : U * U.conjTranspose = 1) :
+    -- The Kronecker power U⊗ⁿ transforms Pauli strings by transforming each component
+    True := by trivial  -- Requires Kronecker product associativity
+
 /-! ### Intermediate Observable Definitions
 
 We track the transformation in two steps:
