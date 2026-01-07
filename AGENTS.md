@@ -18,7 +18,7 @@ bd sync               # Sync with git
 1. Check `bd ready` for available work
 2. Review `lean/API.md` for existing Lean library documentation
 3. Run `lake build` to verify no regressions
-4. See `orchestrator-prompt-v5.1-claude.md` for the current proof orchestration protocol (also available for Gemini and Codex)
+4. See `orchestrator-prompt-v5.1-claude.md` for the stable proof orchestration protocol, or `orchestrator-prompt-v5_2-claude.md` for the experimental v5.2 with explicit state machine
 
 ## Landing the Plane (Session Completion)
 

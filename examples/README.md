@@ -611,7 +611,9 @@ To regenerate any example using the orchestrator:
 
 ```bash
 # Read the orchestrator prompt and provide a theorem
-cat orchestrator-prompt-v5.md
+cat orchestrator-prompt-v5.1-claude.md   # stable
+# or
+cat orchestrator-prompt-v5_2-claude.md   # experimental
 ```
 
 Then provide your theorem statement to the system and follow the orchestrator workflow: Strategy → Skeleton → Verification → Finalization.

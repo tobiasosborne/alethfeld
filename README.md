@@ -41,56 +41,69 @@ Alethfeld doesn't try to make a single AI "smarter." Instead, it separates conce
 | **Adviser** | Evaluates proof strategies before work begins. Identifies doomed approaches early. |
 | **Prover** | Writes proofs in Lamport structured notation. Every step has an explicit justification. |
 | **Verifier** | Adversarially checks each step. Assumes the Prover is wrong until convinced otherwise. |
+| **Lemma Decomposer** | Identifies extractable independent subproofs. |
 | **Reference Checker** | Validates citations. Confirms that cited theorems exist and say what is claimed. |
+| **Formalizer** | Converts verified proofs to Lean 4. |
 | **Orchestrator** | Manages the workflow. Tracks iterations. Knows when to escalate to a human. |
 
 The Prover and Verifier operate in a loop: the Prover asserts a step, the Verifier challenges it, the Prover revises. This continues until the Verifier accepts or iteration limits are reached.
 
 This adversarial structure catches errors that a single model would miss.
 
-## Current Status (Dec 2025)
+## Current Status (January 2026)
 
-### Orchestrator Protocol v5.1
+### Orchestrator Protocol
 
-The orchestrator prompt has been updated to **v5.1** based on failure analysis from the BrokenMath benchmark and shortcomings exposed during example proof development. Key improvements:
+Two versions are available:
 
-- **Anti-sycophancy protocols**: Addresses cases where the system rationalized contradictions rather than rejecting false claims (e.g., Problem 7 in BrokenMath where the system reinterpreted "72 squares" as "36 transpose pairs" to match the wrong answer)
-- **Domain restriction checks**: Explicit verification that claimed domains/ranges are respected throughout proofs
-- **Optimization completeness requirements**: Ensures all branches are explored in min/max problems (addresses Problem 10 where incomplete case analysis missed the s < 0 branch)
-- **Theorem audit phase**: Pre-verification check for common error patterns in theorem statements
+| Version | Status | Description |
+|---------|--------|-------------|
+| **v5.1** | Stable | Anti-sycophancy protocols, domain restriction checks, theorem audit phase |
+| **v5.2** | Experimental | Explicit state machine, exhaustive CLI signatures, LaTeX template |
 
-Model-specific orchestrator prompts are available:
-- [`orchestrator-prompt-v5.1-claude.md`](orchestrator-prompt-v5.1-claude.md) — Optimized for Claude Code
-- [`orchestrator-prompt-v5.1-gemini.md`](orchestrator-prompt-v5.1-gemini.md) — Optimized for Gemini CLI (experimental)
-- [`orchestrator-prompt-v5.1-codex.md`](orchestrator-prompt-v5.1-codex.md) — Optimized for Codex CLI (experimental)
+**v5.1 (Stable)** — Based on BrokenMath benchmark failure analysis:
+- Anti-sycophancy protocols for adversarial verification
+- Domain restriction checks for implicit assumptions
+- Optimization completeness requirements
+- Theorem audit phase for unknown sources
+
+**v5.2 (Experimental)** — Additional clarity improvements:
+- Explicit state machine with 30+ defined transitions (§VI)
+- Exhaustive CLI reference with documented non-existent flags (§IX)
+- External LaTeX template (`latex-template.tex`)
+- Subagent dispatch protocol
+
+**Model-specific prompts:**
+- [`orchestrator-prompt-v5.1-claude.md`](orchestrator-prompt-v5.1-claude.md) — Stable, optimized for Claude Code
+- [`orchestrator-prompt-v5_2-claude.md`](orchestrator-prompt-v5_2-claude.md) — Experimental, explicit control flow
+- [`orchestrator-prompt-v5.1-gemini.md`](orchestrator-prompt-v5.1-gemini.md) — Gemini CLI (experimental)
+- [`orchestrator-prompt-v5.1-codex.md`](orchestrator-prompt-v5.1-codex.md) — Codex CLI (experimental)
 
 *Note: The Gemini and Codex prompts are experimental. Results with these tools have been suboptimal compared to Claude Code.*
 
 ### Verified Results
 
-The system has been successfully used to derive and formalize several non-trivial results in Quantum Boolean Functions (QBF) and Information Theory:
+The system has been successfully used to derive and formalize several non-trivial results:
 
-- **Lemma L1 (Fourier)**: Closed-form expression for Fourier coefficients of rank-1 product state QBFs. (Verified: 0 sorries)
-- **Lemma L2 (Influence)**: Proof that single-qubit and total influence are independent of the Bloch vector for rank-1 QBFs. (Verified: 0 sorries)
-- **Lemma L3 (Entropy)**: General entropy formula for rank-1 product state QBFs. (Verified: 0 sorries)
-- **Shannon Maximum Entropy**: Proof that the uniform distribution uniquely maximizes Shannon entropy for three outcomes. (Verified: 0 sorries)
-- **Dobinski's Formula**: Classic identity $B_n = (1/e) \sum_{k=0}^{\infty} k^n/k!$ connecting Bell numbers to infinite series. (Verified: 0 sorries)
+**Fully Verified (0 sorries in Lean 4):**
+- **QBF Rank-1 Master Theorem**: Entropy-influence bound for rank-1 quantum Boolean functions
+- **Quantum Entropy Increase Theorem**: TH-transformation increases entropy by exactly the influence (~3800 lines Lean 4)
+- **Halting Undecidability**: Classic diagonalization argument (0 axioms)
+- **Kelly's Lemma**: Edge count reconstruction from graph decks
+- **Dobinski's Formula**: Bell numbers via infinite series
+- **Shannon Maximum Entropy**: Uniform distribution uniqueness
 
-These results are available in the `lean/AlethfeldLean/` library and documented in `lean/API.md`.
+See `lean/API.md` for full documentation of the Lean library.
 
 ### Error Detection: BrokenMath Benchmark
 
-Alethfeld has been tested against problems from the [BrokenMath](https://github.com/insait-institute/broken-math) benchmark—a dataset of mathematical problems with subtle errors designed to test LLM robustness.
+Alethfeld has been tested against problems from the [BrokenMath](https://github.com/insait-institute/broken-math) benchmark—a dataset of mathematical problems with subtle errors.
 
-- **Divisor Sum Problem**: Given "Prove that the sum of positive divisors of 9! with units digit 3 is 105", Alethfeld immediately detected the error. The correct sum is **66** (divisors: {3, 63}). The system produced a complete proof of the correct statement with full Lean 4 formalization (0 sorries). See [`examples/divisor-sum-9factorial/`](examples/divisor-sum-9factorial/).
+- **Divisor Sum Problem**: Detected that the claimed sum (105) is incorrect; proved the correct sum is **66** with full Lean 4 formalization.
 
-- **HMMT Feb 2025 Problem 3** (Detected via Lean formalization): The original claim "minimum of xyz is 576" was detected as **FALSE** during attempted Lean 4 formalization. The system discovered a reciprocal solution:
+- **HMMT Feb 2025 Problem 3**: Discovered during Lean formalization that the claimed minimum (576) is actually the **maximum**. Found counterexample: `(x, y, z) = (1/4, 1/8, 1/18)` gives `xyz = 1/576 < 576`.
 
-  > (x, y, z) = (1/4, 1/8, 1/18) satisfies all three constraint equations with xyz = **1/576** < 576
-
-  The actual minimum is 1/576, not 576. This error was caught when the proof of `s > 0` failed—the `s < 0` case corresponds to valid solutions with smaller xyz. See [`lean/AlethfeldLean/Examples/BrokenMath/HMMT2025_3.lean`](lean/AlethfeldLean/Examples/BrokenMath/HMMT2025_3.lean).
-
-This demonstrates that the adversarial verification approach catches not just proof errors, but also errors in problem statements—a critical capability for reliable mathematical reasoning. The HMMT example shows how **Lean formalization serves as a powerful error detector**: when a proof can't be completed, the system investigates why and may discover the theorem itself is false.
+This demonstrates that the adversarial verification approach catches not just proof errors, but also errors in problem statements.
 
 ## Lamport Structured Proofs
 
@@ -111,8 +124,6 @@ This format is unusually well-suited to LLM-based proving:
 2. **Dependencies are auditable.** You can trace any claim back to its foundations.
 3. **The hierarchy manages complexity.** Top-level structure is established first, then refined.
 
-Lamport designed this notation for humans writing proofs that machines could check. It turns out to work equally well for machines writing proofs that humans (and other machines) can check.
-
 ## Why EDN?
 
 Proofs are represented in [EDN](https://github.com/edn-format/edn) (Extensible Data Notation), a data format from the Clojure ecosystem.
@@ -122,23 +133,6 @@ Proofs are represented in [EDN](https://github.com/edn-format/edn) (Extensible D
 **For readability:** EDN is more readable than JSON (commas optional, keywords are first-class, comments allowed) while remaining machine-parseable.
 
 **For extensibility:** New fields can be added without breaking existing tooling. Proofs are data, not strings.
-
-**For tooling:** The Clojure ecosystem offers powerful tools for working with structured data—spec checking, generative testing, data transformation.
-
-A proof schema in Malli might look like:
-
-```clojure
-(def Step
-  [:map
-   [:id :keyword]
-   [:claim :string]
-   [:using [:vector [:or :keyword ExternalRef]]]
-   [:justification [:enum :modus-ponens :universal-elim :universal-intro ...]]
-   [:status [:enum :asserted :verified :admitted :invalid]]
-   [:substeps {:optional true} [:vector [:ref #'Step]]]])
-```
-
-This enables automatic validation: malformed proofs are rejected before verification even begins.
 
 ## What It Produces
 
@@ -182,12 +176,12 @@ Given a theorem statement, Alethfeld outputs:
         │
         ▼
 ┌───────────────┐     ┌───────────────┐
-│   LaTeX-er    │     │  Lean-ifier   │
+│   LaTeX-er    │     │  Formalizer   │
 │               │     │               │
 └───────────────┘     └───────────────┘
         │                    │
         ▼                    ▼
-   paper.tex            paper.lean
+   paper.tex            proof.lean
 ```
 
 ### Iteration Limits
@@ -233,8 +227,11 @@ For ultimate confidence, the Lean 4 output can be fed to a genuine proof assista
 
 **Usage:**
 ```bash
-# For Claude Code
+# For Claude Code (stable)
 cat orchestrator-prompt-v5.1-claude.md | claude
+
+# For Claude Code (experimental - v5.2)
+cat orchestrator-prompt-v5_2-claude.md | claude
 
 # For Gemini CLI
 cat orchestrator-prompt-v5.1-gemini.md | gemini
@@ -245,7 +242,7 @@ cat orchestrator-prompt-v5.1-codex.md | codex
 
 Then provide a theorem:
 ```
-Prove: The composition of two continuous functions is continuous. 
+Prove: The composition of two continuous functions is continuous.
 Use the ε-δ definition.
 ```
 
@@ -262,7 +259,7 @@ The orchestrator will:
 The agent prompts are in the orchestrator file. You can:
 - Adjust iteration limits
 - Add domain-specific inference rules
-- Modify the LaTeX template
+- Modify the LaTeX template (v5.2: use `latex-template.tex`)
 - Change the proof notation style
 - Add Malli schemas for stricter validation
 
@@ -296,12 +293,12 @@ clojure -M:run <command> [options]
 - `stats` — Display graph statistics
 - `recompute` — Recalculate taint propagation
 
-**Example workflow (using compiled version):**
+**Example workflow:**
 ```bash
 cd cli
 
 # Initialize a proof
-./scripts/alethfeld init "For all continuous f,g: (g \circ f) is continuous" -o proof.edn
+./scripts/alethfeld init "For all continuous f,g: (g \circ f) is continuous"
 
 # Add a claim
 ./scripts/alethfeld add-node proof.edn step1.edn
@@ -313,9 +310,7 @@ cd cli
 ./scripts/alethfeld extract-lemma proof.edn --name "Composition" --root :1-abc123 --nodes :1-abc123
 ```
 
-See [`cli/README.md`](cli/README.md) for complete documentation and build instructions.
-
-See [docs/cli-reference.md](docs/cli-reference.md) for complete documentation.
+See [`cli/README.md`](cli/README.md) and [docs/cli-reference.md](docs/cli-reference.md) for complete documentation.
 
 ### ansi-viz
 
@@ -328,9 +323,15 @@ A lightweight terminal-based visualization tool for proof graphs. Located in [`s
 
 See [docs/ansi-viz.md](docs/ansi-viz.md) for details.
 
-### validate-graph (Legacy)
+## Version History
 
-The original validation tool in [`scripts/validate-graph/`](scripts/validate-graph/) is superseded by `alethfeld validate` but remains available for compatibility.
+| Version | Date | Key Changes |
+|---------|------|-------------|
+| v5.0 | Nov 2024 | Initial structured protocol |
+| v5.1 | Dec 2024 | Anti-sycophancy, domain checks, theorem audit |
+| v5.2 | Jan 2025 | Explicit state machine, CLI docs, LaTeX template |
+
+See [`CHANGELOG-v5.2.md`](CHANGELOG-v5.2.md) for detailed migration guide.
 
 ## Contributing
 

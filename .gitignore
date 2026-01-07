@@ -13,6 +13,8 @@
 ehthumbs.db
 Thumbs.db
 Desktop.ini
+# Windows/WSL Zone.Identifier files
+*:Zone.Identifier
 
 # =============================================================================
 # Emacs
