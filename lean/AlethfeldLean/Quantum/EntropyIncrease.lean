@@ -156,6 +156,16 @@ The detailed tracking through Kronecker products uses:
 - tExpansionPaulis: enumerates the 2^|S| resulting Paulis
 - tExpansion_weight_preserved: all resulting Paulis have weight |S|
 - tExpansion_card: there are exactly 2^|S| resulting Paulis
+
+Key insight for proof:
+- spectralDist (transformedObs f) α = Σ_S (if α ∈ tExpansionPaulis S then f̂(S)²/2^|S| else 0)
+- Each X_S contributes f̂(S)² total probability distributed uniformly over 2^|S| Paulis
+- Entropy computation: -Σ_S Σ_{R⊆S} (f̂(S)²/2^|S|) log₂(f̂(S)²/2^|S|)
+  = -Σ_S 2^|S| · (f̂(S)²/2^|S|) · (log₂(f̂(S)²) - |S|)
+  = -Σ_S f̂(S)² log₂(f̂(S)²) + Σ_S |S| · f̂(S)²
+  = fourierEntropy f + totalInfluence f
+
+The axiom form is used pending development of Kronecker coefficient tracking infrastructure.
 -/
 axiom spectral_entropy_transform_axiom {n : ℕ} (f : BoolFunc n) :
     spectralEntropy (transformedObs f) = fourierEntropy f + totalInfluence f
@@ -199,6 +209,17 @@ Proof outline (Lemma 5: Weight Preservation):
    - After T: each of 2^|S| Paulis has wt = |S| with probability f̂(S)²/2^|S|
    - Total: Σ_{R⊆S} |S| · f̂(S)²/2^|S| = |S| · f̂(S)²
 8. Summing over S: Σ_S |S| · f̂(S)² = totalInfluence f (unchanged)
+
+Key computation:
+  quantumInfluence (transformedObs f)
+  = Σ_α wt(α) · spectralDist (transformedObs f) α
+  = Σ_S Σ_{α ∈ tExpansionPaulis S} wt(α) · f̂(S)²/2^|S|
+  = Σ_S Σ_{α ∈ tExpansionPaulis S} |S| · f̂(S)²/2^|S|    [by tExpansion_weight_preserved]
+  = Σ_S |S| · f̂(S)² · (2^|S| / 2^|S|)                     [since |tExpansionPaulis S| = 2^|S|]
+  = Σ_S |S| · f̂(S)²
+  = totalInfluence f
+
+The axiom form is used pending development of Kronecker coefficient tracking infrastructure.
 -/
 axiom quantum_influence_transform_axiom {n : ℕ} (f : BoolFunc n) :
     quantumInfluence (transformedObs f) = totalInfluence f
