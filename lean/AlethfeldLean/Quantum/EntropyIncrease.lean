@@ -304,6 +304,26 @@ Key insight for proof:
   = fourierEntropy f + totalInfluence f
 
 The axiom form is used pending development of Kronecker coefficient tracking infrastructure.
+
+**Proof path to eliminate axiom:**
+The key missing lemma is:
+  spectralDist_transformedObs (f : BoolFunc n) (α : Fin n → Fin 4) :
+    spectralDist (transformedObs f) α =
+      if α ∈ allTExpansionPaulis then
+        (fourierCoeff f (sourceSubset α))² / 2^(sourceSubset α).card
+      else 0
+
+Given this, the entropy computation proceeds:
+1. Sum over all Pauli indices α
+2. Only α ∈ allTExpansionPaulis contribute (others are zero)
+3. Group by sourceSubset S: each S contributes 2^|S| terms (by tExpansion_card)
+4. Each term has probability f̂(S)²/2^|S| and contributes to entropy
+5. Compute: entropy = -Σ_S f̂(S)² log₂(f̂(S)²) + Σ_S |S| f̂(S)²
+                    = fourierEntropy f + totalInfluence f
+
+The spectralDist_transformedObs lemma requires:
+- Pauli coefficient tracking through Kronecker products
+- Trace computation for transformed observable
 -/
 axiom spectral_entropy_transform_axiom {n : ℕ} (f : BoolFunc n) :
     spectralEntropy (transformedObs f) = fourierEntropy f + totalInfluence f
