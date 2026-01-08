@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** P1 Bug Fixes (Claim Timeout, Tx Layer, Race Window Documentation)
+**Last session:** v0.2 Planning - Session Enforcement & UX Improvements
 
 ## Current State
 
@@ -11,148 +11,141 @@
 - v1 code archived in `archive/v1/`
 
 ### Project Status
-Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborative proof verification with AI agent swarms.
+Alethfeld v0.1 is complete (746 tests, 1926 assertions). Now planning v0.2 which adds:
+- **Session-based role enforcement** (critical design fix)
+- **Self-vote prevention** (agents can't vote on own work)
+- **UX improvements** (tree view, status, configurable quorum)
 
-### Completed Steps
-| Step | Description | Tests |
-|------|-------------|-------|
-| 0.2 | Test Infrastructure | 2 |
-| 1.1 | Schema Definitions | 22 (111 assertions) |
-| 1.2 | Mote Constructors | 11 |
-| 1.3 | Mote Transformations | 14 |
-| 2.1 | ID Operations | 13 |
-| 2.2 | Path Derivation | 13 |
-| 2.3 | DAG Validation | 22 |
-| 3.1 | Role Derivation | 21 (77 assertions) |
-| 3.2 | Job Selection Algorithm | 23 (58 assertions) |
-| 3.3 | Prompt Rendering | 43 (63 assertions) |
-| 4.1 | EDN I/O | 37 (50 assertions) |
-| 4.2 | Mote Persistence | 35 (69 assertions) |
-| 4.3 | Git Operations | 37 (59 assertions) |
-| 5.1 | Transaction Wrapper | 27 (64 assertions) |
-| 5.2 | Proposal Workflow | 27 (87 assertions) |
-| 5.3 | Verification Workflow | 27 (98 assertions) |
-| 6.1 | CLI Infrastructure | 33 (212 assertions) |
-| 6.2 | Init & Show Commands | 43 (70 assertions) |
-| 6.3 | Create Command | 35 (41 assertions) |
-| 6.4 | Ready Command | 37 (61 assertions) |
-| 6.5 | Propose/Approve/Reject Commands | 57 (89 assertions) |
-| 6.6 | Update/Vote/Taint Commands | 59 (84 assertions) |
-| 6.7 | Claim/Unclaim Commands | 28 (46 assertions) |
-| 6.8 | Add-* Commands | 38 (67 assertions) |
-| 6.9 | Check/Log/Sync Commands | 38 (62 assertions) |
-| 7.1 | End-to-End Integration Tests | 20 (84 assertions) |
-| 7.2 | Error Handling & Messages | 6 (25 assertions) |
-| 7.3 | Build & Distribution | - (install.sh) |
+### v0.1 Completed Steps
+| Phase | Steps | Tests |
+|-------|-------|-------|
+| 0-7 | All 28 steps | 746 tests, 1926 assertions |
 
-**Total:** 746 tests, 1926 assertions - all passing
+**Total v0.1:** Complete and working
 
-### Recent Work (this session)
+---
 
-1. **CLOSED `alethfeld-r4h5`: Implement claim timeout enforcement**
-   - Added `claim-expired?` function to `mote.clj` (lines 265-286)
-   - Updated `workable?` in `job.clj` to accept `:claim-timeout` option
-   - Updated `select-jobs` in `job.clj` to pass claim-timeout
-   - Updated `cmd-ready` in `cmd.clj` to load config and pass timeout
-   - Added 5 tests to `mote_test.clj` and 3 tests to `job_test.clj`
+## v0.2 Implementation Plan
 
-2. **CLOSED `alethfeld-w49y`: Fix cmd-ready to use transaction layer**
-   - Refactored `cmd-ready` (cmd.clj:282-298) to use `tx/atomic-write!`
-   - Claims are now collected first, then written atomically in single transaction
-   - Removed direct `store/save-mote!` + `git/git-add-all!` + `git/git-commit!` calls
+### Phase A: Session & Role Enforcement (CRITICAL - P1)
 
-3. **CLOSED `alethfeld-murq`: Document transaction race window**
-   - Added detailed RACE WINDOW NOTE to `with-validation` docstring in `tx.clj`
-   - Added section 7.4 Known Limitations to `docs/TECH-SPEC.md`
-   - Documents the ~100ms window between validation and git commit
+| Issue | Step | Description | Dependencies |
+|-------|------|-------------|--------------|
+| `alethfeld-s4y6` | A.1 | Session Schema & Storage | None (READY) |
+| `alethfeld-b0sn` | A.2 | Role-Action Matrix | A.1 |
+| `alethfeld-aa2d` | A.3 | Contributors Tracking & Self-Vote Prevention | A.1 |
+| `alethfeld-oopq` | A.4 | Session Creation in Ready/Claim | A.1, A.2 |
+| `alethfeld-32yv` | A.5 | Session Enforcement Middleware | A.2, A.4 |
+| `alethfeld-8gz7` | A.6 | Done Command | A.1 |
+| `alethfeld-49vy` | A.7 | Stale Session Cleanup | A.1 |
+| `alethfeld-j37u` | A.8 | Prompt Updates with Session Constraints | A.4 |
 
-4. **IN PROGRESS `alethfeld-nupa`: Add concurrency test suite**
-   - Created `test/alethfeld/concurrency_test.clj` with 10 tests
-   - **HAS SYNTAX ERRORS - NEEDS FIXING**
-   - The file has unbalanced parentheses in the future/binding blocks
-   - Pattern: second `f2` future in each `let` binding is missing a `)` to close the `binding` form
-   - Fixed 4 occurrences but there may be more
+### Phase B: Tier 1 Essential Improvements (P2)
 
-### Current Issue
+| Issue | Step | Description | Dependencies |
+|-------|------|-------------|--------------|
+| `alethfeld-nzz2` | B.1 | Configurable Quorum | None (READY) |
+| `alethfeld-pq0f` | B.2 | Tree View Command | None (READY) |
+| `alethfeld-ftoc` | B.3 | Status Summary Command | None (READY) |
+| `alethfeld-j0v0` | B.4 | Human-Readable Error Messages | None (READY) |
 
-**`alethfeld-nupa` is incomplete.** The concurrency test file has syntax errors.
+### Phase C: Tier 2 High Value Improvements (P2)
 
-**To fix:** Look for patterns like:
-```clojure
-f2 (future
-     @barrier
-     (binding [*temp-dir* temp-dir]
-       (try
-         ...
-         (catch Exception e
-           (swap! results conj {...}))))]  ;; WRONG - missing ) before ]
+| Issue | Step | Description | Dependencies |
+|-------|------|-------------|--------------|
+| `alethfeld-bvgj` | C.1 | Batch Voting | A.5 |
+| `alethfeld-t9eb` | C.2 | Auto-Propagation | A.5 |
+| `alethfeld-vehy` | C.3 | Proposal Withdrawal | A.5 |
+| `alethfeld-vq27` | C.4 | Cross-References / Dependencies | A.5 |
+| `alethfeld-nyrg` | C.5 | Atomic Markers on Creation | A.5 |
+
+### Phase D: Vision Features (FUTURE - v0.3)
+
+Documented in `docs/IMPLEMENTATION-PLAN.md` but not tracked as issues yet:
+- D.1: Lean4 Export
+- D.2: Lean4 Verification Bridge
+- D.3: Adversarial Review Mode
+- D.4: Visualization Export
+
+---
+
+## Ready to Work (No Blockers)
+
+```
+bd ready | grep "Step [ABC]"
 ```
 
-Should be:
-```clojure
-f2 (future
-     @barrier
-     (binding [*temp-dir* temp-dir]
-       (try
-         ...
-         (catch Exception e
-           (swap! results conj {...})))))]  ;; CORRECT - )))] not )))]
-```
+Currently unblocked:
+1. **`alethfeld-s4y6`** - Step A.1: Session Schema & Storage (START HERE)
+2. `alethfeld-nzz2` - Step B.1: Configurable Quorum
+3. `alethfeld-pq0f` - Step B.2: Tree View Command
+4. `alethfeld-ftoc` - Step B.3: Status Summary Command
+5. `alethfeld-j0v0` - Step B.4: Human-Readable Error Messages
 
-Run `clj -M:test -n alethfeld.concurrency-test` to find remaining syntax errors.
+**Recommended order:** Start with A.1 to unblock the rest of Phase A.
 
-## Next Steps
+---
 
-**Immediate (finish current work):**
-1. Fix remaining syntax errors in `test/alethfeld/concurrency_test.clj`
-2. Run tests: `clj -M:test -n alethfeld.concurrency-test`
-3. Close `alethfeld-nupa` once tests pass
+## Previous Session Work (Still Relevant)
 
-**P1 Issues (all closed this session):**
-- ~~`alethfeld-r4h5`~~ - CLOSED
-- ~~`alethfeld-w49y`~~ - CLOSED
-- ~~`alethfeld-murq`~~ - CLOSED
-- `alethfeld-nupa` - IN PROGRESS (syntax errors in test file)
+### In Progress
+- `alethfeld-nupa`: Concurrency test suite has syntax errors (needs fixing)
 
-**P2 Documentation:**
-- `alethfeld-dpdq`: Step 7.4 Documentation
-- `alethfeld-ngxd`: Expand CLI help (self-documenting)
-- `alethfeld-5kqw`: Refactor prompts to separate files
+### Technical Details
+See `docs/IMPLEMENTATION-PLAN.md` for full v0.2 specification including:
+- Session schema design
+- Role-action matrix
+- Breaking CLI changes (all mutations need `--session`)
+- New file structure (`sessions/active/`, `sessions/completed/`)
 
-**Previously Tracked (still open):**
-| Issue | Priority | Description |
-|-------|----------|-------------|
-| `alethfeld-9b04` | P2 | Add comment to find-cycles DFS algorithm |
-| `alethfeld-kvcp` | P2 | Make validation error collection consistent |
-| `alethfeld-gp1q` | P2 | Fix flaky generate-id-test |
-| `alethfeld-ann3` | P3 | Make now function injectable for test determinism |
-| `alethfeld-x982` | P3 | Add property-based tests for ID/path operations |
+---
 
-## Key Files Modified This Session
+## Key Documents
 
-| File | Changes |
-|------|---------|
-| `src/alethfeld/mote.clj` | Added `claim-expired?` function |
-| `src/alethfeld/job.clj` | Updated `workable?` and `select-jobs` for claim timeout |
-| `src/alethfeld/cmd.clj` | Updated `cmd-ready` to use tx layer and claim timeout |
-| `src/alethfeld/tx.clj` | Added RACE WINDOW NOTE to docstring |
-| `docs/TECH-SPEC.md` | Added section 7.4 Known Limitations |
-| `test/alethfeld/mote_test.clj` | Added 5 claim-expired tests |
-| `test/alethfeld/job_test.clj` | Added 3 claim-timeout tests |
-| `test/alethfeld/concurrency_test.clj` | NEW FILE - has syntax errors |
+| Document | Purpose |
+|----------|---------|
+| `docs/IMPLEMENTATION-PLAN.md` | Full v0.2 spec (updated this session) |
+| `docs/TECH-SPEC.md` | v0.1 technical spec |
+| `docs/PRD.md` | Product requirements |
+| `review/report.md` | Testing feedback that drove v0.2 design |
 
-## Blockers
-
-None (other than fixing the syntax errors in concurrency_test.clj).
+---
 
 ## Commands
 
 ```bash
+# Development
 ./install.sh       # Install af to ~/.local/bin
 clj -M:run         # Run CLI (dev mode)
 clj -M:test        # Run all tests
-clj -M:test -n alethfeld.concurrency-test  # Run just concurrency tests
 clj -T:build uber  # Build uberjar
-bd ready           # Check ready issues
-bd show alethfeld-nupa  # See the in-progress issue
+
+# Issue tracking
+bd ready           # Show unblocked issues
+bd show <id>       # View issue details
+bd update <id> --status=in_progress  # Claim issue
+bd close <id>      # Complete issue
+
+# Start v0.2
+bd update alethfeld-s4y6 --status=in_progress  # Claim A.1
 ```
+
+---
+
+## Breaking Changes Coming in v0.2
+
+Phase A introduces breaking CLI changes:
+
+**Before (v0.1):**
+```bash
+af propose 1.2 "claim" --agent proposer-1
+```
+
+**After (v0.2):**
+```bash
+af ready --agent proposer-1 --role proposer  # Get session
+af propose 1.2 "claim" --session <token>     # Use session
+af done --session <token>                    # End session
+```
+
+This enforces role-based workflow and prevents self-voting.
