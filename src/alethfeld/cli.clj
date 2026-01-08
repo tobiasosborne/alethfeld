@@ -163,6 +163,35 @@
            msg
            (when (:stderr data) (str "\n" (:stderr data))))
 
+      ;; Session errors
+      :invalid-session
+      (str "Error: Invalid or expired session.\n"
+           "Session ID: " (:session-id data) "\n"
+           "Use 'af ready --agent NAME' or 'af claim' to start a new session.")
+
+      :session-expired
+      (str "Error: Session has expired.\n"
+           "Session ID: " (:session-id data) "\n"
+           "Expired at: " (:expires-at data) "\n"
+           "Use 'af ready --agent NAME' or 'af claim' to start a new session.")
+
+      :session-mote-mismatch
+      (str "Error: Session is for a different mote.\n"
+           "Session mote: " (:session-mote-id data) "\n"
+           "Requested mote: " (:requested-mote-id data) "\n"
+           "Each session is locked to a specific mote.")
+
+      :action-not-allowed
+      (str "Error: Action not allowed for your role.\n"
+           "Your role: " (name (:role data)) "\n"
+           "Attempted action: " (name (:action data)) "\n"
+           "Allowed actions: " (str/join ", " (map name (:allowed-actions data))))
+
+      :session-not-found
+      (str "Error: Session not found or already ended.\n"
+           "Session ID: " (:session-id data) "\n"
+           "The session may have expired or been ended with 'af done'.")
+
       ;; Default
       (str "Error: " msg))))
 
@@ -197,6 +226,12 @@
                 :already-initialized :error
                 :not-git-repo :error
                 :git-error :error
+                ;; Session errors
+                :invalid-session :error
+                :session-expired :error
+                :session-mote-mismatch :error
+                :action-not-allowed :error
+                :session-not-found :not-found
                 :error)]
      (if (= fmt :json)
        (do
@@ -280,42 +315,43 @@
                       ["-n" "--no-claim" "Don't auto-claim jobs"]]}
 
    "propose" {:description "Propose decomposition into children"
-              :usage "af propose <parent-id> --claim TEXT [--difficulty N] [--claim TEXT ...] --agent NAME"
-              :options [["-c" "--claim TEXT" "Claim text (repeatable)"
+              :usage "af propose <parent-id> --session TOKEN --claim TEXT [--difficulty N] [--claim TEXT ...]"
+              :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                        ["-c" "--claim TEXT" "Claim text (repeatable)"
                          :assoc-fn (fn [m k v] (update m k (fnil conj []) v))]
                         ["-d" "--difficulty N" "Difficulty for claims (repeatable)"
                          :parse-fn #(Integer/parseInt %)
                          :assoc-fn (fn [m k v] (update m k (fnil conj []) v))]
-                        ["-a" "--agent NAME" "Agent name (required)"
-                         :missing "Agent is required"]]
+                        ["-a" "--agent NAME" "Agent name (defaults to session agent)"]]
               :requires-id true}
 
    "approve" {:description "Vote to approve a proposal"
-              :usage "af approve <parent-id> --agent NAME [--reason TEXT]"
-              :options [["-a" "--agent NAME" "Agent name (required)"
-                         :missing "Agent is required"]
+              :usage "af approve <parent-id> --session TOKEN [--reason TEXT]"
+              :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                        ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
                         ["-R" "--reason TEXT" "Reason for approval"]]
               :requires-id true}
 
    "reject" {:description "Vote to reject a proposal"
-             :usage "af reject <parent-id> --agent NAME [--reason TEXT]"
-             :options [["-a" "--agent NAME" "Agent name (required)"
-                        :missing "Agent is required"]
+             :usage "af reject <parent-id> --session TOKEN [--reason TEXT]"
+             :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                       ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
                        ["-R" "--reason TEXT" "Reason for rejection"]]
              :requires-id true}
 
    "vote" {:description "Cast verification vote"
-           :usage "af vote <id> --for|--against --agent NAME [--reason TEXT]"
-           :options [["-a" "--agent NAME" "Agent name (required)"
-                      :missing "Agent is required"]
+           :usage "af vote <id> --session TOKEN --for|--against [--reason TEXT]"
+           :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                     ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
                      [nil "--for" "Vote for (valid)"]
                      [nil "--against" "Vote against (invalid)"]
                      ["-R" "--reason TEXT" "Reason for vote"]]
            :requires-id true}
 
    "update" {:description "Update mote fields"
-             :usage "af update <id> [OPTIONS]"
-             :options [["-s" "--status STATUS" "New status"
+             :usage "af update <id> --session TOKEN [OPTIONS]"
+             :options [["-S" "--session TOKEN" "Session token (required for mutations)"]
+                       ["-s" "--status STATUS" "New status"
                         :parse-fn keyword]
                        ["-p" "--priority P" "New priority"
                         :parse-fn keyword]
@@ -325,8 +361,9 @@
              :requires-id true}
 
    "taint" {:description "Add/remove taint flags"
-            :usage "af taint <id> --add TAINT | --remove TAINT"
-            :options [[nil "--add TAINT" "Add taint flag"
+            :usage "af taint <id> --session TOKEN --add TAINT | --remove TAINT"
+            :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                      [nil "--add TAINT" "Add taint flag"
                        :parse-fn keyword
                        :assoc-fn (fn [m k v] (update m k (fnil conj []) v))]
                       [nil "--remove TAINT" "Remove taint flag"
@@ -335,33 +372,46 @@
             :requires-id true}
 
    "claim" {:description "Claim mote for work"
-            :usage "af claim <id> --agent NAME"
+            :usage "af claim <id> --agent NAME --role ROLE"
             :options [["-a" "--agent NAME" "Agent name (required)"
-                       :missing "Agent is required"]]
+                       :missing "Agent is required"]
+                      ["-r" "--role ROLE" "Role for this session (required)"
+                       :parse-fn keyword
+                       :validate [#{:proposer :advisor :prover :verifier :ref-checker :counterexample}
+                                  "Invalid role"]
+                       :missing "Role is required"]]
             :requires-id true}
 
    "unclaim" {:description "Release claim on mote"
-              :usage "af unclaim <id>"
-              :options []
+              :usage "af unclaim <id> --session TOKEN"
+              :options [["-s" "--session TOKEN" "Session token (required for mutations)"]]
               :requires-id true}
 
+   "done" {:description "End session and release mote"
+           :usage "af done --session TOKEN"
+           :options [["-s" "--session TOKEN" "Session token (required)"
+                      :missing "Session token is required"]]}
+
    "add-ref" {:description "Add external reference"
-              :usage "af add-ref <id> --ref CITATION [--note TEXT]"
-              :options [["-r" "--ref REF" "Citation/reference (required)"
+              :usage "af add-ref <id> --session TOKEN --ref CITATION [--note TEXT]"
+              :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                        ["-r" "--ref REF" "Citation/reference (required)"
                          :missing "Reference is required"]
                         ["-n" "--note TEXT" "Note about reference"]]
               :requires-id true}
 
    "add-assumption" {:description "Add internal assumption"
-                     :usage "af add-assumption <id> --ref MOTE-ID [--note TEXT]"
-                     :options [["-r" "--ref ID" "Referenced mote ID (required)"
+                     :usage "af add-assumption <id> --session TOKEN --ref MOTE-ID [--note TEXT]"
+                     :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                               ["-r" "--ref ID" "Referenced mote ID (required)"
                                 :missing "Reference mote ID is required"]
                                ["-n" "--note TEXT" "Note about assumption"]]
                      :requires-id true}
 
    "add-definition" {:description "Add definition"
-                     :usage "af add-definition <id> --symbol SYM --meaning TEXT"
-                     :options [["-s" "--symbol SYM" "Symbol to define (required)"
+                     :usage "af add-definition <id> --session TOKEN --symbol SYM --meaning TEXT"
+                     :options [["-S" "--session TOKEN" "Session token (required for mutations)"]
+                               ["-s" "--symbol SYM" "Symbol to define (required)"
                                 :missing "Symbol is required"]
                                ["-m" "--meaning TEXT" "Meaning of symbol (required)"
                                 :missing "Meaning is required"]]

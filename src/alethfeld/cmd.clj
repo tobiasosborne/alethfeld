@@ -345,7 +345,8 @@
              'My claim @3' sets difficulty to 3
 
    Options:
-   - :agent - Agent name (default: 'cli-user')
+   - :session - Session token (required)
+   - :agent - Agent name (defaults to session agent)
 
    Creates proposed children with :proposed status and attaches
    a proposal to the parent. Sets parent taint to :needs-proposal-review.
@@ -355,7 +356,7 @@
    - :children - Vector of created child motes"
   [{:keys [id args options]}]
   (let [repo-path "."
-        agent (or (:agent options) "cli-user")]
+        session-id (:session options)]
 
     ;; Validation
     (when-not id
@@ -374,8 +375,15 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Parse claims and create proposal
-    (let [claims (parse-claims args)
+    ;; Session enforcement
+    (when-not session-id
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (let [sess (session/enforce-session! repo-path session-id :propose id)
+          agent (or (:agent options) (:agent sess))
+          claims (parse-claims args)
           result (proposal/create-proposal! repo-path id claims agent)]
       (:result result))))
 
@@ -390,7 +398,8 @@
    - :id - The mote ID with the proposal (required)
 
    Options:
-   - :agent - Agent name (default: 'cli-user')
+   - :session - Session token (required)
+   - :agent - Agent name (defaults to session agent)
    - :reason - Reason for approval (optional)
 
    If quorum is reached:
@@ -404,7 +413,7 @@
    - :promoted-children - Child IDs if approved"
   [{:keys [id options]}]
   (let [repo-path "."
-        agent (or (:agent options) "cli-user")
+        session-id (:session options)
         reason (:reason options)]
 
     ;; Validation
@@ -419,8 +428,15 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Cast approve vote
-    (let [result (proposal/approve-proposal! repo-path id agent :reason reason)]
+    ;; Session enforcement
+    (when-not session-id
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (let [sess (session/enforce-session! repo-path session-id :approve id)
+          agent (or (:agent options) (:agent sess))
+          result (proposal/approve-proposal! repo-path id agent :reason reason)]
       (:result result))))
 
 ;; -----------------------------------------------------------------------------
@@ -434,7 +450,8 @@
    - :id - The mote ID with the proposal (required)
 
    Options:
-   - :agent - Agent name (default: 'cli-user')
+   - :session - Session token (required)
+   - :agent - Agent name (defaults to session agent)
    - :reason - Reason for rejection (optional)
 
    If quorum is reached:
@@ -448,7 +465,7 @@
    - :archived-children - Child IDs if rejected"
   [{:keys [id options]}]
   (let [repo-path "."
-        agent (or (:agent options) "cli-user")
+        session-id (:session options)
         reason (:reason options)]
 
     ;; Validation
@@ -463,8 +480,15 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Cast reject vote
-    (let [result (proposal/reject-proposal! repo-path id agent :reason reason)]
+    ;; Session enforcement
+    (when-not session-id
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (let [sess (session/enforce-session! repo-path session-id :reject id)
+          agent (or (:agent options) (:agent sess))
+          result (proposal/reject-proposal! repo-path id agent :reason reason)]
       (:result result))))
 
 ;; -----------------------------------------------------------------------------
@@ -561,10 +585,11 @@
    - :id - The mote ID to vote on (required)
 
    Options:
+   - :session - Session token (required)
    - :for - Vote in favor of verification
    - :against - Vote against verification
    - :reason - Reason for vote (optional)
-   - :agent - Agent name (default: 'cli-user')
+   - :agent - Agent name (defaults to session agent)
 
    Exactly one of --for or --against must be provided.
 
@@ -580,8 +605,7 @@
    - :new-status - The new mote status"
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [for against reason agent]} options
-        agent (or agent "cli-user")]
+        {:keys [for against reason session]} options]
 
     ;; Validation
     (when-not id
@@ -605,8 +629,15 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Cast vote
-    (let [vote-type (if for :for :against)
+    ;; Session enforcement
+    (when-not session
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (let [sess (session/enforce-session! repo-path session :vote id)
+          agent (or (:agent options) (:agent sess))
+          vote-type (if for :for :against)
           result (verify/cast-vote! repo-path id agent vote-type :reason reason)]
       (:result result))))
 
@@ -634,9 +665,9 @@
    - :id - The mote ID to modify (required)
 
    Options:
+   - :session - Session token (required)
    - :add - Taint to add (can be specified multiple times)
    - :remove - Taint to remove (can be specified multiple times)
-   - :agent - Agent name (default: 'cli-user')
 
    Valid taints:
    - needs-decomposition
@@ -648,12 +679,13 @@
    - needs-counterexample
 
    At least one of --add or --remove must be provided.
+   Adding taints requires :taint-add permission (verifier role).
+   Removing taints requires :taint-remove permission (prover, ref-checker roles).
 
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [add remove agent]} options
-        agent (or agent "cli-user")
+        {:keys [add remove session]} options
         ;; Support both single value and vector for add/remove
         adds (if (sequential? add) add (when add [add]))
         removes (if (sequential? remove) remove (when remove [remove]))]
@@ -674,6 +706,18 @@
       (throw (ex-info "Not an Alethfeld repository"
                       {:type :not-initialized
                        :path repo-path})))
+
+    ;; Session enforcement
+    (when-not session
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    ;; Enforce session - check both actions if both operations requested
+    (when (seq adds)
+      (session/enforce-session! repo-path session :taint-add id))
+    (when (seq removes)
+      (session/enforce-session! repo-path session :taint-remove id))
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -792,9 +836,16 @@
    Arguments (in context):
    - :id - The mote ID to unclaim (required)
 
+   Options:
+   - :session - Session token (required)
+
+   Note: Prefer using 'af done' which properly ends the session.
+   This command releases the claim but does not end the session.
+
    Returns the updated mote."
-  [{:keys [id]}]
-  (let [repo-path "."]
+  [{:keys [id options]}]
+  (let [repo-path "."
+        session-id (:session options)]
 
     ;; Validation
     (when-not id
@@ -807,6 +858,14 @@
       (throw (ex-info "Not an Alethfeld repository"
                       {:type :not-initialized
                        :path repo-path})))
+
+    ;; Session enforcement (lighter validation - any session holder can unclaim)
+    (when-not session-id
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (session/validate-session! repo-path session-id id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -903,13 +962,14 @@
    - :id - The mote ID to add reference to (required)
 
    Options:
+   - :session - Session token (required)
    - :ref - The citation/reference text (required)
    - :note - Optional note explaining what the reference provides
 
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [ref note]} options]
+        {:keys [ref note session]} options]
 
     ;; Validation
     (when-not id
@@ -927,6 +987,14 @@
       (throw (ex-info "Not an Alethfeld repository"
                       {:type :not-initialized
                        :path repo-path})))
+
+    ;; Session enforcement
+    (when-not session
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (session/enforce-session! repo-path session :add-ref id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -955,13 +1023,14 @@
    - :id - The mote ID to add assumption to (required)
 
    Options:
+   - :session - Session token (required)
    - :ref - The referenced mote ID (required)
    - :note - Optional note explaining why this assumption is needed
 
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [ref note]} options]
+        {:keys [ref note session]} options]
 
     ;; Validation
     (when-not id
@@ -979,6 +1048,14 @@
       (throw (ex-info "Not an Alethfeld repository"
                       {:type :not-initialized
                        :path repo-path})))
+
+    ;; Session enforcement
+    (when-not session
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (session/enforce-session! repo-path session :add-assumption id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -1013,13 +1090,14 @@
    - :id - The mote ID to add definition to (required)
 
    Options:
+   - :session - Session token (required)
    - :symbol - The symbol to define (required)
    - :meaning - The meaning/definition of the symbol (required)
 
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [symbol meaning]} options]
+        {:keys [symbol meaning session]} options]
 
     ;; Validation
     (when-not id
@@ -1042,6 +1120,14 @@
       (throw (ex-info "Not an Alethfeld repository"
                       {:type :not-initialized
                        :path repo-path})))
+
+    ;; Session enforcement
+    (when-not session
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (session/enforce-session! repo-path session :add-definition id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
