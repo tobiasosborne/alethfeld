@@ -393,3 +393,37 @@
           result (m/set-claim mote "Updated claim text")]
       (is (s/valid? s/Mote result))
       (is (= "Updated claim text" (:claim result))))))
+
+;; -----------------------------------------------------------------------------
+;; Claim Expiration Tests
+;; -----------------------------------------------------------------------------
+
+(deftest claim-expired-test
+  (testing "claim-expired? returns false for unclaimed mote"
+    (let [mote (base-mote)]
+      (is (false? (m/claim-expired? mote 30)))))
+
+  (testing "claim-expired? returns false for mote with no claimed-at"
+    (let [mote (assoc (base-mote) :claimed-by "agent-1")]
+      (is (false? (m/claim-expired? mote 30)))))
+
+  (testing "claim-expired? returns false for fresh claim"
+    (let [mote (m/set-claimed-by (base-mote) "agent-1")]
+      (is (false? (m/claim-expired? mote 30)))))
+
+  (testing "claim-expired? returns true for expired claim"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 60 60 1000))) ;; 60 minutes ago
+          mote (-> (base-mote)
+                   (assoc :claimed-by "agent-1")
+                   (assoc :claimed-at old-time))]
+      (is (true? (m/claim-expired? mote 30)))))
+
+  (testing "claim-expired? respects timeout value"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 20 60 1000))) ;; 20 minutes ago
+          mote (-> (base-mote)
+                   (assoc :claimed-by "agent-1")
+                   (assoc :claimed-at old-time))]
+      ;; Not expired with 30-minute timeout
+      (is (false? (m/claim-expired? mote 30)))
+      ;; Expired with 15-minute timeout
+      (is (true? (m/claim-expired? mote 15))))))

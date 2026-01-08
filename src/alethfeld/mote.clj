@@ -262,6 +262,29 @@
       (dissoc :claimed-by :claimed-at)
       touch))
 
+(defn claim-expired?
+  "Check if a mote's claim has expired.
+
+   Arguments:
+   - mote: The mote to check
+   - timeout-minutes: Number of minutes after which a claim expires
+
+   Returns true if:
+   - The mote has a claimed-at timestamp
+   - The claim is older than timeout-minutes
+
+   Returns false if:
+   - The mote is not claimed
+   - The claim has no timestamp
+   - The claim is within the timeout window"
+  [mote timeout-minutes]
+  (if-let [claimed-at (:claimed-at mote)]
+    (let [now-ms (.getTime (now))
+          claimed-ms (.getTime claimed-at)
+          timeout-ms (* timeout-minutes 60 1000)]
+      (> (- now-ms claimed-ms) timeout-ms))
+    false))
+
 (defn set-proposal
   "Set an active proposal on a mote. Returns new mote."
   [mote proposal]

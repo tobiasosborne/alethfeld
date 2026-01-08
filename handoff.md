@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Code Review + Schema Validation Fix
+**Last session:** P1 Bug Fixes (Claim Timeout, Tx Layer, Race Window Documentation)
 
 ## Current State
 
@@ -45,51 +45,81 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 7.2 | Error Handling & Messages | 6 (25 assertions) |
 | 7.3 | Build & Distribution | - (install.sh) |
 
-**Total:** 743 tests, 1913 assertions - all passing
+**Total:** 746 tests, 1926 assertions - all passing
 
 ### Recent Work (this session)
 
-1. **Comprehensive Code Review**
-   - Spawned 3 independent review agents (Linus-style, Code Quality, Test Suite)
-   - Generated master report: `CODE-REVIEW-REPORT.md`
-   - Overall grade: B+ (solid engineering with knowable problems)
+1. **CLOSED `alethfeld-r4h5`: Implement claim timeout enforcement**
+   - Added `claim-expired?` function to `mote.clj` (lines 265-286)
+   - Updated `workable?` in `job.clj` to accept `:claim-timeout` option
+   - Updated `select-jobs` in `job.clj` to pass claim-timeout
+   - Updated `cmd-ready` in `cmd.clj` to load config and pass timeout
+   - Added 5 tests to `mote_test.clj` and 3 tests to `job_test.clj`
 
-2. **Created P1 Issues from Code Review**
-   - `alethfeld-r4h5`: Implement claim timeout enforcement
-   - `alethfeld-ucjj`: Add mote schema validation on load (CLOSED)
-   - `alethfeld-w49y`: Fix cmd-ready to use transaction layer
-   - `alethfeld-murq`: Document or fix transaction window race condition
-   - `alethfeld-nupa`: Add concurrency test suite
+2. **CLOSED `alethfeld-w49y`: Fix cmd-ready to use transaction layer**
+   - Refactored `cmd-ready` (cmd.clj:282-298) to use `tx/atomic-write!`
+   - Claims are now collected first, then written atomically in single transaction
+   - Removed direct `store/save-mote!` + `git/git-add-all!` + `git/git-commit!` calls
 
-3. **Created P2 Issues**
-   - `alethfeld-ngxd`: Expand CLI help to be fully self-documenting
-   - `alethfeld-5kqw`: Refactor prompt texts to separate files
+3. **CLOSED `alethfeld-murq`: Document transaction race window**
+   - Added detailed RACE WINDOW NOTE to `with-validation` docstring in `tx.clj`
+   - Added section 7.4 Known Limitations to `docs/TECH-SPEC.md`
+   - Documents the ~100ms window between validation and git commit
 
-4. **Fixed P1 Bug `alethfeld-ucjj`: Schema Validation on Load**
-   - Added `m/validate` checks to `load-mote` and `load-all-motes` in store.clj
-   - Invalid motes are now silently skipped, preventing NPEs in job-comparator
-   - Added 4 new tests for invalid mote handling
-   - Fixed 3 test files with schema-invalid test data exposed by stricter validation
+4. **IN PROGRESS `alethfeld-nupa`: Add concurrency test suite**
+   - Created `test/alethfeld/concurrency_test.clj` with 10 tests
+   - **HAS SYNTAX ERRORS - NEEDS FIXING**
+   - The file has unbalanced parentheses in the future/binding blocks
+   - Pattern: second `f2` future in each `let` binding is missing a `)` to close the `binding` form
+   - Fixed 4 occurrences but there may be more
 
 ### Current Issue
-None in progress.
+
+**`alethfeld-nupa` is incomplete.** The concurrency test file has syntax errors.
+
+**To fix:** Look for patterns like:
+```clojure
+f2 (future
+     @barrier
+     (binding [*temp-dir* temp-dir]
+       (try
+         ...
+         (catch Exception e
+           (swap! results conj {...}))))]  ;; WRONG - missing ) before ]
+```
+
+Should be:
+```clojure
+f2 (future
+     @barrier
+     (binding [*temp-dir* temp-dir]
+       (try
+         ...
+         (catch Exception e
+           (swap! results conj {...})))))]  ;; CORRECT - )))] not )))]
+```
+
+Run `clj -M:test -n alethfeld.concurrency-test` to find remaining syntax errors.
 
 ## Next Steps
 
-**Critical P1 Issues (before multi-agent deployment):**
-| Issue | Description |
-|-------|-------------|
-| `alethfeld-r4h5` | Implement claim timeout enforcement |
-| `alethfeld-w49y` | Fix cmd-ready to use transaction layer |
-| `alethfeld-murq` | Document or fix transaction window race condition |
-| `alethfeld-nupa` | Add concurrency test suite |
+**Immediate (finish current work):**
+1. Fix remaining syntax errors in `test/alethfeld/concurrency_test.clj`
+2. Run tests: `clj -M:test -n alethfeld.concurrency-test`
+3. Close `alethfeld-nupa` once tests pass
+
+**P1 Issues (all closed this session):**
+- ~~`alethfeld-r4h5`~~ - CLOSED
+- ~~`alethfeld-w49y`~~ - CLOSED
+- ~~`alethfeld-murq`~~ - CLOSED
+- `alethfeld-nupa` - IN PROGRESS (syntax errors in test file)
 
 **P2 Documentation:**
 - `alethfeld-dpdq`: Step 7.4 Documentation
 - `alethfeld-ngxd`: Expand CLI help (self-documenting)
 - `alethfeld-5kqw`: Refactor prompts to separate files
 
-### Previously Tracked (still open)
+**Previously Tracked (still open):**
 | Issue | Priority | Description |
 |-------|----------|-------------|
 | `alethfeld-9b04` | P2 | Add comment to find-cycles DFS algorithm |
@@ -98,26 +128,31 @@ None in progress.
 | `alethfeld-ann3` | P3 | Make now function injectable for test determinism |
 | `alethfeld-x982` | P3 | Add property-based tests for ID/path operations |
 
-## Key Files
+## Key Files Modified This Session
 
-| File | Purpose |
+| File | Changes |
 |------|---------|
-| `src/alethfeld/store.clj` | Mote persistence (now with schema validation) |
-| `src/alethfeld/cli.clj` | CLI infrastructure |
-| `src/alethfeld/cmd.clj` | Command implementations |
-| `src/alethfeld/tx.clj` | Transaction layer |
-| `CODE-REVIEW-REPORT.md` | Comprehensive code review findings |
+| `src/alethfeld/mote.clj` | Added `claim-expired?` function |
+| `src/alethfeld/job.clj` | Updated `workable?` and `select-jobs` for claim timeout |
+| `src/alethfeld/cmd.clj` | Updated `cmd-ready` to use tx layer and claim timeout |
+| `src/alethfeld/tx.clj` | Added RACE WINDOW NOTE to docstring |
+| `docs/TECH-SPEC.md` | Added section 7.4 Known Limitations |
+| `test/alethfeld/mote_test.clj` | Added 5 claim-expired tests |
+| `test/alethfeld/job_test.clj` | Added 3 claim-timeout tests |
+| `test/alethfeld/concurrency_test.clj` | NEW FILE - has syntax errors |
 
 ## Blockers
 
-None.
+None (other than fixing the syntax errors in concurrency_test.clj).
 
 ## Commands
 
 ```bash
 ./install.sh       # Install af to ~/.local/bin
 clj -M:run         # Run CLI (dev mode)
-clj -M:test        # Run tests
+clj -M:test        # Run all tests
+clj -M:test -n alethfeld.concurrency-test  # Run just concurrency tests
 clj -T:build uber  # Build uberjar
 bd ready           # Check ready issues
+bd show alethfeld-nupa  # See the in-progress issue
 ```

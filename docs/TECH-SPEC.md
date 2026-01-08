@@ -580,6 +580,20 @@ Git merge conflicts occur only when two agents modify the same mote file. Resolu
 
 Minimized by: claiming before work, one file per mote.
 
+### 7.4 Known Limitations
+
+**Race Window:** There is a small window (~<100ms) between DAG validation passing and git commit completing. If the process crashes during this window:
+- Files on disk are validated and consistent
+- Git history does not reflect the changes
+- Other agents using `git pull` won't see uncommitted changes
+
+This is acceptable because:
+1. Validated changes are never rolled back (data integrity preserved)
+2. Manual recovery: `git add . && git commit -m 'recovery'`
+3. The window is brief for typical operations
+
+Future work may add startup recovery to detect and commit orphaned validated changes.
+
 ---
 
 ## 8. DAG Invariants

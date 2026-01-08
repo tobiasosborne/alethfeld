@@ -593,3 +593,52 @@
           jobs (job/select-jobs motes :role :verifier)]
       ;; Even though mote has both roles, :verifier was specified
       (is (= :verifier (:role (first jobs)))))))
+
+;; =============================================================================
+;; Claim Timeout Tests
+;; =============================================================================
+
+(deftest workable-claim-timeout-test
+  (testing "Claimed mote is not workable without timeout"
+    (let [m (test-mote :status :fixed
+                       :taint #{:needs-verification}
+                       :claimed-by "some-agent")]
+      (is (false? (job/workable? m)))))
+
+  (testing "Claimed mote is not workable with timeout when claim is fresh"
+    (let [m (test-mote :status :fixed
+                       :taint #{:needs-verification}
+                       :claimed-by "some-agent")]
+      ;; Fresh claim (just created) should not be expired
+      (is (false? (job/workable? m :claim-timeout 30)))))
+
+  (testing "Claimed mote becomes workable when claim expires"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 60 60 1000))) ;; 60 minutes ago
+          m (-> (test-mote :status :fixed
+                           :taint #{:needs-verification})
+                (assoc :claimed-by "some-agent")
+                (assoc :claimed-at old-time))]
+      ;; Without timeout: not workable (claimed)
+      (is (false? (job/workable? m)))
+      ;; With 30-minute timeout: workable (claim expired)
+      (is (true? (job/workable? m :claim-timeout 30))))))
+
+(deftest select-jobs-claim-timeout-test
+  (testing "select-jobs includes motes with expired claims when timeout provided"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 60 60 1000))) ;; 60 minutes ago
+          m1 (test-mote :id "1" :taint #{:needs-verification})
+          m2 (-> (test-mote :id "2" :taint #{:needs-verification})
+                 (assoc :claimed-by "stale-agent")
+                 (assoc :claimed-at old-time))
+          motes {"1" m1 "2" m2}]
+      ;; Without timeout: only m1 is available
+      (is (= ["1"] (mapv :mote-id (job/select-jobs motes :max 10))))
+      ;; With timeout: both available (m2's claim expired)
+      (is (= #{"1" "2"} (set (mapv :mote-id (job/select-jobs motes :max 10 :claim-timeout 30)))))))
+
+  (testing "select-jobs excludes motes with fresh claims even with timeout"
+    (let [m1 (test-mote :id "1" :taint #{:needs-verification})
+          m2 (test-mote :id "2" :taint #{:needs-verification} :claimed-by "active-agent")
+          motes {"1" m1 "2" m2}]
+      ;; With timeout: only m1 available (m2's claim is fresh)
+      (is (= ["1"] (mapv :mote-id (job/select-jobs motes :max 10 :claim-timeout 30)))))))

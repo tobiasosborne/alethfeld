@@ -259,15 +259,18 @@
     (let [difficulty-filter (parse-difficulty-spec difficulty)
           priority-filter (parse-priority-spec priority)
 
-          ;; Load all motes
+          ;; Load config and motes
+          config (store/load-config repo-path)
+          claim-timeout (:claim-timeout-minutes config)
           motes (store/load-all-motes repo-path)
 
-          ;; Select jobs
+          ;; Select jobs (with claim timeout enforcement)
           jobs (job/select-jobs motes
                                 :role role
                                 :difficulty difficulty-filter
                                 :priority priority-filter
-                                :max max-jobs)
+                                :max max-jobs
+                                :claim-timeout claim-timeout)
 
           ;; Enrich jobs with prompts
           jobs-with-prompts (mapv (fn [j]
@@ -278,16 +281,17 @@
 
       ;; Auto-claim if agent provided and not --no-claim
       (if (and agent (not no-claim) (seq jobs-with-prompts))
-        (let [claimed-jobs (mapv (fn [j]
-                                   (let [mote-id (:mote-id j)
-                                         updated-mote (mote/set-claimed-by (:mote j) agent)]
-                                     (store/save-mote! repo-path updated-mote)
+        (let [;; Update motes with claims (collect without saving yet)
+              claimed-jobs (mapv (fn [j]
+                                   (let [updated-mote (mote/set-claimed-by (:mote j) agent)]
                                      (assoc j :mote updated-mote :claimed-by agent)))
-                                 jobs-with-prompts)]
-          ;; Commit the claims
-          (git/git-add-all! repo-path)
-          (git/git-commit! repo-path (str "Claim jobs for " agent ": "
-                                          (str/join ", " (map :mote-id claimed-jobs))))
+                                 jobs-with-prompts)
+              ;; Extract updated motes for atomic write
+              updated-motes (mapv :mote claimed-jobs)
+              ;; Commit all claims atomically via transaction layer
+              commit-msg (str "Claim jobs for " agent ": "
+                              (str/join ", " (map :mote-id claimed-jobs)))]
+          (tx/atomic-write! repo-path commit-msg updated-motes :validate false)
           claimed-jobs)
 
         ;; Return without claiming

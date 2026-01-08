@@ -66,14 +66,19 @@
 
    A mote is workable if:
    - Its status is not terminal (verified, rejected, refuted)
-   - It is not currently claimed
+   - It is not currently claimed (or claim has expired if timeout provided)
    - It has at least one taint flag that maps to a role
 
-   Note: Does not check claim expiration (that requires config)."
-  [mote]
+   Arguments:
+   - mote: The mote to check
+
+   Options:
+   - :claim-timeout - Minutes after which claims expire (default: nil, no expiration)"
+  [mote & {:keys [claim-timeout]}]
   (boolean
    (and (not (terminal-statuses (:status mote)))
-        (nil? (:claimed-by mote))
+        (or (nil? (:claimed-by mote))
+            (and claim-timeout (mote/claim-expired? mote claim-timeout)))
         (seq (mote->roles mote)))))
 
 ;; -----------------------------------------------------------------------------
@@ -218,21 +223,22 @@
    - :difficulty - Filter by difficulty (exact or [min max] range)
    - :priority - Filter by priority (exact or [min max] range)
    - :max - Maximum number of jobs to return (default: 1)
+   - :claim-timeout - Minutes after which claims expire (enables reclaiming stale jobs)
 
    Selection algorithm:
-   1. Filter to workable motes (non-terminal status, unclaimed, has role taint)
+   1. Filter to workable motes (non-terminal status, unclaimed/expired, has role taint)
    2. Apply role/difficulty/priority filters
    3. Sort by priority (p0 first), then difficulty (lower first)
    4. Take first N jobs
    5. Build Job records for each
 
    Returns a vector of Job maps."
-  [motes & {:keys [role difficulty priority max]
+  [motes & {:keys [role difficulty priority max claim-timeout]
             :or {max 1}
             :as options}]
   (let [filter-opts (select-keys options [:role :difficulty :priority])]
     (->> (vals motes)
-         (filter workable?)
+         (filter #(workable? % :claim-timeout claim-timeout))
          (filter #(matches-filter? % filter-opts))
          (sort job-comparator)
          (take max)

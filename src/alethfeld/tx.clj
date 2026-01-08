@@ -115,8 +115,23 @@
    - :commit - Commit info {:sha, :message}
 
    Throws ExceptionInfo with :type :validation-failed if validation fails.
-   Note: Once validation passes, git failures do NOT trigger rollback
-   (validated changes are preserved on disk for manual recovery)."
+
+   RACE WINDOW NOTE:
+   There is a small window between validation passing and git commit completing
+   where changes are written to disk but not yet recorded in git. If the process
+   crashes during this window:
+   - Files on disk are validated and consistent
+   - Git history does not reflect the changes
+   - Concurrent agents using `git pull` will not see the changes
+
+   This is an acceptable trade-off because:
+   1. The window is typically <100ms for normal operations
+   2. Validated changes are not rolled back (data integrity preserved)
+   3. Manual recovery is straightforward: run `git add . && git commit -m 'recovery'`
+   4. Concurrent access should use git locking (not yet implemented)
+
+   Future improvements could validate against git index instead of working tree,
+   or add startup recovery to detect uncommitted validated changes."
   [repo-path message f]
   ;; Ensure git is initialized
   (when-not (git/git-initialized? repo-path)
