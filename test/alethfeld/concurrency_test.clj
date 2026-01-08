@@ -14,7 +14,8 @@
             [alethfeld.mote :as mote]
             [alethfeld.tx :as tx]
             [alethfeld.job :as job]
-            [alethfeld.verify :as verify]))
+            [alethfeld.verify :as verify])
+  (:import [java.util.concurrent TimeUnit TimeoutException]))
 
 ;; =============================================================================
 ;; Test Fixtures
@@ -23,14 +24,31 @@
 (def ^:dynamic *temp-dir* nil)
 
 (defn temp-dir-fixture
-  "Creates a temp directory for each test and cleans up after."
+  "Creates a temp directory for each test and cleans up after.
+   Also clears the repo lock entry to prevent unbounded growth of the
+   global lock map across test runs."
   [f]
-  (let [temp (fs/create-temp-dir {:prefix "alethfeld-concurrency-test-"})]
+  (let [temp (fs/create-temp-dir {:prefix "alethfeld-concurrency-test-"})
+        temp-str (str temp)]
     (try
-      (binding [*temp-dir* (str temp)]
+      (binding [*temp-dir* temp-str]
         (f))
       (finally
+        ;; Clear lock BEFORE deleting directory (canonicalize needs the dir to exist)
+        (tx/clear-repo-lock! temp-str)
         (fs/delete-tree temp)))))
+
+(defn- deref-with-timeout
+  "Deref a future with a timeout. Returns the value or throws TimeoutException.
+   Default timeout is 10 seconds."
+  ([f] (deref-with-timeout f 10000))
+  ([f timeout-ms]
+   (let [result (deref f timeout-ms ::timeout)]
+     (if (= result ::timeout)
+       (do
+         (future-cancel f)
+         (throw (TimeoutException. (str "Future timed out after " timeout-ms "ms"))))
+       result))))
 
 (use-fixtures :each temp-dir-fixture)
 
@@ -144,9 +162,9 @@
         ;; Release the barrier
         (deliver barrier true)
 
-        ;; Wait for both to complete
-        @f1
-        @f2)
+        ;; Wait for both to complete with timeout
+        (deref-with-timeout f1)
+        (deref-with-timeout f2))
 
       ;; Exactly one should succeed
       (is (= 1 (count (filter :success @results)))
@@ -187,8 +205,8 @@
                                             :error (ex-message e)})))))]
 
         (deliver barrier true)
-        @f1
-        @f2)
+        (deref-with-timeout f1)
+        (deref-with-timeout f2))
 
       ;; Both should succeed
       (is (= 2 (count (filter :success @results)))
@@ -253,11 +271,7 @@
 ;; Concurrent Voting Tests
 ;; =============================================================================
 
-(deftest ^:flaky concurrent-votes-reaching-quorum-test
-  ;; KNOWN ISSUE: This test occasionally fails due to test fixture isolation
-  ;; issues when run as part of the full test suite. The underlying
-  ;; vote serialization via tx/with-validation locking works correctly.
-  ;; See alethfeld-nupa for tracking.
+(deftest concurrent-votes-reaching-quorum-test
   (testing "Multiple votes arriving concurrently - quorum is reached atomically"
     (init-repo!)
 
@@ -296,8 +310,9 @@
                                             :error (ex-message e)}))))]
 
           (deliver barrier true)
-          @f1
-          @f2)
+          ;; Use timeout to prevent hanging if lock contention causes deadlock
+          (deref-with-timeout f1)
+          (deref-with-timeout f2))
 
         ;; Both should succeed (votes are independent)
         (is (= 2 (count (filter :success @results)))
@@ -348,8 +363,8 @@
                                             :error (ex-message e)})))))]
 
         (deliver barrier true)
-        @f1
-        @f2)
+        (deref-with-timeout f1)
+        (deref-with-timeout f2))
 
       ;; Both should succeed (different files)
       (is (= 2 (count (filter :success @results)))
@@ -361,11 +376,7 @@
         (is (= "Updated by agent 1" (:claim m1)))
         (is (= "Updated by agent 2" (:claim m2)))))))
 
-(deftest ^:flaky sequential-writes-preserve-order-test
-  ;; KNOWN ISSUE: This test occasionally fails due to test fixture isolation
-  ;; issues when run as part of the full test suite. The underlying
-  ;; atomic-update! with locking works correctly when tested in isolation.
-  ;; See alethfeld-nupa for tracking.
+(deftest sequential-writes-preserve-order-test
   (testing "Sequential writes preserve data integrity"
     (init-repo!)
     (create-workable-mote! "1")
@@ -426,8 +437,8 @@
                                (tx/atomic-write! temp-dir "Fast update" [updated])
                                (deliver fast-update-done true))))]
 
-        @slow-reader
-        @fast-updater)
+        (deref-with-timeout slow-reader)
+        (deref-with-timeout fast-updater))
 
       ;; This documents current behavior: reads are NOT isolated
       ;; The slow reader might see the fast update's changes

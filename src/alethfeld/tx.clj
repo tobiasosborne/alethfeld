@@ -29,6 +29,27 @@
                       (reify java.util.function.Function
                         (apply [_ _] (ReentrantLock.))))))
 
+(defn clear-repo-lock!
+  "Remove the lock entry for a repository path.
+   For testing purposes - call after deleting temp directories to prevent
+   unbounded growth of the lock map.
+
+   Safe to call even if the lock doesn't exist or is currently held
+   (the holder will still release correctly, the entry just won't be reused)."
+  [repo-path]
+  (let [canonical (str (fs/canonicalize repo-path))]
+    (.remove repo-locks canonical)
+    nil))
+
+(defn clear-all-repo-locks!
+  "Clear all repository lock entries.
+   For testing purposes only - call between test suites to reset state.
+
+   WARNING: Only call when no transactions are in progress."
+  []
+  (.clear repo-locks)
+  nil)
+
 (defn- with-repo-lock
   "Execute f while holding the repository lock.
    Ensures only one transaction runs at a time per repository."
