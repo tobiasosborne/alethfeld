@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 3.1 Role Derivation
+**Last session:** Step 3.1 + 3.2 Job Selection
 
 ## Current State
 
@@ -24,30 +24,34 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 2.2 | Path Derivation | 13 |
 | 2.3 | DAG Validation | 22 |
 | 3.1 | Role Derivation | 21 (77 assertions) |
+| 3.2 | Job Selection Algorithm | 23 (58 assertions) |
 
-**Total:** 99 tests, 538 assertions - all passing
+**Total:** 122 tests, 596 assertions - all passing
 
 ### Recent Work (this session)
 - Completed `alethfeld-8g9a`: Step 3.1 Role Derivation + Tests
-- Created `src/alethfeld/job.clj` with:
-  - `mote->roles`: Returns set of roles based on taint flags
-  - `mote->role`: Returns primary role (priority-ordered)
-  - `workable?`: Checks if mote needs work
-  - `matches-filter?`: Filters motes by role/difficulty/priority
+- Completed `alethfeld-xm4r`: Step 3.2 Job Selection Algorithm + Tests
+- `src/alethfeld/job.clj` now includes:
+  - Role derivation: `mote->roles`, `mote->role`
+  - Workability: `workable?`
+  - Filtering: `matches-filter?`
+  - Sorting: `priority->rank`, `job-comparator`
+  - Job building: `build-job`
+  - Job selection: `select-jobs`
 
 ### Current Issue
 None in progress.
 
 ## Next Steps
 
-**Next ready issue:** `alethfeld-xm4r` (Step 3.2: Job Selection Algorithm + Tests)
+**Next ready issue:** `alethfeld-djwx` (Step 3.3: Prompt Rendering + Tests)
 
 This involves:
-- `select-jobs`: filter + sort + take N
-- `priority-rank`: priority -> numeric rank for sorting
-- `job-comparator`: sort by priority, then difficulty
-- `build-job`: mote + context -> Job record
-- Comprehensive tests for selection algorithm
+- Create `src/alethfeld/prompt.clj`
+- Define prompt templates as data
+- `render-prompt`: role + mote + context → prompt string
+- `format-assumptions`, `format-definitions`, `format-vote-summary`
+- Comprehensive tests for prompt rendering
 
 ### Code Review Issues (from previous session)
 | Issue | Priority | Description |
@@ -67,7 +71,7 @@ This involves:
 | `src/alethfeld/id.clj` | MoteId parsing & navigation |
 | `src/alethfeld/path.clj` | File path derivation |
 | `src/alethfeld/dag.clj` | DAG validation functions |
-| `src/alethfeld/job.clj` | Role derivation & filtering |
+| `src/alethfeld/job.clj` | Role derivation, filtering, job selection |
 | `test/alethfeld/` | All tests |
 
 ## Blockers

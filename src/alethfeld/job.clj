@@ -1,6 +1,7 @@
 (ns alethfeld.job
   "Job selection and role derivation functions."
-  (:require [alethfeld.schema :as s]))
+  (:require [alethfeld.schema :as s]
+            [alethfeld.mote :as mote]))
 
 ;; -----------------------------------------------------------------------------
 ;; Taint → Role Mapping
@@ -144,3 +145,96 @@
      (if priority
        (in-priority-range? (:priority mote) priority)
        true))))
+
+;; -----------------------------------------------------------------------------
+;; Job Sorting
+;; -----------------------------------------------------------------------------
+
+(defn priority->rank
+  "Convert priority keyword to numeric rank for sorting.
+   Lower rank = higher urgency (p0 → 0, p4 → 4)."
+  [priority]
+  (priority-rank priority))
+
+(defn job-comparator
+  "Comparator for sorting motes by priority (p0 first), then difficulty (lower first).
+   Returns negative if a should come before b, positive if after, 0 if equal."
+  [mote-a mote-b]
+  (let [pri-cmp (compare (priority->rank (:priority mote-a))
+                         (priority->rank (:priority mote-b)))]
+    (if (zero? pri-cmp)
+      (compare (:difficulty mote-a) (:difficulty mote-b))
+      pri-cmp)))
+
+;; -----------------------------------------------------------------------------
+;; Job Building
+;; -----------------------------------------------------------------------------
+
+(defn build-job
+  "Build a Job record from a mote and context.
+
+   Arguments:
+   - mote: The mote to create a job for
+   - motes: Map of mote-id → mote for looking up parent/siblings
+
+   Options:
+   - :role - Override role (otherwise derived from mote taints)
+   - :prompt - Prompt string (defaults to placeholder, real prompts in Step 3.3)
+
+   Returns a Job map conforming to schema/Job."
+  [mote motes & {:keys [role prompt]}]
+  (let [mote-id (:id mote)
+        derived-role (or role (mote->role mote))
+        parent-id (:parent mote)
+        parent (when parent-id (get motes parent-id))
+        ;; Siblings are other children of the same parent
+        siblings (when parent
+                   (->> (:children parent)
+                        (remove #{mote-id})
+                        (keep #(get motes %))
+                        vec))]
+    {:job-id (str "job-" (mote/generate-id))
+     :mote-id mote-id
+     :role derived-role
+     :difficulty (:difficulty mote)
+     :priority (:priority mote)
+     :mote mote
+     :parent parent
+     :siblings (or siblings [])
+     :prompt (or prompt (str "TODO: Prompt for " (name derived-role) " role"))}))
+
+;; -----------------------------------------------------------------------------
+;; Job Selection
+;; -----------------------------------------------------------------------------
+
+(defn select-jobs
+  "Select jobs from a collection of motes based on filter options.
+
+   Arguments:
+   - motes: Map of mote-id → mote
+
+   Options (ReadyOptions):
+   - :role - Filter by role
+   - :difficulty - Filter by difficulty (exact or [min max] range)
+   - :priority - Filter by priority (exact or [min max] range)
+   - :max - Maximum number of jobs to return (default: 1)
+
+   Selection algorithm:
+   1. Filter to workable motes (non-terminal status, unclaimed, has role taint)
+   2. Apply role/difficulty/priority filters
+   3. Sort by priority (p0 first), then difficulty (lower first)
+   4. Take first N jobs
+   5. Build Job records for each
+
+   Returns a vector of Job maps."
+  [motes & {:keys [role difficulty priority max]
+            :or {max 1}
+            :as options}]
+  (let [filter-opts (select-keys options [:role :difficulty :priority])]
+    (->> (vals motes)
+         (filter workable?)
+         (filter #(matches-filter? % filter-opts))
+         (sort job-comparator)
+         (take max)
+         (mapv #(build-job % motes :role role))
+         vec)))
