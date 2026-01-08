@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Steps 7.2, 7.3 + Bug Fix
+**Last session:** Code Review + Schema Validation Fix
 
 ## Current State
 
@@ -45,42 +45,49 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 7.2 | Error Handling & Messages | 6 (25 assertions) |
 | 7.3 | Build & Distribution | - (install.sh) |
 
-**Total:** 739 tests, 1904 assertions - all passing
+**Total:** 743 tests, 1913 assertions - all passing
 
 ### Recent Work (this session)
-1. **Fixed P1 Bug `alethfeld-9rtt`: Transaction rollback race condition**
-   - Problem: Validated changes were incorrectly rolled back on git commit failure
-   - Fix: Restructured `with-validation` to only rollback during function execution and validation phases
-   - Added test `no-rollback-after-validation-passes-test` to verify
 
-2. **Completed Step 7.2: Error Handling & Messages**
-   - Added `--verbose` flag to show stack traces for debugging
-   - Improved error messages for all error types with actionable suggestions
-   - Added 6 new tests with 25 assertions
+1. **Comprehensive Code Review**
+   - Spawned 3 independent review agents (Linus-style, Code Quality, Test Suite)
+   - Generated master report: `CODE-REVIEW-REPORT.md`
+   - Overall grade: B+ (solid engineering with knowable problems)
 
-3. **Completed Step 7.3: Build & Distribution**
-   - Created uberjar build (7.4MB) with `clj -T:build uber`
-   - Created `install.sh` script with verification
-   - Updated README with installation and quick start instructions
+2. **Created P1 Issues from Code Review**
+   - `alethfeld-r4h5`: Implement claim timeout enforcement
+   - `alethfeld-ucjj`: Add mote schema validation on load (CLOSED)
+   - `alethfeld-w49y`: Fix cmd-ready to use transaction layer
+   - `alethfeld-murq`: Document or fix transaction window race condition
+   - `alethfeld-nupa`: Add concurrency test suite
+
+3. **Created P2 Issues**
+   - `alethfeld-ngxd`: Expand CLI help to be fully self-documenting
+   - `alethfeld-5kqw`: Refactor prompt texts to separate files
+
+4. **Fixed P1 Bug `alethfeld-ucjj`: Schema Validation on Load**
+   - Added `m/validate` checks to `load-mote` and `load-all-motes` in store.clj
+   - Invalid motes are now silently skipped, preventing NPEs in job-comparator
+   - Added 4 new tests for invalid mote handling
+   - Fixed 3 test files with schema-invalid test data exposed by stricter validation
 
 ### Current Issue
 None in progress.
 
 ## Next Steps
 
-**Next ready issue:** `alethfeld-dpdq` - Step 7.4: Documentation
+**Critical P1 Issues (before multi-agent deployment):**
+| Issue | Description |
+|-------|-------------|
+| `alethfeld-r4h5` | Implement claim timeout enforcement |
+| `alethfeld-w49y` | Fix cmd-ready to use transaction layer |
+| `alethfeld-murq` | Document or fix transaction window race condition |
+| `alethfeld-nupa` | Add concurrency test suite |
 
-**Remaining implementation steps:**
-- Step 7.4: Documentation (complete README, help docs, troubleshooting)
-
-### P2 Issues (from code review)
-| Issue | Priority | Description |
-|-------|----------|-------------|
-| `alethfeld-l3i7` | P2 | Fix job comparator NPE on invalid priority |
-| `alethfeld-sek2` | P2 | Fix proposed children not resolved in prompts |
-| `alethfeld-tfmc` | P2 | Add verification workflow tests |
-| `alethfeld-f1zo` | P2 | Document race condition windows |
-| `alethfeld-3rje` | P2 | Implement claim timeout mechanism |
+**P2 Documentation:**
+- `alethfeld-dpdq`: Step 7.4 Documentation
+- `alethfeld-ngxd`: Expand CLI help (self-documenting)
+- `alethfeld-5kqw`: Refactor prompts to separate files
 
 ### Previously Tracked (still open)
 | Issue | Priority | Description |
@@ -91,23 +98,15 @@ None in progress.
 | `alethfeld-ann3` | P3 | Make now function injectable for test determinism |
 | `alethfeld-x982` | P3 | Add property-based tests for ID/path operations |
 
-### Medium Priority (from code review)
-| Issue | Priority | Description |
-|-------|----------|-------------|
-| `alethfeld-55w4` | P3 | Add manifest file for scalability |
-| `alethfeld-nvzk` | P3 | Add state machine constraints to schema |
-| `alethfeld-u5j4` | P4 | Refactor mote.clj into separate namespaces |
-
 ## Key Files
 
 | File | Purpose |
 |------|---------|
+| `src/alethfeld/store.clj` | Mote persistence (now with schema validation) |
 | `src/alethfeld/cli.clj` | CLI infrastructure |
 | `src/alethfeld/cmd.clj` | Command implementations |
 | `src/alethfeld/tx.clj` | Transaction layer |
-| `install.sh` | Installation script |
-| `build.clj` | Uberjar build |
-| `README.md` | Installation & usage docs |
+| `CODE-REVIEW-REPORT.md` | Comprehensive code review findings |
 
 ## Blockers
 

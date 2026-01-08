@@ -225,8 +225,9 @@
 (deftest check-detects-broken-ref-test
   (testing "check detects broken internal reference"
     (init-repo!)
+    ;; Use a valid MoteId pattern (passes schema) but non-existent mote
     (create-mote! "1" "Mote with broken ref"
-                  :assumptions [{:type :internal :ref "nonexistent"}])
+                  :assumptions [{:type :internal :ref "999"}])
     (let [result (cmd-check-in-temp)]
       (is (false? (:valid? result)))
       (is (some? (:dag-errors result)))

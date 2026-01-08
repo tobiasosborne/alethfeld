@@ -367,3 +367,69 @@
   (testing "Returns explanation for invalid mote"
     (let [invalid {:id "1" :claim "test"}]  ; missing required fields
       (is (some? (store/validate-mote invalid))))))
+
+;; =============================================================================
+;; Schema Validation on Load Tests
+;; =============================================================================
+
+(deftest load-mote-invalid-schema-test
+  (testing "Returns nil when mote file has invalid schema"
+    (init-test-repo)
+    ;; Write invalid EDN directly to disk (bypassing save-mote)
+    (let [invalid-mote {:id "1" :claim "test" :status :fixed}  ; missing required fields
+          file-path (str *temp-dir* "/.alethfeld/motes/1.edn")]
+      (spit file-path (pr-str invalid-mote))
+      ;; load-mote should return nil for invalid motes
+      (is (nil? (store/load-mote *temp-dir* "1"))))))
+
+(deftest load-mote-missing-priority-test
+  (testing "Returns nil when mote is missing priority field"
+    (init-test-repo)
+    ;; Write mote without priority - this would cause NPE in job-comparator
+    (let [invalid-mote {:id "1"
+                        :claim "Test claim"
+                        :status :fixed
+                        :difficulty 3
+                        :taint #{}
+                        :assumptions #{}
+                        :children []
+                        :created-at "2024-01-01T00:00:00"
+                        :created-by "test"
+                        :updated-at "2024-01-01T00:00:00"}
+          file-path (str *temp-dir* "/.alethfeld/motes/1.edn")]
+      (spit file-path (pr-str invalid-mote))
+      ;; load-mote should return nil - missing :priority
+      (is (nil? (store/load-mote *temp-dir* "1"))))))
+
+(deftest load-all-motes-skips-invalid-test
+  (testing "Skips invalid motes when loading all"
+    (init-test-repo)
+    ;; Save one valid mote
+    (store/save-mote! *temp-dir* (test-mote :id "1" :claim "Valid mote"))
+    ;; Write invalid mote directly to disk
+    (let [invalid-mote {:id "2" :claim "Invalid" :status :fixed}
+          file-path (str *temp-dir* "/.alethfeld/motes/2.edn")]
+      (spit file-path (pr-str invalid-mote)))
+    ;; load-all-motes should only return the valid mote
+    (let [motes (store/load-all-motes *temp-dir*)]
+      (is (= 1 (count motes)))
+      (is (contains? motes "1"))
+      (is (not (contains? motes "2"))))))
+
+(deftest load-all-motes-partial-invalid-test
+  (testing "Loads valid motes even when some are invalid"
+    (init-test-repo)
+    ;; Save three valid motes
+    (store/save-mote! *temp-dir* (test-mote :id "1"))
+    (store/save-mote! *temp-dir* (test-mote :id "2"))
+    (store/save-mote! *temp-dir* (test-mote :id "3"))
+    ;; Corrupt one of them by overwriting with invalid data
+    (let [invalid {:id "2" :bad "data"}
+          file-path (str *temp-dir* "/.alethfeld/motes/2.edn")]
+      (spit file-path (pr-str invalid)))
+    ;; Should load 2 valid motes, skip the invalid one
+    (let [motes (store/load-all-motes *temp-dir*)]
+      (is (= 2 (count motes)))
+      (is (contains? motes "1"))
+      (is (not (contains? motes "2")))
+      (is (contains? motes "3")))))

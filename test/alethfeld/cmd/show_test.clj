@@ -43,12 +43,14 @@
            difficulty 3
            parent nil
            children []}}]
-  (let [m (-> (mote/make-mote id claim "test-agent"
-                              :status status
-                              :priority priority
-                              :difficulty difficulty)
-              (assoc :parent parent
-                     :children children))]
+  (let [m (cond-> (mote/make-mote id claim "test-agent"
+                                  :status status
+                                  :priority priority
+                                  :difficulty difficulty)
+            ;; Only assoc parent if non-nil (nil fails schema validation)
+            parent (assoc :parent parent)
+            ;; Always set children (empty vector is valid)
+            true (assoc :children children))]
     (store/save-mote! *temp-dir* m)
     m))
 

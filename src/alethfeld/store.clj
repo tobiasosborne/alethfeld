@@ -66,12 +66,15 @@
    - mote-id: The mote ID to load
 
    Searches in order: motes/, proposed/, archive/
-   Returns nil if not found or mote-id is invalid."
+   Returns nil if not found, mote-id is invalid, or mote fails schema validation."
   [repo-path mote-id]
   (let [statuses [:fixed :proposed :rejected]]
     (some (fn [status]
             (when-let [file-path (mote-path repo-path mote-id status)]
-              (io/read-edn file-path)))
+              (when-let [mote (io/read-edn file-path)]
+                ;; Only return mote if it passes schema validation
+                (when (m/validate schema/Mote mote)
+                  mote))))
           statuses)))
 
 (defn save-mote!
@@ -162,10 +165,12 @@
         ;; Combine all paths
         all-paths (concat mote-paths proposed-paths archive-paths)]
 
-    ;; Load each mote and build map
+    ;; Load each mote and build map (skip invalid motes)
     (reduce (fn [acc file-path]
               (if-let [mote (io/read-edn file-path)]
-                (assoc acc (:id mote) mote)
+                (if (m/validate schema/Mote mote)
+                  (assoc acc (:id mote) mote)
+                  acc)  ; Skip invalid motes
                 acc))
             {}
             all-paths)))

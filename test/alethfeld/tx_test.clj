@@ -180,13 +180,13 @@
     (tx/transact! *temp-dir* "Initial"
                   (fn [repo]
                     (store/save-mote! repo (test-mote :id "1"))))
-    ;; Try to create a mote with broken ref
+    ;; Try to create a mote with broken ref (valid MoteId pattern but non-existent)
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
           (tx/with-validation *temp-dir* "Add broken ref"
             (fn [repo]
               (store/save-mote! repo
                 (assoc (test-mote :id "2")
-                       :assumptions [{:type :internal :ref "nonexistent" :label "broken"}]))))))
+                       :assumptions [{:type :internal :ref "999" :note "broken ref"}]))))))
     ;; Mote 2 should not exist
     (is (nil? (store/load-mote *temp-dir* "2")))))
 
@@ -413,12 +413,12 @@
   (testing "Rollback exactly restores original state"
     (init-test-repo)
 
-    ;; Create initial state
+    ;; Create initial state (use correct definition schema: :symbol/:meaning)
     (tx/transact! *temp-dir* "Initial"
                   (fn [repo]
                     (store/save-mote! repo
                       (assoc (test-mote :id "1" :claim "Original claim")
-                             :definitions [{:term "x" :definition "a value"}]))))
+                             :definitions [{:symbol "x" :meaning "a value"}]))))
 
     ;; Get original mote
     (let [original (store/load-mote *temp-dir* "1")]
@@ -438,7 +438,7 @@
       ;; Mote should be exactly as before
       (let [restored (store/load-mote *temp-dir* "1")]
         (is (= "Original claim" (:claim restored)))
-        (is (= [{:term "x" :definition "a value"}] (:definitions restored)))
+        (is (= [{:symbol "x" :meaning "a value"}] (:definitions restored)))
         (is (empty? (:children restored)))))))
 
 (deftest no-rollback-after-validation-passes-test
