@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step B.4 - Human-Readable Error Messages
+**Last session:** Step C.1 - Batch Voting Command
 
 ## Current State
 
@@ -12,13 +12,48 @@
 
 ### Project Status
 **v0.2 Phase A is 100% COMPLETE** (8 of 8 steps done).
-**v0.2 Phase B is 50% COMPLETE** (4 of 8 steps done).
+**v0.2 Phase B is 100% COMPLETE** (4 of 4 steps done).
+**v0.2 Phase C is 20% COMPLETE** (1 of 5 steps done).
 
 ---
 
 ## This Session: Completed Work
 
-### Step B.4: Human-Readable Error Messages (DONE)
+### Step C.1: Batch Voting Command (DONE)
+
+Implemented `af vote-all` command for batch verification voting:
+
+- **Issue:** `alethfeld-2hdf` (now closed)
+- **Files created:**
+  - `test/alethfeld/cmd/vote_all_test.clj` - New test file (8 tests)
+- **Files modified:**
+  - `src/alethfeld/cli.clj` - Added vote-all command definition
+  - `src/alethfeld/cmd.clj` - Added cmd-vote-all! and helper function
+
+**Implementation details:**
+
+1. **Command syntax:**
+   ```bash
+   af vote-all --session TOKEN --for|--against [--reason TEXT] [--dry-run]
+   ```
+
+2. **Features:**
+   - Finds all motes needing verification (status :fixed, taint :needs-verification)
+   - Excludes self-votes (motes where agent is creator/proposer)
+   - Excludes already-voted motes
+   - Supports --dry-run to preview eligible motes
+   - Returns summary: voted IDs, skipped items, counts
+
+3. **Helper function:**
+   - `find-eligible-motes-for-voting` - Returns sorted list of eligible mote pairs
+
+**Test coverage:**
+- Vote-all tests: 8 tests, 18 assertions (all passing)
+- Full suite: 943 tests, 2535 assertions (3+1 pre-existing flaky failures)
+
+---
+
+### Previous: Step B.4: Human-Readable Error Messages (DONE)
 
 Implemented dedicated error formatting module with actionable hints:
 
@@ -65,7 +100,7 @@ Implemented dedicated error formatting module with actionable hints:
 - CLI tests: 35 tests, 220 assertions (all passing)
 - Full suite: 935 tests, 2514 assertions (3 failures from pre-existing flaky concurrency tests)
 
-### Phase B Progress (4/8 steps COMPLETE)
+### Phase B Progress (4/4 steps COMPLETE)
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
@@ -73,10 +108,6 @@ Implemented dedicated error formatting module with actionable hints:
 | B.2 | `alethfeld-pq0f` | ✅ DONE | Tree View Command |
 | B.3 | `alethfeld-ftoc` | ✅ DONE | Status Summary Command |
 | B.4 | `alethfeld-j0v0` | ✅ DONE | Human-Readable Error Messages |
-| B.5 | - | pending | (See IMPLEMENTATION-PLAN.md) |
-| B.6 | - | pending | (See IMPLEMENTATION-PLAN.md) |
-| B.7 | - | pending | (See IMPLEMENTATION-PLAN.md) |
-| B.8 | - | pending | (See IMPLEMENTATION-PLAN.md) |
 
 ### Files Modified This Session
 
@@ -98,17 +129,15 @@ test/alethfeld/cli_test.clj     # Updated test assertion
 
 ## Next Steps (Recommended Order)
 
-### Phase B: Tier 1 Essential Improvements (Remaining)
+### Phase C: Tier 2 Quality/Safety (1/5 COMPLETE)
 
-See `docs/IMPLEMENTATION-PLAN.md` for B.5-B.8 details.
-
-### Phase C: Tier 2 Quality/Safety
-
-1. **C.1: Batch Voting** - Vote on multiple motes at once
-2. **C.2: Auto-Propagation** - Propagate votes across children
-3. **C.3: Proposal Withdrawal** - Cancel own proposal without quorum
-4. **C.4: Cross-References / Dependencies** - Track mote dependencies
-5. **C.5: Atomic Markers on Creation** - Create motes with markers set
+| Step | Issue | Status | Description |
+|------|-------|--------|-------------|
+| C.1 | `alethfeld-2hdf` | ✅ DONE | Batch Voting |
+| C.2 | - | pending | Auto-Propagation |
+| C.3 | - | pending | Proposal Withdrawal |
+| C.4 | - | pending | Cross-References / Dependencies |
+| C.5 | - | pending | Atomic Markers on Creation |
 
 ---
 
@@ -126,6 +155,28 @@ Currently unblocked:
 ---
 
 ## Usage Examples
+
+### Batch Voting
+
+```bash
+# Preview what would be voted on (dry run)
+af vote-all --for --dry-run --agent verifier-1
+
+# Vote for all eligible motes
+af vote-all --for --session TOKEN --reason "Batch approved"
+
+# Vote against all eligible motes
+af vote-all --against --session TOKEN --reason "Batch rejected"
+```
+
+Returns:
+```clojure
+{:voted ["1.1" "1.2" "1.3"]
+ :skipped []
+ :total-voted 3
+ :total-skipped 0
+ :dry-run false}
+```
 
 ### Error Messages
 
