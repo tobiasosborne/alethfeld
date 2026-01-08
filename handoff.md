@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Steps A.5 & A.6 - Session Enforcement & Done Command
+**Last session:** Step A.7 - Stale Session Cleanup
 
 ## Current State
 
@@ -11,49 +11,32 @@
 - v1 code archived in `archive/v1/`
 
 ### Project Status
-Alethfeld v0.1 is complete. **v0.2 Phase A is 75% complete** (6 of 8 steps done).
+Alethfeld v0.1 is complete. **v0.2 Phase A is 87.5% complete** (7 of 8 steps done).
 
 ---
 
 ## This Session: Completed Work
 
-### Step A.5: Session Enforcement Middleware (DONE)
+### Step A.7: Stale Session Cleanup (DONE)
 
-Implemented session enforcement on all mutation commands:
+Implemented automatic cleanup of stale sessions (expired or crashed agents):
 
-- **Issue:** `alethfeld-32yv` (now closed)
-- **Files modified:** `src/alethfeld/session.clj`, `src/alethfeld/cmd.clj`, `src/alethfeld/cli.clj`
-- **Files created:** `test/alethfeld/cmd/enforce_test.clj`
-
-**Implementation details:**
-- `enforce-session!` in `session.clj` - Validates session and enforces role permissions
-- `validate-session!` in `session.clj` - Lighter validation without action check
-- Added `--session` flag to all mutation commands in CLI
-- Updated `cmd-propose!`, `cmd-approve!`, `cmd-reject!`, `cmd-vote!`, `cmd-taint!`
-- Updated `cmd-add-ref!`, `cmd-add-assumption!`, `cmd-add-definition!`, `cmd-unclaim!`
-- Added session error messages and exit codes to `cli.clj`
-
-**Test coverage:** 18 tests, 28 assertions (all passing)
-
-### Step A.6: Done Command (DONE)
-
-Implemented `af done --session <token>` command:
-
-- **Issue:** `alethfeld-8gz7` (now closed)
-- **Files modified:** `src/alethfeld/cmd.clj`, `src/alethfeld/session.clj`
-- **Files created:** `test/alethfeld/cmd/done_test.clj`
+- **Issue:** `alethfeld-49vy` (now closed)
+- **Files modified:** `src/alethfeld/session.clj`, `src/alethfeld/cmd.clj`
+- **Files created:** `test/alethfeld/cmd/stale_cleanup_test.clj`
 
 **Implementation details:**
-- `cmd-done!` in `cmd.clj` - Ends session and releases mote claim
-- Updated `end-session!` in `session.clj` to support `:record-stats` option
-- Records completion timestamp and action count in session file
-- Moves session from `active/` to `completed/` directory
-- Clears mote claim (`claimed-by`, `claimed-at`)
-- Creates git commit for changes
+- `pid-alive?` in `session.clj` - Check if process is running using `kill -0`
+- `session-stale?` in `session.clj` - Check if session is expired OR process died
+- `cleanup-stale-sessions!` in `session.clj` - Archives stale sessions, returns mote info
+- `cleanup-stale-sessions-and-claims!` in `cmd.clj` - Clears mote claims for stale sessions
+- Integrated into `cmd-ready` - Cleanup runs automatically when agents request jobs
 
-**Test coverage:** 15 tests, 29 assertions (all passing)
+**Test coverage:**
+- Session tests: 36 tests, 207 assertions (3 new tests)
+- Stale cleanup integration: 6 tests, 17 assertions (new file)
 
-### Phase A Progress (6/8 steps DONE)
+### Phase A Progress (7/8 steps DONE)
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
@@ -63,66 +46,54 @@ Implemented `af done --session <token>` command:
 | A.4 | `alethfeld-oopq` | ✅ DONE | Session Creation in Ready/Claim |
 | A.5 | `alethfeld-32yv` | ✅ DONE | Session Enforcement Middleware |
 | A.6 | `alethfeld-8gz7` | ✅ DONE | Done Command |
-| A.7 | `alethfeld-49vy` | Ready | Stale Session Cleanup |
+| A.7 | `alethfeld-49vy` | ✅ DONE | Stale Session Cleanup |
 | A.8 | `alethfeld-j37u` | Ready | Prompt Updates with Session Constraints |
 
-### New Files Created
+### New Files Created This Session
 
 ```
-src/alethfeld/session.clj           # Session management (~500 lines)
-test/alethfeld/session_test.clj     # Session tests (33 tests)
-test/alethfeld/cmd/done_test.clj    # Done command tests (15 tests)
-test/alethfeld/cmd/enforce_test.clj # Enforcement tests (18 tests)
+test/alethfeld/cmd/stale_cleanup_test.clj  # Stale cleanup integration tests (6 tests)
 ```
 
-### Files Modified
+### Files Modified This Session
 
 ```
-src/alethfeld/schema.clj  # Added SessionId, Session, Contributors schemas
-src/alethfeld/path.clj    # Added session path functions
-src/alethfeld/mote.clj    # Added :contributors initialization
-src/alethfeld/verify.clj  # Added self-vote prevention check
-src/alethfeld/cmd.clj     # Session creation on claim, init creates session dirs
+src/alethfeld/session.clj  # Added pid-alive?, session-stale?, cleanup-stale-sessions!
+src/alethfeld/cmd.clj      # Added cleanup-stale-sessions-and-claims!, integrated into cmd-ready
+test/alethfeld/session_test.clj  # Added 3 new tests for stale cleanup
 ```
 
 ### Test Summary
 
-- **Session tests:** 33 tests, 184 assertions (all passing)
+- **Session tests:** 36 tests, 207 assertions (all passing)
+- **Stale cleanup tests:** 6 tests, 17 assertions (all passing)
 - **Done command tests:** 15 tests, 29 assertions (all passing)
 - **Enforcement tests:** 18 tests, 28 assertions (all passing)
-- **Full suite:** 822 tests, 2190 assertions
+- **Full suite:** 831 tests, 2230 assertions
 - **Known failures:** Concurrency tests (flaky, pre-existing), generate-id-test (rare UUID collision)
 
 ### Key Implementation Details
 
-**session.clj provides:**
-- `generate-session-id` - Dual UUID (256-bit entropy)
-- `create-session!`, `load-session`, `load-active-session`
-- `end-session!`, `archive-session!`, `delete-session!`
-- `cleanup-expired-sessions!`
-- `role-actions` map - Which actions each role can perform
-- `sessionless-commands` set - Commands that don't need sessions
-- `allowed?`, `requires-session?`, `get-allowed-actions`, `get-roles-for-action`
-- `can-vote?`, `add-contributor`, `get-contributors`
+**New functions in session.clj:**
+- `pid-alive?` - Check if a PID exists using `kill -0` (Unix)
+- `session-stale?` - Check if session expired OR process died
+- `cleanup-stale-sessions!` - Archive stale sessions, return cleanup info with mote-id and reason
 
-**CLI Changes:**
-- `af init` now creates `sessions/active/` and `sessions/completed/` directories
-- `af ready --agent X` now creates sessions for claimed jobs (returns `:session-id`)
-- `af claim ID --agent X --role R` now requires `--role` and creates session
-- `af done --session <token>` ends session and releases mote claim
+**cmd-ready integration:**
+- Cleanup runs automatically at start of `cmd-ready`
+- Clears mote claims for any cleaned-up sessions
+- Creates atomic git commit for claim releases
 
 ---
 
 ## Next Steps (Recommended Order)
 
-### Immediate (Complete Phase A - 2 steps remaining)
+### Immediate (Complete Phase A - 1 step remaining)
 
-1. **A.7: Stale Session Cleanup** (`alethfeld-49vy`)
-   - Recover from crashed agents
-   - See `docs/IMPLEMENTATION-PLAN.md` lines 288-310
-
-2. **A.8: Prompt Updates** (`alethfeld-j37u`)
+1. **A.8: Prompt Updates** (`alethfeld-j37u`)
    - Update prompts to include session constraints
+   - Include SESSION, MOTE, ROLE info
+   - List ALLOWED COMMANDS and FORBIDDEN actions
    - See `docs/IMPLEMENTATION-PLAN.md` lines 312-330
 
 ### After Phase A
@@ -139,8 +110,8 @@ bd ready
 ```
 
 Currently unblocked:
-- **Phase A:** `alethfeld-49vy` (A.7 Stale Session Cleanup), `alethfeld-j37u` (A.8 Prompt Updates)
-- **Phase C:** Now unblocked by A.5 completion
+- **Phase A:** `alethfeld-j37u` (A.8 Prompt Updates) - LAST STEP!
+- **Phase B/C:** Multiple items now unblocked
 
 ---
 
@@ -151,34 +122,18 @@ Currently unblocked:
 
 ---
 
-## Git Commits This Session
-
-```
-cf5c589 feat: Add per-repository locking for thread-safe transactions
-```
-
-### Previous Session Commits
-```
-0fef01b feat: Implement Phase A steps 1-3 (session schema, role matrix, self-vote prevention)
-caab75d feat: Step A.4 - Session creation on claim (ready/claim commands)
-```
-
----
-
 ## Commands
 
 ```bash
 # Development
-clj -M:test                                      # Run all tests
-clj -M:test --namespace alethfeld.session-test   # Run session tests only
-clj -M:test --namespace alethfeld.cmd.done-test  # Run done command tests
+clj -M:test                                           # Run all tests
+clj -M:test --namespace alethfeld.session-test        # Run session tests only
+clj -M:test --namespace alethfeld.cmd.stale-cleanup-test  # Run stale cleanup tests
 
 # Issue tracking
 bd ready                              # Show unblocked issues
 bd show <id>                          # View issue details
-
-# Next step
-bd update alethfeld-32yv --status=in_progress  # Start A.5 (Session Enforcement)
+bd close alethfeld-49vy               # Close A.7 issue
 ```
 
 ---
@@ -194,9 +149,9 @@ The session system is being built incrementally. Current state:
 - **Session enforcement on mutations** - All mutation commands now require `--session`
   - Commands: propose, approve, reject, vote, taint, add-ref, add-assumption, add-definition, unclaim
   - Role permissions enforced per role-actions matrix
+- **Stale session cleanup** - `af ready` automatically cleans up expired/crashed sessions
 
 **Not yet implemented:**
-- Stale session cleanup (A.7)
 - Prompt updates with session info (A.8)
 
 ---
@@ -207,4 +162,4 @@ The session system is being built incrementally. Current state:
 |----------|---------|
 | `docs/IMPLEMENTATION-PLAN.md` | Full v0.2 spec with all step details |
 | `docs/TECH-SPEC.md` | v0.1 technical spec |
-| `src/alethfeld/session.clj` | New session management module |
+| `src/alethfeld/session.clj` | Session management module |
