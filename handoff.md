@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 5.2 Proposal Workflow Implementation
+**Last session:** Step 5.3 Verification Workflow Implementation
 
 ## Current State
 
@@ -31,14 +31,16 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 4.3 | Git Operations | 37 (59 assertions) |
 | 5.1 | Transaction Wrapper | 26 (62 assertions) |
 | 5.2 | Proposal Workflow | 27 (87 assertions) |
+| 5.3 | Verification Workflow | 27 (98 assertions) |
 
-**Total:** 326 tests, 986 assertions - all passing
+**Total:** 353 tests, 1084 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 5.2: Proposal Workflow (`src/alethfeld/proposal.clj`)
-- Added 27 tests for proposal lifecycle (create, approve, reject, quorum)
-- Fixed DAG validation to handle proposed/rejected motes correctly
-- Updated `dag.clj` to exclude proposed/rejected motes from orphan check
+- Implemented Step 5.3: Verification Workflow (`src/alethfeld/verify.clj`)
+- Added 27 tests for verification lifecycle (cast-vote, quorum, status transitions)
+- Pure functions: `count-verification-votes`, `check-verification-quorum`, `has-voted?`
+- Transaction function: `cast-vote!` with full taint management
+- Query function: `verification-status` for checking vote progress
 
 ### Current Issue
 None in progress.
@@ -96,6 +98,7 @@ None in progress.
 | `src/alethfeld/git.clj` | Git operations |
 | `src/alethfeld/tx.clj` | Transaction layer |
 | `src/alethfeld/proposal.clj` | Proposal workflow |
+| `src/alethfeld/verify.clj` | Verification workflow |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
