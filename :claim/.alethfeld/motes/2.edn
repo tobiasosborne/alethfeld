@@ -1,0 +1,1 @@
+{:updated-at #inst "2026-01-08T20:47:28.923-00:00", :votes [], :children [], :definitions [], :taint #{:needs-verification}, :difficulty 3, :assumptions [], :created-by "test-agent", :priority :p2, :status :fixed, :id "2", :contributors {:created-by "test-agent"}, :created-at #inst "2026-01-08T20:47:28.923-00:00", :claim "Test claim"}
