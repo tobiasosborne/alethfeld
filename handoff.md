@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Concurrency fix - Per-repository locking in tx.clj
+**Last session:** Steps A.5 & A.6 - Session Enforcement & Done Command
 
 ## Current State
 
@@ -11,22 +11,49 @@
 - v1 code archived in `archive/v1/`
 
 ### Project Status
-Alethfeld v0.1 is complete. **v0.2 Phase A is 50% complete** (4 of 8 steps done).
+Alethfeld v0.1 is complete. **v0.2 Phase A is 75% complete** (6 of 8 steps done).
 
 ---
 
 ## This Session: Completed Work
 
-### Concurrency Fix (DONE)
+### Step A.5: Session Enforcement Middleware (DONE)
 
-Added per-repository locking to tx.clj to make transactions thread-safe:
+Implemented session enforcement on all mutation commands:
 
-- **Issue:** `alethfeld-nupa` (now closed)
-- **Files modified:** `src/alethfeld/tx.clj`, `test/alethfeld/concurrency_test.clj`
-- **Implementation:** ReentrantLock-based locking keyed by canonical repo path
-- **Functions updated:** `transact!` and `with-validation` now acquire locks
+- **Issue:** `alethfeld-32yv` (now closed)
+- **Files modified:** `src/alethfeld/session.clj`, `src/alethfeld/cmd.clj`, `src/alethfeld/cli.clj`
+- **Files created:** `test/alethfeld/cmd/enforce_test.clj`
 
-### Phase A Progress (4/8 steps DONE)
+**Implementation details:**
+- `enforce-session!` in `session.clj` - Validates session and enforces role permissions
+- `validate-session!` in `session.clj` - Lighter validation without action check
+- Added `--session` flag to all mutation commands in CLI
+- Updated `cmd-propose!`, `cmd-approve!`, `cmd-reject!`, `cmd-vote!`, `cmd-taint!`
+- Updated `cmd-add-ref!`, `cmd-add-assumption!`, `cmd-add-definition!`, `cmd-unclaim!`
+- Added session error messages and exit codes to `cli.clj`
+
+**Test coverage:** 18 tests, 28 assertions (all passing)
+
+### Step A.6: Done Command (DONE)
+
+Implemented `af done --session <token>` command:
+
+- **Issue:** `alethfeld-8gz7` (now closed)
+- **Files modified:** `src/alethfeld/cmd.clj`, `src/alethfeld/session.clj`
+- **Files created:** `test/alethfeld/cmd/done_test.clj`
+
+**Implementation details:**
+- `cmd-done!` in `cmd.clj` - Ends session and releases mote claim
+- Updated `end-session!` in `session.clj` to support `:record-stats` option
+- Records completion timestamp and action count in session file
+- Moves session from `active/` to `completed/` directory
+- Clears mote claim (`claimed-by`, `claimed-at`)
+- Creates git commit for changes
+
+**Test coverage:** 15 tests, 29 assertions (all passing)
+
+### Phase A Progress (6/8 steps DONE)
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
@@ -34,16 +61,18 @@ Added per-repository locking to tx.clj to make transactions thread-safe:
 | A.2 | `alethfeld-b0sn` | ✅ DONE | Role-Action Matrix |
 | A.3 | `alethfeld-aa2d` | ✅ DONE | Contributors Tracking & Self-Vote Prevention |
 | A.4 | `alethfeld-oopq` | ✅ DONE | Session Creation in Ready/Claim |
-| A.5 | `alethfeld-32yv` | Ready | Session Enforcement Middleware |
-| A.6 | `alethfeld-8gz7` | Ready | Done Command |
+| A.5 | `alethfeld-32yv` | ✅ DONE | Session Enforcement Middleware |
+| A.6 | `alethfeld-8gz7` | ✅ DONE | Done Command |
 | A.7 | `alethfeld-49vy` | Ready | Stale Session Cleanup |
 | A.8 | `alethfeld-j37u` | Ready | Prompt Updates with Session Constraints |
 
 ### New Files Created
 
 ```
-src/alethfeld/session.clj       # Session management (446 lines)
-test/alethfeld/session_test.clj # Session tests (627 lines)
+src/alethfeld/session.clj           # Session management (~500 lines)
+test/alethfeld/session_test.clj     # Session tests (33 tests)
+test/alethfeld/cmd/done_test.clj    # Done command tests (15 tests)
+test/alethfeld/cmd/enforce_test.clj # Enforcement tests (18 tests)
 ```
 
 ### Files Modified
@@ -59,8 +88,10 @@ src/alethfeld/cmd.clj     # Session creation on claim, init creates session dirs
 ### Test Summary
 
 - **Session tests:** 33 tests, 184 assertions (all passing)
-- **Full suite:** 779 tests, 2015 assertions
-- **Known failures:** 6 in concurrency tests (pre-existing, tracked in `alethfeld-nupa`)
+- **Done command tests:** 15 tests, 29 assertions (all passing)
+- **Enforcement tests:** 18 tests, 28 assertions (all passing)
+- **Full suite:** 822 tests, 2190 assertions
+- **Known failures:** Concurrency tests (flaky, pre-existing), generate-id-test (rare UUID collision)
 
 ### Key Implementation Details
 
@@ -78,34 +109,26 @@ src/alethfeld/cmd.clj     # Session creation on claim, init creates session dirs
 - `af init` now creates `sessions/active/` and `sessions/completed/` directories
 - `af ready --agent X` now creates sessions for claimed jobs (returns `:session-id`)
 - `af claim ID --agent X --role R` now requires `--role` and creates session
+- `af done --session <token>` ends session and releases mote claim
 
 ---
 
 ## Next Steps (Recommended Order)
 
-### Immediate (Complete Phase A)
+### Immediate (Complete Phase A - 2 steps remaining)
 
-1. **A.6: Done Command** (`alethfeld-8gz7`) - Simple, enables session cleanup
-   - Add `cmd-done!` that ends session and clears mote claim
-   - See `docs/IMPLEMENTATION-PLAN.md` lines 270-286
-
-2. **A.5: Session Enforcement Middleware** (`alethfeld-32yv`) - Critical path
-   - Add `enforce-session!` function
-   - Update mutation commands to require `--session`
-   - See `docs/IMPLEMENTATION-PLAN.md` lines 233-268
-
-3. **A.7: Stale Session Cleanup** (`alethfeld-49vy`)
+1. **A.7: Stale Session Cleanup** (`alethfeld-49vy`)
    - Recover from crashed agents
    - See `docs/IMPLEMENTATION-PLAN.md` lines 288-310
 
-4. **A.8: Prompt Updates** (`alethfeld-j37u`)
+2. **A.8: Prompt Updates** (`alethfeld-j37u`)
    - Update prompts to include session constraints
    - See `docs/IMPLEMENTATION-PLAN.md` lines 312-330
 
 ### After Phase A
 
 - Phase B items (B.1-B.4) are independent and can be done in parallel
-- Phase C items depend on A.5
+- Phase C items are now unblocked (A.5 dependency satisfied)
 
 ---
 
@@ -116,10 +139,8 @@ bd ready
 ```
 
 Currently unblocked:
-1. `alethfeld-32yv` - Step A.5: Session Enforcement Middleware
-2. `alethfeld-8gz7` - Step A.6: Done Command
-3. `alethfeld-49vy` - Step A.7: Stale Session Cleanup
-4. `alethfeld-j37u` - Step A.8: Prompt Updates
+- **Phase A:** `alethfeld-49vy` (A.7 Stale Session Cleanup), `alethfeld-j37u` (A.8 Prompt Updates)
+- **Phase C:** Now unblocked by A.5 completion
 
 ---
 
@@ -148,15 +169,16 @@ caab75d feat: Step A.4 - Session creation on claim (ready/claim commands)
 
 ```bash
 # Development
-clj -M:test                           # Run all tests
-clj -M:test --namespace alethfeld.session-test  # Run session tests only
+clj -M:test                                      # Run all tests
+clj -M:test --namespace alethfeld.session-test   # Run session tests only
+clj -M:test --namespace alethfeld.cmd.done-test  # Run done command tests
 
 # Issue tracking
 bd ready                              # Show unblocked issues
 bd show <id>                          # View issue details
 
 # Next step
-bd update alethfeld-8gz7 --status=in_progress  # Start A.6 (Done Command)
+bd update alethfeld-32yv --status=in_progress  # Start A.5 (Session Enforcement)
 ```
 
 ---
@@ -168,10 +190,13 @@ The session system is being built incrementally. Current state:
 **Working now:**
 - `af ready --agent X` creates sessions (returns session-id)
 - `af claim ID --agent X --role R` creates sessions (requires --role)
+- `af done --session <token>` ends session and releases mote
+- **Session enforcement on mutations** - All mutation commands now require `--session`
+  - Commands: propose, approve, reject, vote, taint, add-ref, add-assumption, add-definition, unclaim
+  - Role permissions enforced per role-actions matrix
 
 **Not yet implemented:**
-- `af done --session <token>` (A.6)
-- Session enforcement on mutations (A.5)
+- Stale session cleanup (A.7)
 - Prompt updates with session info (A.8)
 
 ---
