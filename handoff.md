@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Steps 3.3, 4.1, 4.2 Complete
+**Last session:** Step 4.3 Complete
 
 ## Current State
 
@@ -28,20 +28,21 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 3.3 | Prompt Rendering | 43 (63 assertions) |
 | 4.1 | EDN I/O | 37 (50 assertions) |
 | 4.2 | Mote Persistence | 35 (69 assertions) |
+| 4.3 | Git Operations | 37 (59 assertions) |
 
-**Total:** 237 tests, 778 assertions - all passing
+**Total:** 274 tests, 837 assertions - all passing
 
 ### Recent Work (this session)
-- Completed `alethfeld-djwx`: Step 3.3 Prompt Rendering
-- Completed `alethfeld-rck4`: Step 4.1 EDN I/O
-- Completed `alethfeld-7n4e`: Step 4.2 Mote Persistence
-- Created `src/alethfeld/store.clj` with:
-  - `load-config`, `save-config!`: Config file operations
-  - `load-mote`, `save-mote!`: Single mote CRUD
-  - `delete-mote!`, `move-mote!`: Mote deletion/movement
-  - `load-all-motes`: Bulk load with filtering
-  - `init-repo!`, `repo-exists?`: Repository initialization
-  - `validate-mote`: Schema validation
+- Completed `alethfeld-41di`: Step 4.3 Git Operations
+- Created `src/alethfeld/git.clj` with:
+  - `git-init!`: Initialize git repo with custom branch
+  - `git-add!`, `git-add-all!`: Stage files (single or .alethfeld/)
+  - `git-commit!`: Create commit with message
+  - `git-log`: Get commit history with path filtering
+  - `git-status`: Check repo status (clean/staged/unstaged/untracked)
+  - `git-pull!`, `git-push!`: Remote operations
+  - `git-config!`, `git-config`: Configuration management
+  - `git-initialized?`, `git-has-commits?`, `git-has-remote?`: Status queries
 
 ### Current Issue
 None in progress.
@@ -50,15 +51,13 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-Phase 4 (File I/O) continues:
-- `alethfeld-41di`: Step 4.3 Git Operations + Tests
+Phase 5 (Transaction Layer) is next:
+- `alethfeld-g69f`: Step 5.1 Transaction Wrapper + Tests
 
 This involves:
-- `git-init!`: Initialize git repo
-- `git-add!`: Stage files
-- `git-commit!`: Create commit with message
-- `git-status`: Check repo status
-- Transactional commit wrapper
+- `transact!`: Wraps operations in git commit
+- `with-validation`: Validates before commit, rolls back on failure
+- `atomic-write!`: Write multiple motes atomically
 
 ### Code Review Issues (from previous session)
 | Issue | Priority | Description |
@@ -82,6 +81,7 @@ This involves:
 | `src/alethfeld/prompt.clj` | Prompt templates & rendering |
 | `src/alethfeld/io.clj` | EDN file I/O operations |
 | `src/alethfeld/store.clj` | Mote persistence layer |
+| `src/alethfeld/git.clj` | Git operations |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
