@@ -823,6 +823,76 @@
         updated-mote))))
 
 ;; -----------------------------------------------------------------------------
+;; Done Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-done!
+  "End a session and release the claimed mote.
+
+   Options:
+   - :session - Session token (required)
+
+   Ends the active session and releases the mote for other agents.
+   The session is moved to the completed directory with stats recorded.
+
+   Returns map with:
+   - :session-id - The session that was ended
+   - :mote-id - The mote that was released
+   - :action-count - Number of actions performed in the session"
+  [{:keys [options]}]
+  (let [repo-path "."
+        session-id (:session options)]
+
+    ;; Validation
+    (when-not session-id
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with the session token"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate session
+    (let [sess (session/load-active-session repo-path session-id)]
+      (when-not sess
+        (throw (ex-info "Session not found or already ended"
+                        {:type :session-not-found
+                         :session-id session-id})))
+
+      ;; Check session is not expired
+      (when (session/session-expired? sess)
+        (throw (ex-info "Session has expired"
+                        {:type :session-expired
+                         :session-id session-id
+                         :expires-at (:expires-at sess)})))
+
+      (let [mote-id (:mote-id sess)
+            mote (store/load-mote repo-path mote-id)]
+
+        ;; Mote should exist (integrity check)
+        (when-not mote
+          (throw (ex-info "Mote not found for session"
+                          {:type :integrity-error
+                           :session-id session-id
+                           :mote-id mote-id})))
+
+        ;; End session with stats and clear mote claim
+        (let [ended-session (session/end-session! repo-path session-id :record-stats true)
+              updated-mote (mote/clear-claim mote)]
+
+          ;; Commit the changes
+          (tx/atomic-write! repo-path
+                            (str "Done: end session for " mote-id)
+                            [updated-mote])
+
+          {:session-id session-id
+           :mote-id mote-id
+           :action-count (:action-count ended-session)})))))
+
+;; -----------------------------------------------------------------------------
 ;; Add-Ref Command
 ;; -----------------------------------------------------------------------------
 
@@ -1189,6 +1259,7 @@
   (cli/register-handler! "taint" cmd-taint!)
   (cli/register-handler! "claim" cmd-claim!)
   (cli/register-handler! "unclaim" cmd-unclaim!)
+  (cli/register-handler! "done" cmd-done!)
   (cli/register-handler! "add-ref" cmd-add-ref!)
   (cli/register-handler! "add-assumption" cmd-add-assumption!)
   (cli/register-handler! "add-definition" cmd-add-definition!)

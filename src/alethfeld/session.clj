@@ -306,13 +306,24 @@
    - repo-path: Path to the repository root
    - session-id: The session ID to end
 
+   Options:
+   - :record-stats - If true, record completed-at and action-count
+
    Returns the session that was ended, or nil if not found."
-  [repo-path session-id]
+  [repo-path session-id & {:keys [record-stats] :or {record-stats false}}]
   (when-let [session (load-active-session repo-path session-id)]
     (let [active-path (active-session-path repo-path session-id)
-          completed-path (completed-session-path repo-path session-id)]
+          completed-path (completed-session-path repo-path session-id)
+          final-session (if record-stats
+                          (assoc session
+                                 :completed-at (java.util.Date.)
+                                 :action-count (count (:actions session)))
+                          session)]
+      ;; Write updated session with stats, then move
+      (when record-stats
+        (io/write-edn active-path final-session))
       (io/move-file active-path completed-path)
-      session)))
+      final-session)))
 
 (defn archive-session!
   "Archive an expired or crashed session.
