@@ -11,7 +11,8 @@
   (:require [alethfeld.mote :as mote]
             [alethfeld.session :as session]
             [alethfeld.store :as store]
-            [alethfeld.tx :as tx]))
+            [alethfeld.tx :as tx]
+            [alethfeld.id :as id]))
 
 ;; -----------------------------------------------------------------------------
 ;; Quorum Logic (Pure Functions)
@@ -202,3 +203,77 @@
   [mote]
   (and (= :fixed (:status mote))
        (contains? (:taint mote) :needs-verification)))
+
+;; -----------------------------------------------------------------------------
+;; Auto-Propagation
+;; -----------------------------------------------------------------------------
+
+(defn all-siblings-verified?
+  "Check if all siblings of a mote are verified.
+
+   Arguments:
+   - motes: Map of mote-id -> mote
+   - mote-id: The mote to check siblings for
+
+   Returns true if:
+   - The mote has a parent (not a root)
+   - All siblings (other children of the same parent) are :verified"
+  [motes mote-id]
+  (when-let [parent-id (id/parent-id mote-id)]
+    (when-let [parent (get motes parent-id)]
+      (let [sibling-ids (remove #{mote-id} (:children parent))
+            siblings (keep #(get motes %) sibling-ids)]
+        ;; All siblings must be verified
+        (every? #(= :verified (:status %)) siblings)))))
+
+(defn can-propagate-to-parent?
+  "Check if verification can propagate to a parent mote.
+
+   Returns true if:
+   - Parent exists
+   - Parent is :fixed status (ready for verification)
+   - All children of parent are :verified
+   - Agent can vote on parent (not a contributor)"
+  [motes parent-id agent]
+  (when-let [parent (get motes parent-id)]
+    (and (= :fixed (:status parent))
+         (let [child-ids (:children parent)
+               children (keep #(get motes %) child-ids)]
+           (every? #(= :verified (:status %)) children))
+         (session/can-vote? parent agent)
+         (not (has-voted? parent agent)))))
+
+(defn propagate-verification!
+  "Propagate verification votes up the tree.
+
+   After a mote becomes verified, checks if all its siblings are also verified.
+   If so, and the agent can vote on the parent, casts a :for vote on the parent.
+   Recursively continues up the tree.
+
+   Arguments:
+   - repo-path: Path to the repository
+   - mote-id: The mote that was just verified
+   - agent: The agent casting votes
+   - reason: Optional reason for propagated votes
+
+   Returns a vector of parent IDs that were voted on."
+  [repo-path mote-id agent & {:keys [reason]}]
+  (loop [current-id mote-id
+         propagated []]
+    (let [parent-id (id/parent-id current-id)]
+      (if (nil? parent-id)
+        ;; Reached root, done propagating
+        propagated
+        ;; Check if we can propagate to parent
+        (let [motes (store/load-all-motes repo-path)]
+          (if (can-propagate-to-parent? motes parent-id agent)
+            ;; Cast vote on parent
+            (let [result (cast-vote! repo-path parent-id agent :for
+                                     :reason (or reason "Auto-propagated from children"))]
+              (if (= :verified (:quorum-status (:result result)))
+                ;; Parent verified, continue propagating
+                (recur parent-id (conj propagated parent-id))
+                ;; Parent not yet verified (needs more votes), stop
+                (conj propagated parent-id)))
+            ;; Cannot propagate (parent not ready, agent is contributor, or already voted)
+            propagated))))))

@@ -238,12 +238,13 @@
              :requires-id true}
 
    "vote" {:description "Cast verification vote"
-           :usage "af vote <id> --session TOKEN --for|--against [--reason TEXT]"
+           :usage "af vote <id> --session TOKEN --for|--against [--reason TEXT] [--propagate]"
            :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
                      ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
                      [nil "--for" "Vote for (valid)"]
                      [nil "--against" "Vote against (invalid)"]
-                     ["-R" "--reason TEXT" "Reason for vote"]]
+                     ["-R" "--reason TEXT" "Reason for vote"]
+                     [nil "--propagate" "Auto-vote on parents when all siblings verified"]]
            :requires-id true}
 
    "vote-all" {:description "Batch vote on multiple motes"

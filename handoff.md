@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step C.1 - Batch Voting Command
+**Last session:** Step C.2 - Auto-Propagation
 
 ## Current State
 
@@ -13,13 +13,57 @@
 ### Project Status
 **v0.2 Phase A is 100% COMPLETE** (8 of 8 steps done).
 **v0.2 Phase B is 100% COMPLETE** (4 of 4 steps done).
-**v0.2 Phase C is 20% COMPLETE** (1 of 5 steps done).
+**v0.2 Phase C is 40% COMPLETE** (2 of 5 steps done).
 
 ---
 
 ## This Session: Completed Work
 
-### Step C.1: Batch Voting Command (DONE)
+### Step C.2: Auto-Propagation (DONE)
+
+Implemented `--propagate` flag for `af vote` command:
+
+- **Issue:** `alethfeld-t52o` (now closed)
+- **Files created:**
+  - `test/alethfeld/propagation_test.clj` - New test file (14 tests, 32 assertions)
+- **Files modified:**
+  - `src/alethfeld/cli.clj` - Added --propagate flag to vote command
+  - `src/alethfeld/cmd.clj` - Updated cmd-vote! to handle propagation
+  - `src/alethfeld/verify.clj` - Added propagation functions
+
+**Implementation details:**
+
+1. **Command syntax:**
+   ```bash
+   af vote 1.3.3 --for --session TOKEN --propagate [--reason TEXT]
+   ```
+
+2. **Propagation logic:**
+   - After voting, if mote becomes :verified:
+     - Check if all siblings are :verified
+     - If yes, and agent can vote on parent (not contributor), auto-vote
+     - Recurse up the tree until hitting root or contributor boundary
+   - Returns `:propagated` key with vector of voted parent IDs
+
+3. **New functions in verify.clj:**
+   - `all-siblings-verified?` - Check if all siblings of a mote are verified
+   - `can-propagate-to-parent?` - Check if propagation can proceed to parent
+   - `propagate-verification!` - Recursively propagate votes up the tree
+
+4. **Safety features:**
+   - Only propagates for `:for` votes (not `:against`)
+   - Only propagates when quorum is reached (mote becomes :verified)
+   - Stops at contributor boundary (can't vote on own work)
+   - Stops if agent already voted on ancestor
+   - Stops at root (no parent to propagate to)
+
+**Test coverage:**
+- Propagation tests: 14 tests, 32 assertions (all passing)
+- Full suite: 957 tests, 2567 assertions (3+1 pre-existing flaky failures)
+
+---
+
+### Previous: Step C.1: Batch Voting Command (DONE)
 
 Implemented `af vote-all` command for batch verification voting:
 
@@ -129,12 +173,12 @@ test/alethfeld/cli_test.clj     # Updated test assertion
 
 ## Next Steps (Recommended Order)
 
-### Phase C: Tier 2 Quality/Safety (1/5 COMPLETE)
+### Phase C: Tier 2 Quality/Safety (2/5 COMPLETE)
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
 | C.1 | `alethfeld-2hdf` | ✅ DONE | Batch Voting |
-| C.2 | - | pending | Auto-Propagation |
+| C.2 | `alethfeld-t52o` | ✅ DONE | Auto-Propagation |
 | C.3 | - | pending | Proposal Withdrawal |
 | C.4 | - | pending | Cross-References / Dependencies |
 | C.5 | - | pending | Atomic Markers on Creation |
@@ -155,6 +199,25 @@ Currently unblocked:
 ---
 
 ## Usage Examples
+
+### Auto-Propagation
+
+```bash
+# Vote with auto-propagation (verifies ancestors when all siblings verified)
+af vote 1.3.3 --for --session TOKEN --propagate
+
+# Vote with propagation and custom reason
+af vote 1.3.3 --for --session TOKEN --propagate --reason "Verified via analysis"
+```
+
+Returns:
+```clojure
+{:vote-cast {:agent "verifier-1" :vote :for :reason "..."}
+ :quorum-status :verified
+ :status-changed true
+ :new-status :verified
+ :propagated ["1.3" "1"]}  ; Auto-voted on parent and grandparent
+```
 
 ### Batch Voting
 

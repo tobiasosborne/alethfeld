@@ -632,6 +632,7 @@
    - :against - Vote against verification
    - :reason - Reason for vote (optional)
    - :agent - Agent name (defaults to session agent)
+   - :propagate - Auto-vote on parents when all children verified
 
    Exactly one of --for or --against must be provided.
 
@@ -640,14 +641,20 @@
    - :refuted if unanimous against votes
    - :contested if mixed votes
 
+   When --propagate is used:
+   - After voting, checks if all siblings are verified
+   - If yes and agent can vote on parent, auto-votes on parent
+   - Recursively continues up the tree
+
    Returns map with:
    - :vote-cast - The vote that was cast
    - :quorum-status - :pending, :verified, :refuted, or :contested
    - :status-changed - Whether the mote status changed
-   - :new-status - The new mote status"
+   - :new-status - The new mote status
+   - :propagated - Vector of parent IDs that were auto-voted (if --propagate)"
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [for against reason session]} options]
+        {:keys [for against reason session propagate]} options]
 
     ;; Validation
     (when-not id
@@ -680,8 +687,17 @@
     (let [sess (session/enforce-session! repo-path session :vote id)
           agent (or (:agent options) (:agent sess))
           vote-type (if for :for :against)
-          result (verify/cast-vote! repo-path id agent vote-type :reason reason)]
-      (:result result))))
+          result (verify/cast-vote! repo-path id agent vote-type :reason reason)
+          vote-result (:result result)]
+
+      ;; Handle propagation if requested and vote was for (not against)
+      (if (and propagate
+               for
+               (= :verified (:quorum-status vote-result)))
+        ;; Propagate verification up the tree
+        (let [propagated (verify/propagate-verification! repo-path id agent :reason reason)]
+          (assoc vote-result :propagated propagated))
+        vote-result))))
 
 ;; -----------------------------------------------------------------------------
 ;; Batch Vote Command
