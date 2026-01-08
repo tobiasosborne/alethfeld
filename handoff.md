@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step B.3 - Status Summary Command
+**Last session:** Step B.4 - Human-Readable Error Messages
 
 ## Current State
 
@@ -12,79 +12,86 @@
 
 ### Project Status
 **v0.2 Phase A is 100% COMPLETE** (8 of 8 steps done).
-**v0.2 Phase B is 37.5% COMPLETE** (3 of 8 steps done).
+**v0.2 Phase B is 50% COMPLETE** (4 of 8 steps done).
 
 ---
 
 ## This Session: Completed Work
 
-### Step B.3: Status Summary Command (DONE)
+### Step B.4: Human-Readable Error Messages (DONE)
 
-Implemented `af status` command to show project overview:
+Implemented dedicated error formatting module with actionable hints:
 
-- **Issue:** `alethfeld-ftoc` (now closed)
+- **Issue:** `alethfeld-j0v0` (now closed)
+- **Files created:**
+  - `src/alethfeld/errors.clj` - New error formatting module
+  - `test/alethfeld/errors_test.clj` - New test file (26 tests)
 - **Files modified:**
-  - `src/alethfeld/cmd.clj` - Added cmd-status command
-  - `test/alethfeld/cmd/status_test.clj` - New test file (21 tests)
+  - `src/alethfeld/cli.clj` - Refactored to use errors module
+  - `test/alethfeld/cli_test.clj` - Updated test assertion
 
 **Implementation details:**
 
-1. **Command syntax:**
-   ```bash
-   af status
+1. **Error Formatters (18 types):**
+   - Repository: `:not-initialized`, `:already-initialized`, `:not-git-repo`
+   - Mote: `:not-found`, `:validation-failed`, `:invalid-status`, `:integrity-error`
+   - Claim: `:already-claimed`
+   - Voting: `:already-voted`, `:self-vote`, `:quorum-not-reached`
+   - Proposal: `:no-proposal`, `:proposal-exists`, `:atomicity-violation`
+   - Git: `:git-error`, `:no-remote`
+   - Session: `:invalid-session`, `:session-expired`, `:session-mote-mismatch`, `:action-not-allowed`, `:session-not-found`
+   - File: `:parse-error`
+
+2. **All errors include:**
+   - Clear explanation of what went wrong
+   - Actionable "To fix:" hints with specific commands
+   - Context data (mote IDs, session IDs, etc.)
+
+3. **Example error output:**
+   ```
+   Error: Mote not found: 1.2.3
+
+   To fix: Run 'af check' to validate repository integrity,
+   or use 'af show' on a known mote ID.
    ```
 
-2. **Returns data structure:**
-   ```clojure
-   {:project-name "Project Name"
-    :root-motes 1
-    :total-motes 10
-    :status-counts {:verified 5, :fixed 3, :proposed 2}
-    :taint-counts {:needs-decomposition 2, :needs-verification 1}
-    :active-sessions 2
-    :ready-for-work 3}
-   ```
-
-3. **Features:**
-   - Project name from config
-   - Root mote count (depth 1 motes)
-   - Total mote count
-   - Status breakdown (verified, fixed, proposed, contested, refuted)
-   - Taint breakdown (needs-decomposition, needs-verification, etc.)
-   - Active sessions count
-   - Ready for work count (workable, unclaimed motes)
-
-4. **Helper function calls:**
-   - `store/load-config` for project name
-   - `store/load-all-motes` for mote data
-   - `id/id-depth` for root mote detection
-   - `session/load-all-active-sessions` for session count
-   - `job/workable?` for ready-for-work calculation
+4. **Helper functions:**
+   - `format-error` - Convert exception to human-readable message
+   - `error-type->exit-code` - Map error types to exit codes
+   - `throw-error` - Create structured exceptions
 
 **Test coverage:**
-- Status tests: 21 tests, 40 assertions (all passing)
-- Full suite: 909 tests, 2425 assertions (3 failures from pre-existing flaky concurrency tests)
+- Errors tests: 26 tests, 89 assertions (all passing)
+- CLI tests: 35 tests, 220 assertions (all passing)
+- Full suite: 935 tests, 2514 assertions (3 failures from pre-existing flaky concurrency tests)
 
-### Phase B Progress (3/8 steps COMPLETE)
+### Phase B Progress (4/8 steps COMPLETE)
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
 | B.1 | `alethfeld-nzz2` | ✅ DONE | Configurable Quorum |
 | B.2 | `alethfeld-pq0f` | ✅ DONE | Tree View Command |
 | B.3 | `alethfeld-ftoc` | ✅ DONE | Status Summary Command |
-| B.4 | `alethfeld-j0v0` | pending | Human-Readable Error Messages |
+| B.4 | `alethfeld-j0v0` | ✅ DONE | Human-Readable Error Messages |
+| B.5 | - | pending | (See IMPLEMENTATION-PLAN.md) |
+| B.6 | - | pending | (See IMPLEMENTATION-PLAN.md) |
+| B.7 | - | pending | (See IMPLEMENTATION-PLAN.md) |
+| B.8 | - | pending | (See IMPLEMENTATION-PLAN.md) |
 
 ### Files Modified This Session
 
 ```
-src/alethfeld/cmd.clj              # Added cmd-status command
-test/alethfeld/cmd/status_test.clj # New test file (21 tests)
+src/alethfeld/errors.clj        # NEW - Error formatting module
+src/alethfeld/cli.clj           # Refactored to use errors module
+test/alethfeld/errors_test.clj  # NEW - 26 tests, 89 assertions
+test/alethfeld/cli_test.clj     # Updated test assertion
 ```
 
 ### Test Summary
 
-- **Status tests:** 21 tests, 40 assertions (all passing)
-- **Full suite:** 909 tests, 2425 assertions
+- **Errors tests:** 26 tests, 89 assertions (all passing)
+- **CLI tests:** 35 tests, 220 assertions (all passing)
+- **Full suite:** 935 tests, 2514 assertions
 - **Known failures:** Concurrency tests (flaky, pre-existing)
 
 ---
@@ -93,7 +100,7 @@ test/alethfeld/cmd/status_test.clj # New test file (21 tests)
 
 ### Phase B: Tier 1 Essential Improvements (Remaining)
 
-1. **B.4: Human-Readable Error Messages** - Better success/failure feedback
+See `docs/IMPLEMENTATION-PLAN.md` for B.5-B.8 details.
 
 ### Phase C: Tier 2 Quality/Safety
 
@@ -112,13 +119,25 @@ bd ready
 ```
 
 Currently unblocked:
-- **Phase B:** B.4 (independent)
+- **Phase B:** B.5-B.8 (see IMPLEMENTATION-PLAN.md)
 - **Phase C:** C.1, C.2, C.3, C.4, C.5 (all independent)
 - Various bug fixes and enhancements
 
 ---
 
 ## Usage Examples
+
+### Error Messages
+
+All errors now include actionable hints:
+
+```bash
+# Example: trying to vote on own work
+Error: Agent 'alice' cannot vote on their own work.
+
+Mote 1.2.3 was created or fixed by this agent.
+To fix: A different agent must verify this work to maintain integrity.
+```
 
 ### Status Summary
 
@@ -164,7 +183,7 @@ af config set vote-quorum 1
 ```bash
 # Development
 clj -M:test                                    # Run all tests
-clj -M:test --namespace alethfeld.cmd.status-test  # Run status tests only
+clj -M:test --namespace alethfeld.errors-test  # Run errors tests only
 
 # Issue tracking
 bd ready                              # Show unblocked issues
@@ -181,4 +200,5 @@ bd stats                              # Project statistics
 | `docs/IMPLEMENTATION-PLAN.md` | Full v0.2 spec with all step details |
 | `docs/TECH-SPEC.md` | v0.1 technical spec |
 | `src/alethfeld/cmd.clj` | Main command implementations |
+| `src/alethfeld/errors.clj` | Error formatting and hints |
 | `src/alethfeld/schema.clj` | All Malli schemas including Config |
