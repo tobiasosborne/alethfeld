@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 3.1 + 3.2 Job Selection
+**Last session:** Step 3.3 Prompt Rendering
 
 ## Current State
 
@@ -25,33 +25,39 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 2.3 | DAG Validation | 22 |
 | 3.1 | Role Derivation | 21 (77 assertions) |
 | 3.2 | Job Selection Algorithm | 23 (58 assertions) |
+| 3.3 | Prompt Rendering | 43 (63 assertions) |
 
-**Total:** 122 tests, 596 assertions - all passing
+**Total:** 165 tests, 659 assertions - all passing
 
 ### Recent Work (this session)
-- Completed `alethfeld-8g9a`: Step 3.1 Role Derivation + Tests
-- Completed `alethfeld-xm4r`: Step 3.2 Job Selection Algorithm + Tests
-- `src/alethfeld/job.clj` now includes:
-  - Role derivation: `mote->roles`, `mote->role`
-  - Workability: `workable?`
-  - Filtering: `matches-filter?`
-  - Sorting: `priority->rank`, `job-comparator`
-  - Job building: `build-job`
-  - Job selection: `select-jobs`
+- Completed `alethfeld-djwx`: Step 3.3 Prompt Rendering + Tests
+- Created `src/alethfeld/prompt.clj` with:
+  - `format-assumptions`: assumptions → readable string
+  - `format-definitions`: definitions → readable string
+  - `format-vote-summary`: votes → summary string
+  - `format-proposal-vote-summary`: proposal votes → summary
+  - `format-children`: child motes → formatted list
+  - `format-proposed-children`: numbered list for proposals
+  - `format-external-refs`: external refs only
+  - `role-templates`: data-driven templates for all 6 roles
+  - `render-prompt`: role + job → complete prompt string
+- All 6 role templates implemented: proposer, advisor, prover, verifier, ref-checker, counterexample
 
 ### Current Issue
 None in progress.
 
 ## Next Steps
 
-**Next ready issue:** `alethfeld-djwx` (Step 3.3: Prompt Rendering + Tests)
+**Next ready issue:** Check `bd ready` for next task
+
+Phase 3 (Job Selection) is now complete. Phase 4 (File I/O) is next:
+- `alethfeld-rck4`: Step 4.1 EDN I/O + Tests
 
 This involves:
-- Create `src/alethfeld/prompt.clj`
-- Define prompt templates as data
-- `render-prompt`: role + mote + context → prompt string
-- `format-assumptions`, `format-definitions`, `format-vote-summary`
-- Comprehensive tests for prompt rendering
+- Create `src/alethfeld/io.clj`
+- `read-edn`: path → EDN data (or nil)
+- `write-edn`: path + data → writes file (creates dirs)
+- Error handling for malformed EDN
 
 ### Code Review Issues (from previous session)
 | Issue | Priority | Description |
@@ -72,6 +78,7 @@ This involves:
 | `src/alethfeld/path.clj` | File path derivation |
 | `src/alethfeld/dag.clj` | DAG validation functions |
 | `src/alethfeld/job.clj` | Role derivation, filtering, job selection |
+| `src/alethfeld/prompt.clj` | Prompt templates & rendering |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
