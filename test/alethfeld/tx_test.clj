@@ -440,3 +440,52 @@
         (is (= "Original claim" (:claim restored)))
         (is (= [{:term "x" :definition "a value"}] (:definitions restored)))
         (is (empty? (:children restored)))))))
+
+(deftest no-rollback-after-validation-passes-test
+  (testing "Validated changes are NOT rolled back when git operations fail"
+    (init-test-repo)
+
+    ;; Create initial state
+    (tx/transact! *temp-dir* "Initial"
+                  (fn [repo]
+                    (store/save-mote! repo (test-mote :id "1" :claim "Original"))))
+
+    ;; Simulate git-commit! failing after validation passes
+    (let [original-commit git/git-commit!]
+      (with-redefs [git/git-commit! (fn [& _]
+                                      (throw (ex-info "Simulated git failure"
+                                                      {:type :git-error})))]
+        ;; This should throw, but changes should remain on disk
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"Simulated git failure"
+                              (tx/with-validation *temp-dir* "Update mote"
+                                (fn [repo]
+                                  (store/save-mote! repo
+                                    (test-mote :id "1" :claim "Updated"))))))))
+
+    ;; Key assertion: changes should STILL be on disk (not rolled back)
+    ;; because validation passed before git-commit failed
+    (let [mote (store/load-mote *temp-dir* "1")]
+      (is (= "Updated" (:claim mote))
+          "Validated changes must be preserved even when git commit fails")))
+
+  (testing "Changes ARE rolled back when function execution fails"
+    (init-test-repo)
+
+    ;; Create initial state
+    (tx/transact! *temp-dir* "Initial"
+                  (fn [repo]
+                    (store/save-mote! repo (test-mote :id "2" :claim "Original"))))
+
+    ;; Function itself throws - should rollback
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"Function failed"
+                          (tx/with-validation *temp-dir* "Update mote"
+                            (fn [repo]
+                              (store/save-mote! repo (test-mote :id "2" :claim "Changed"))
+                              (throw (ex-info "Function failed" {}))))))
+
+    ;; Changes should be rolled back
+    (let [mote (store/load-mote *temp-dir* "2")]
+      (is (= "Original" (:claim mote))
+          "Changes must be rolled back when function throws"))))

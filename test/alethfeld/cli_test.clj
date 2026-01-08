@@ -116,7 +116,8 @@
     (let [ex (ex-info "Mote not found" {:type :not-found :mote-id "1.2.3"})
           msg (cli/error-message ex)]
       (is (str/includes? msg "Mote not found"))
-      (is (str/includes? msg "1.2.3"))))
+      (is (str/includes? msg "1.2.3"))
+      (is (str/includes? msg "af check") "should suggest running check")))
 
   (testing "validation-failed error"
     (let [ex (ex-info "Validation failed" {:type :validation-failed
@@ -136,6 +137,85 @@
     (let [ex (ex-info "Something happened" {:type :unknown})
           msg (cli/error-message ex)]
       (is (str/includes? msg "Something happened")))))
+
+(deftest error-message-repository-errors-test
+  (testing "not-initialized error"
+    (let [ex (ex-info "Not initialized" {:type :not-initialized :path "."})
+          msg (cli/error-message ex)]
+      (is (str/includes? msg "Not an Alethfeld repository"))
+      (is (str/includes? msg "af init") "should suggest running init")))
+
+  (testing "already-initialized error"
+    (let [ex (ex-info "Already initialized" {:type :already-initialized :path "."})
+          msg (cli/error-message ex)]
+      (is (str/includes? msg "already initialized"))
+      (is (str/includes? msg ".alethfeld/"))))
+
+  (testing "not-git-repo error"
+    (let [ex (ex-info "Not a git repo" {:type :not-git-repo :path "."})
+          msg (cli/error-message ex)]
+      (is (str/includes? msg "Not a git repository"))
+      (is (str/includes? msg "git init") "should suggest running git init"))))
+
+(deftest error-message-claim-errors-test
+  (testing "already-claimed error"
+    (let [ex (ex-info "Already claimed" {:type :already-claimed
+                                         :mote-id "1.2"
+                                         :claimed-by "agent-1"})
+          msg (cli/error-message ex)]
+      (is (str/includes? msg "1.2"))
+      (is (str/includes? msg "agent-1"))
+      (is (str/includes? msg "af unclaim") "should suggest unclaim command"))))
+
+(deftest error-message-proposal-errors-test
+  (testing "no-proposal error"
+    (let [ex (ex-info "No proposal found" {:type :no-proposal})
+          msg (cli/error-message ex)]
+      (is (str/includes? msg "No proposal"))
+      (is (str/includes? msg "af propose") "should suggest propose command")))
+
+  (testing "proposal-exists error"
+    (let [ex (ex-info "Proposal exists" {:type :proposal-exists :proposal-id "prop-123"})
+          msg (cli/error-message ex)]
+      (is (str/includes? msg "proposal already exists"))
+      (is (str/includes? msg "prop-123"))
+      (is (str/includes? msg "af approve") "should mention approve")
+      (is (str/includes? msg "af reject") "should mention reject"))))
+
+(deftest error-message-git-errors-test
+  (testing "git-error with stderr"
+    (let [ex (ex-info "Push failed" {:type :git-error :stderr "remote rejected"})
+          msg (cli/error-message ex)]
+      (is (str/includes? msg "Git operation failed"))
+      (is (str/includes? msg "remote rejected")))))
+
+;; -----------------------------------------------------------------------------
+;; Verbose Flag Tests
+;; -----------------------------------------------------------------------------
+
+(deftest verbose-flag-parsing-test
+  (testing "verbose flag is parsed"
+    (let [result (cli/parse-args ["show" "1" "--verbose"])]
+      (is (:verbose (:options result))))))
+
+(deftest handle-error-verbose-test
+  (testing "handle-error without verbose does not show stack trace"
+    (let [ex (ex-info "Test error" {:type :not-found :mote-id "1"})
+          result (capture-exit #(cli/handle-error ex :edn false))]
+      (is (not (str/includes? (:err result) "Stack trace")))
+      (is (not (str/includes? (:err result) "clojure")))))
+
+  (testing "handle-error with verbose shows stack trace"
+    (let [ex (ex-info "Test error" {:type :not-found :mote-id "1"})
+          result (capture-exit #(cli/handle-error ex :edn true))]
+      (is (str/includes? (:err result) "Stack trace"))
+      (is (str/includes? (:err result) "clojure.lang.ExceptionInfo"))))
+
+  (testing "handle-error with json format includes stack trace when verbose"
+    (let [ex (ex-info "Test error" {:type :not-found :mote-id "1"})
+          result (capture-exit #(cli/handle-error ex :json true))]
+      (is (str/includes? (:output result) "stack-trace"))
+      (is (str/includes? (:output result) "clojure.lang.ExceptionInfo")))))
 
 ;; -----------------------------------------------------------------------------
 ;; Argument Parsing Tests

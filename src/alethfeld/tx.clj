@@ -114,7 +114,9 @@
    - :result - Return value of f
    - :commit - Commit info {:sha, :message}
 
-   Throws ExceptionInfo with :type :validation-failed if validation fails."
+   Throws ExceptionInfo with :type :validation-failed if validation fails.
+   Note: Once validation passes, git failures do NOT trigger rollback
+   (validated changes are preserved on disk for manual recovery)."
   [repo-path message f]
   ;; Ensure git is initialized
   (when-not (git/git-initialized? repo-path)
@@ -123,36 +125,31 @@
 
   ;; Take snapshot before changes
   (let [snapshot (snapshot-files repo-path)]
-    (try
-      ;; Execute the function
-      (let [result (f repo-path)]
-        ;; Validate the result
-        (let [motes (store/load-all-motes repo-path :include-archived true)
-              validation (dag/validate-mote-graph motes)]
-          (if (:valid? validation)
-            ;; Valid - commit
-            (do
-              (git/git-add-all! repo-path)
-              (let [status (git/git-status repo-path)]
-                (if (seq (:staged status))
-                  {:result result
-                   :commit (git/git-commit! repo-path message)}
-                  {:result result
-                   :commit nil})))
-            ;; Invalid - rollback and throw
-            (do
-              (restore-snapshot! repo-path snapshot)
-              (throw (ex-info "Validation failed after transaction"
-                              {:type :validation-failed
-                               :errors (:errors validation)}))))))
-      (catch Exception e
-        ;; On any exception, check if it's our validation error
-        (if (= :validation-failed (:type (ex-data e)))
-          (throw e)  ; Re-throw validation errors
-          ;; For other errors, rollback and re-throw
-          (do
-            (restore-snapshot! repo-path snapshot)
-            (throw e)))))))
+    ;; Execute function and validate - rollback on failure here
+    (let [result (try
+                   (f repo-path)
+                   (catch Exception e
+                     (restore-snapshot! repo-path snapshot)
+                     (throw e)))
+          ;; Validate the graph
+          motes (store/load-all-motes repo-path :include-archived true)
+          validation (dag/validate-mote-graph motes)]
+      (if (:valid? validation)
+        ;; Valid - commit (no rollback after this point, changes are validated)
+        (do
+          (git/git-add-all! repo-path)
+          (let [status (git/git-status repo-path)]
+            (if (seq (:staged status))
+              {:result result
+               :commit (git/git-commit! repo-path message)}
+              {:result result
+               :commit nil})))
+        ;; Invalid - rollback and throw
+        (do
+          (restore-snapshot! repo-path snapshot)
+          (throw (ex-info "Validation failed after transaction"
+                          {:type :validation-failed
+                           :errors (:errors validation)})))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Atomic Operations

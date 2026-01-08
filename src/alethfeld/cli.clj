@@ -100,41 +100,119 @@
 ;; Error Handling
 ;; -----------------------------------------------------------------------------
 
+(def ^:dynamic *verbose*
+  "When true, error messages include stack traces."
+  false)
+
 (defn error-message
   "Generate user-friendly error message from exception."
   [ex]
   (let [data (ex-data ex)
         msg (ex-message ex)]
     (case (:type data)
-      :not-found (str "Error: " msg " (id: " (:mote-id data) ")")
-      :validation-failed (str "Error: Validation failed\n"
-                              (str/join "\n" (map str (:errors data))))
-      :invalid-status (str "Error: " msg " (status: " (name (:status data)) ")")
-      :already-voted (str "Error: " msg " (agent: " (:agent data) ")")
-      :no-proposal (str "Error: " msg)
-      :proposal-exists (str "Error: " msg " (proposal: " (:proposal-id data) ")")
+      ;; Repository errors
+      :not-initialized
+      (str "Error: Not an Alethfeld repository.\n"
+           "Run 'af init' to initialize a new repository.")
+
+      :already-initialized
+      (str "Error: Repository already initialized.\n"
+           "The .alethfeld/ directory already exists.")
+
+      :not-git-repo
+      (str "Error: Not a git repository.\n"
+           "Run 'git init' first, then 'af init'.")
+
+      ;; Mote errors
+      :not-found
+      (str "Error: Mote not found: " (:mote-id data) "\n"
+           "Run 'af check' to validate repository integrity.")
+
+      :validation-failed
+      (str "Error: Validation failed\n"
+           (str/join "\n" (map #(str "  - " %) (:errors data))))
+
+      :invalid-status
+      (str "Error: Invalid status transition.\n"
+           "Current status: " (when (:status data) (name (:status data))) "\n"
+           msg)
+
+      ;; Claim errors
+      :already-claimed
+      (str "Error: Mote " (:mote-id data) " is already claimed by " (:claimed-by data) ".\n"
+           "Use 'af unclaim " (:mote-id data) "' first, or use a different mote.")
+
+      ;; Voting errors
+      :already-voted
+      (str "Error: Agent '" (:agent data) "' has already voted on this mote.\n"
+           "Each agent can only vote once.")
+
+      ;; Proposal errors
+      :no-proposal
+      (str "Error: " msg "\n"
+           "Use 'af propose <id> --claim \"...\"' to create a proposal first.")
+
+      :proposal-exists
+      (str "Error: A proposal already exists on this mote.\n"
+           "Proposal ID: " (:proposal-id data) "\n"
+           "Use 'af approve' or 'af reject' to resolve the current proposal first.")
+
+      ;; Git errors
+      :git-error
+      (str "Error: Git operation failed.\n"
+           msg
+           (when (:stderr data) (str "\n" (:stderr data))))
+
       ;; Default
       (str "Error: " msg))))
 
+(defn- format-stack-trace
+  "Format exception stack trace for verbose output."
+  [ex]
+  (let [sw (java.io.StringWriter.)
+        pw (java.io.PrintWriter. sw)]
+    (.printStackTrace ex pw)
+    (str sw)))
+
 (defn handle-error
-  "Handle an exception and exit appropriately."
-  [ex fmt]
-  (let [data (ex-data ex)
-        code (case (:type data)
-               :not-found :not-found
-               :validation-failed :validation-error
-               :invalid-status :error
-               :already-voted :conflict
-               :no-proposal :error
-               :proposal-exists :conflict
-               :error)]
-    (if (= fmt :json)
-      (do
-        (println (format-json {:error (ex-message ex)
-                               :type (:type data)
-                               :details (dissoc data :type)}))
-        (*exit-fn* (get exit-codes code 1)))
-      (exit! code (error-message ex)))))
+  "Handle an exception and exit appropriately.
+
+   Arguments:
+   - ex: The exception to handle
+   - fmt: Output format (:edn or :json)
+   - verbose: Whether to include stack traces"
+  ([ex fmt]
+   (handle-error ex fmt false))
+  ([ex fmt verbose]
+   (let [data (ex-data ex)
+         code (case (:type data)
+                :not-found :not-found
+                :validation-failed :validation-error
+                :invalid-status :error
+                :already-voted :conflict
+                :already-claimed :conflict
+                :no-proposal :error
+                :proposal-exists :conflict
+                :not-initialized :error
+                :already-initialized :error
+                :not-git-repo :error
+                :git-error :error
+                :error)]
+     (if (= fmt :json)
+       (do
+         (println (format-json (cond-> {:error (ex-message ex)
+                                        :type (:type data)
+                                        :details (dissoc data :type)}
+                                 verbose (assoc :stack-trace (format-stack-trace ex)))))
+         (*exit-fn* (get exit-codes code 1)))
+       (do
+         (binding [*out* *err*]
+           (println (error-message ex))
+           (when verbose
+             (println)
+             (println "Stack trace:")
+             (println (format-stack-trace ex))))
+         (*exit-fn* (get exit-codes code 1)))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Global Options
@@ -146,6 +224,7 @@
     :default :edn
     :parse-fn keyword
     :validate [#{:edn :json} "Must be 'edn' or 'json'"]]
+   [nil "--verbose" "Show detailed error messages with stack traces"]
    ["-h" "--help" "Show help"]
    ["-v" "--version" "Show version"]])
 
@@ -502,6 +581,7 @@
   (let [parsed (parse-args args)
         {:keys [options]} parsed
         fmt (:format options :edn)
+        verbose (:verbose options false)
         result (dispatch parsed)]
     (cond
       ;; Error with messages
@@ -522,7 +602,7 @@
       (:exception result)
       (do
         (when exit?
-          (handle-error (:exception result) fmt))
+          (handle-error (:exception result) fmt verbose))
         result)
 
       ;; Plain output (help, version)

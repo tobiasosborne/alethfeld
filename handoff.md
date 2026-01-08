@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 7.1 End-to-End Integration Tests Implementation
+**Last session:** Step 7.2 Error Handling & Messages + Bug Fixes
 
 ## Current State
 
@@ -29,10 +29,10 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 4.1 | EDN I/O | 37 (50 assertions) |
 | 4.2 | Mote Persistence | 35 (69 assertions) |
 | 4.3 | Git Operations | 37 (59 assertions) |
-| 5.1 | Transaction Wrapper | 26 (62 assertions) |
+| 5.1 | Transaction Wrapper | 27 (64 assertions) |
 | 5.2 | Proposal Workflow | 27 (87 assertions) |
 | 5.3 | Verification Workflow | 27 (98 assertions) |
-| 6.1 | CLI Infrastructure | 27 (187 assertions) |
+| 6.1 | CLI Infrastructure | 33 (212 assertions) |
 | 6.2 | Init & Show Commands | 43 (70 assertions) |
 | 6.3 | Create Command | 35 (41 assertions) |
 | 6.4 | Ready Command | 37 (61 assertions) |
@@ -42,39 +42,39 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.8 | Add-* Commands | 38 (67 assertions) |
 | 6.9 | Check/Log/Sync Commands | 38 (62 assertions) |
 | 7.1 | End-to-End Integration Tests | 20 (84 assertions) |
+| 7.2 | Error Handling & Messages | 6 (25 assertions) |
 
-**Total:** 732 tests, 1875 assertions - all passing
+**Total:** 739 tests, 1904 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 7.1: End-to-End Integration Tests (20 tests)
-- Created `test/alethfeld/integration_test.clj` (675 lines)
-- Test coverage includes:
-  - Full lifecycle: init → create → propose → approve → verify
-  - Proposal rejection and re-proposal workflow
-  - Contested verification scenarios
-  - Multi-agent parallel claims, proposal review, and verification
-  - Conflict detection (double claim, duplicate proposal, duplicate vote, cycles)
-  - Recovery tests (orphan detection, broken refs, inconsistent parent-child)
-  - Transaction atomicity with rollback on validation failure
-  - Git history tracking tests
-  - Deep nesting and DAG consistency tests
-- Closed issues: `alethfeld-ygi8`, `alethfeld-dnzx`, `alethfeld-auxb`
+1. **Fixed P1 Bug `alethfeld-9rtt`: Transaction rollback race condition**
+   - Problem: Validated changes were incorrectly rolled back on git commit failure
+   - Fix: Restructured `with-validation` to only rollback during function execution and validation phases
+   - Added test `no-rollback-after-validation-passes-test` to verify
+
+2. **Completed Step 7.2: Error Handling & Messages**
+   - Added `--verbose` flag to show stack traces for debugging
+   - Improved error messages for all error types with actionable suggestions:
+     - `:not-initialized` → suggests "Run 'af init'"
+     - `:already-claimed` → suggests "af unclaim <id>"
+     - `:no-proposal` → suggests "af propose <id> --claim"
+     - etc.
+   - Added 6 new tests with 25 assertions for error handling
 
 ### Current Issue
-None in progress (Step 7.1 complete).
+None in progress.
 
 ## Next Steps
 
-**Next ready issue:** Check `bd ready` for next task
+**Next ready issue:** `alethfeld-8ujq` - Step 7.3: Build & Distribution
 
-**Next implementation step:** Step 7.2: Error Handling & Messages
+**Step 7.3 requirements:**
+- Create uberjar build
+- Create install script
+- Test on fresh system
+- Document installation in README
 
-### Critical Issues (from code review)
-| Issue | Priority | Description |
-|-------|----------|-------------|
-| `alethfeld-9rtt` | P1 | Fix transaction rollback race condition |
-
-### Serious Issues (from code review)
+### P2 Issues (from code review)
 | Issue | Priority | Description |
 |-------|----------|-------------|
 | `alethfeld-l3i7` | P2 | Fix job comparator NPE on invalid priority |
