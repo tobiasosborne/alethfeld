@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.4 Ready Command Implementation
+**Last session:** Step 6.5 Propose/Approve/Reject Commands Implementation
 
 ## Current State
 
@@ -36,18 +36,23 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.2 | Init & Show Commands | 43 (70 assertions) |
 | 6.3 | Create Command | 35 (41 assertions) |
 | 6.4 | Ready Command | 37 (61 assertions) |
+| 6.5 | Propose/Approve/Reject Commands | 57 (89 assertions) |
 
-**Total:** 493 tests, 1443 assertions - all passing
+**Total:** 550 tests, 1532 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.3: Create Command (35 tests)
-- Implemented Step 6.4: Ready Command
-- Added `cmd-ready` to `src/alethfeld/cmd.clj`
-  - Query available jobs with role/difficulty/priority filters
-  - Auto-claim with --agent (skip with --no-claim)
-  - Rendered prompts for each job's role
-  - Sorting by priority then difficulty
-- Created `test/alethfeld/cmd/ready_test.clj` (37 tests)
+- Implemented Step 6.5: Propose/Approve/Reject Commands (57 tests)
+- Added to `src/alethfeld/cmd.clj`:
+  - `cmd-propose!` - Create proposal with child claims (supports @N difficulty notation)
+  - `cmd-approve!` - Cast approve vote with optional reason
+  - `cmd-reject!` - Cast reject vote with optional reason
+  - `parse-claims` helper for @ difficulty notation
+- Created `test/alethfeld/cmd/proposal_test.clj` (57 tests, 89 assertions)
+  - Full lifecycle tests for proposal creation
+  - Quorum behavior tests (approve/reject)
+  - Mixed voting tests
+  - Validation error tests
+  - Handler registration tests
 
 ### Current Issue
 None in progress.
@@ -56,7 +61,7 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-**Next implementation step:** Step 6.5: Propose/Approve/Reject Commands + Tests
+**Next implementation step:** Step 6.6: Update/Vote/Taint Commands + Tests
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |

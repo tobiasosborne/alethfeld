@@ -13,6 +13,7 @@
             [alethfeld.id :as id]
             [alethfeld.job :as job]
             [alethfeld.prompt :as prompt]
+            [alethfeld.proposal :as proposal]
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
@@ -290,6 +291,158 @@
         jobs-with-prompts))))
 
 ;; -----------------------------------------------------------------------------
+;; Propose Command
+;; -----------------------------------------------------------------------------
+
+(defn- parse-claims
+  "Parse claims from command-line args.
+
+   Each claim is a string. Can optionally include difficulty with @ notation:
+   'My claim @3' -> {:claim 'My claim' :difficulty 3}
+   'My claim' -> {:claim 'My claim'}
+
+   Returns vector of {:claim ... :difficulty ...} maps."
+  [args]
+  (mapv (fn [arg]
+          (if-let [[_ claim difficulty] (re-matches #"(.+?)\s*@(\d+)\s*$" arg)]
+            {:claim (str/trim claim)
+             :difficulty (Integer/parseInt difficulty)}
+            {:claim arg}))
+        args))
+
+(defn cmd-propose!
+  "Create a proposal to decompose a mote into children.
+
+   Arguments (in context):
+   - :id - The parent mote ID (required)
+   - :args - Child claims (required, at least one)
+             Each claim can optionally include difficulty with @ notation:
+             'My claim @3' sets difficulty to 3
+
+   Options:
+   - :agent - Agent name (default: 'cli-user')
+
+   Creates proposed children with :proposed status and attaches
+   a proposal to the parent. Sets parent taint to :needs-proposal-review.
+
+   Returns map with:
+   - :proposal - The created proposal
+   - :children - Vector of created child motes"
+  [{:keys [id args options]}]
+  (let [repo-path "."
+        agent (or (:agent options) "cli-user")]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Parent mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide parent mote ID"]})))
+
+    (when (empty? args)
+      (throw (ex-info "At least one claim is required"
+                      {:type :validation-failed
+                       :errors ["Provide at least one claim as argument"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Parse claims and create proposal
+    (let [claims (parse-claims args)
+          result (proposal/create-proposal! repo-path id claims agent)]
+      (:result result))))
+
+;; -----------------------------------------------------------------------------
+;; Approve Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-approve!
+  "Vote to approve a proposal on a mote.
+
+   Arguments (in context):
+   - :id - The mote ID with the proposal (required)
+
+   Options:
+   - :agent - Agent name (default: 'cli-user')
+   - :reason - Reason for approval (optional)
+
+   If quorum is reached:
+   - Children move from proposed/ to motes/ with :fixed status
+   - Parent :children is populated
+   - Parent proposal is cleared
+
+   Returns map with:
+   - :vote-cast - The vote that was cast
+   - :quorum-status - :approved or :pending
+   - :promoted-children - Child IDs if approved"
+  [{:keys [id options]}]
+  (let [repo-path "."
+        agent (or (:agent options) "cli-user")
+        reason (:reason options)]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID with proposal"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Cast approve vote
+    (let [result (proposal/approve-proposal! repo-path id agent :reason reason)]
+      (:result result))))
+
+;; -----------------------------------------------------------------------------
+;; Reject Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-reject!
+  "Vote to reject a proposal on a mote.
+
+   Arguments (in context):
+   - :id - The mote ID with the proposal (required)
+
+   Options:
+   - :agent - Agent name (default: 'cli-user')
+   - :reason - Reason for rejection (optional)
+
+   If quorum is reached:
+   - Children move from proposed/ to archive/ with :rejected status
+   - Parent proposal is cleared
+   - Parent gets :needs-decomposition taint
+
+   Returns map with:
+   - :vote-cast - The vote that was cast
+   - :quorum-status - :rejected or :pending
+   - :archived-children - Child IDs if rejected"
+  [{:keys [id options]}]
+  (let [repo-path "."
+        agent (or (:agent options) "cli-user")
+        reason (:reason options)]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID with proposal"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Cast reject vote
+    (let [result (proposal/reject-proposal! repo-path id agent :reason reason)]
+      (:result result))))
+
+;; -----------------------------------------------------------------------------
 ;; Handler Registration
 ;; -----------------------------------------------------------------------------
 
@@ -299,7 +452,10 @@
   (cli/register-handler! "init" cmd-init!)
   (cli/register-handler! "show" cmd-show)
   (cli/register-handler! "create" cmd-create!)
-  (cli/register-handler! "ready" cmd-ready))
+  (cli/register-handler! "ready" cmd-ready)
+  (cli/register-handler! "propose" cmd-propose!)
+  (cli/register-handler! "approve" cmd-approve!)
+  (cli/register-handler! "reject" cmd-reject!))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)
