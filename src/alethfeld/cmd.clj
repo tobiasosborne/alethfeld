@@ -182,6 +182,36 @@
           new-mote)))))
 
 ;; -----------------------------------------------------------------------------
+;; Stale Session Cleanup Helper
+;; -----------------------------------------------------------------------------
+
+(defn- cleanup-stale-sessions-and-claims!
+  "Clean up stale sessions and release associated mote claims.
+
+   Called at the start of cmd-ready to recover from crashed agents.
+
+   Arguments:
+   - repo-path: Path to the repository root
+
+   Returns a vector of cleaned-up session info (or empty vector if none)."
+  [repo-path]
+  (let [cleaned-up (session/cleanup-stale-sessions! repo-path)]
+    (when (seq cleaned-up)
+      ;; Clear mote claims for each cleaned-up session
+      (let [mote-ids (distinct (map :mote-id cleaned-up))
+            motes-to-update (keep (fn [mote-id]
+                                    (when-let [m (store/load-mote repo-path mote-id)]
+                                      (when (:claimed-by m)
+                                        (mote/clear-claim m))))
+                                  mote-ids)]
+        (when (seq motes-to-update)
+          (tx/atomic-write! repo-path
+                            (str "Cleanup stale sessions: "
+                                 (str/join ", " (map :mote-id cleaned-up)))
+                            (vec motes-to-update)))))
+    cleaned-up))
+
+;; -----------------------------------------------------------------------------
 ;; Ready Command
 ;; -----------------------------------------------------------------------------
 
@@ -248,7 +278,10 @@
    Returns a vector of Job maps, each containing:
    - :job-id, :mote-id, :role, :difficulty, :priority
    - :mote, :parent, :siblings
-   - :prompt (rendered prompt for the role)"
+   - :prompt (rendered prompt for the role)
+
+   Note: Automatically cleans up stale sessions (expired or crashed)
+   before selecting jobs."
   [{:keys [options]}]
   (let [repo-path "."
         {:keys [agent role difficulty priority max no-claim]} options
@@ -259,6 +292,9 @@
       (throw (ex-info "Not an Alethfeld repository"
                       {:type :not-initialized
                        :path repo-path})))
+
+    ;; Clean up stale sessions (expired or crashed agents)
+    (cleanup-stale-sessions-and-claims! repo-path)
 
     ;; Parse difficulty/priority specs
     (let [difficulty-filter (parse-difficulty-spec difficulty)

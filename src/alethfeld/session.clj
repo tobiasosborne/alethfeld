@@ -13,6 +13,7 @@
   (:require [alethfeld.io :as io]
             [alethfeld.path :as path]
             [alethfeld.schema :as schema]
+            [babashka.process :as proc]
             [malli.core :as m])
   (:import [java.time Instant Duration]))
 
@@ -457,6 +458,40 @@
 ;; Cleanup Operations
 ;; -----------------------------------------------------------------------------
 
+(defn pid-alive?
+  "Check if a process is still running.
+
+   Arguments:
+   - pid: Process ID (integer or string)
+
+   Uses kill -0 to check process existence without sending a signal.
+   Returns true if the process exists, false otherwise.
+
+   Note: This is platform-dependent (Unix/Linux/macOS)."
+  [pid]
+  (when pid
+    (try
+      (let [result (proc/sh ["kill" "-0" (str pid)])]
+        (zero? (:exit result)))
+      (catch Exception _
+        false))))
+
+(defn session-stale?
+  "Check if a session is stale (expired OR owning process died).
+
+   A session is stale if:
+   1. It has expired (past expires-at time), OR
+   2. It has a PID recorded and that process is no longer alive
+
+   Arguments:
+   - session: Session map
+
+   Returns true if session should be cleaned up."
+  [session]
+  (or (session-expired? session)
+      (when-let [pid (:pid session)]
+        (not (pid-alive? pid)))))
+
 (defn cleanup-expired-sessions!
   "Archive all expired active sessions.
 
@@ -471,6 +506,37 @@
          (mapv (fn [session]
                  (archive-session! repo-path (:session-id session))
                  (:session-id session))))))
+
+(defn cleanup-stale-sessions!
+  "Archive all stale sessions (expired OR crashed agent).
+
+   A session is stale if:
+   1. It has expired (past expires-at time), OR
+   2. It has a PID recorded and that process is no longer alive
+
+   Arguments:
+   - repo-path: Path to the repository root
+
+   Returns a vector of maps for each cleaned-up session:
+   - :session-id - The session that was archived
+   - :mote-id - The mote that needs its claim cleared
+   - :reason - :expired or :crashed
+
+   Note: The caller is responsible for clearing mote claims.
+   This separation avoids circular dependencies between session and store."
+  [repo-path]
+  (let [active-sessions (load-all-active-sessions repo-path)]
+    (->> active-sessions
+         (keep (fn [session]
+                 (let [expired? (session-expired? session)
+                       crashed? (when-let [pid (:pid session)]
+                                  (not (pid-alive? pid)))]
+                   (when (or expired? crashed?)
+                     (archive-session! repo-path (:session-id session))
+                     {:session-id (:session-id session)
+                      :mote-id (:mote-id session)
+                      :reason (if expired? :expired :crashed)}))))
+         vec)))
 
 ;; -----------------------------------------------------------------------------
 ;; Directory Initialization

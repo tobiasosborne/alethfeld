@@ -324,6 +324,150 @@
           ;; Valid session still active
           (is (some? (session/load-active-session *temp-dir* (:session-id valid-session)))))))))
 
+(deftest pid-alive?-test
+  (testing "Current process PID is alive"
+    ;; Get current JVM PID
+    (let [pid (.pid (java.lang.ProcessHandle/current))]
+      (is (session/pid-alive? pid))
+      (is (session/pid-alive? (str pid)))))  ; Also works with string
+
+  (testing "Non-existent PID is not alive"
+    ;; Use a very high PID that's unlikely to exist
+    (is (not (session/pid-alive? 999999999))))
+
+  (testing "Nil PID returns nil (falsy)"
+    (is (nil? (session/pid-alive? nil)))))
+
+(deftest session-stale?-test
+  (testing "Expired session is stale"
+    (let [past (java.util.Date. (- (.getTime (java.util.Date.)) 1000))
+          expired-session {:session-id "test-id"
+                          :mote-id "1"
+                          :role :proposer
+                          :agent "test"
+                          :started-at past
+                          :expires-at past
+                          :actions []}]
+      (is (session/session-stale? expired-session))))
+
+  (testing "Session with dead PID is stale"
+    (let [future-time (java.util.Date. (+ (.getTime (java.util.Date.)) 3600000))
+          session-with-dead-pid {:session-id "test-id"
+                                :mote-id "1"
+                                :role :proposer
+                                :agent "test"
+                                :started-at (java.util.Date.)
+                                :expires-at future-time
+                                :actions []
+                                :pid 999999999}]  ; Non-existent PID
+      (is (session/session-stale? session-with-dead-pid))))
+
+  (testing "Valid session with live PID is not stale"
+    (let [future-time (java.util.Date. (+ (.getTime (java.util.Date.)) 3600000))
+          current-pid (.pid (java.lang.ProcessHandle/current))
+          valid-session {:session-id "test-id"
+                        :mote-id "1"
+                        :role :proposer
+                        :agent "test"
+                        :started-at (java.util.Date.)
+                        :expires-at future-time
+                        :actions []
+                        :pid current-pid}]
+      (is (not (session/session-stale? valid-session)))))
+
+  (testing "Valid session without PID is not stale"
+    (let [future-time (java.util.Date. (+ (.getTime (java.util.Date.)) 3600000))
+          session-no-pid {:session-id "test-id"
+                         :mote-id "1"
+                         :role :proposer
+                         :agent "test"
+                         :started-at (java.util.Date.)
+                         :expires-at future-time
+                         :actions []}]
+      (is (not (session/session-stale? session-no-pid))))))
+
+(deftest cleanup-stale-sessions!-test
+  (testing "Cleans up expired session and returns mote info"
+    (init-session-dirs)
+    (let [past (java.util.Date. (- (.getTime (java.util.Date.)) 1000))
+          expired-session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                          :mote-id "1.2"
+                          :role :proposer
+                          :agent "test"
+                          :started-at past
+                          :expires-at past
+                          :actions []}
+          active-path (str *temp-dir* "/.alethfeld/sessions/active/" (:session-id expired-session) ".edn")]
+      (io/write-edn active-path expired-session)
+
+      (let [cleaned (session/cleanup-stale-sessions! *temp-dir*)]
+        (is (= 1 (count cleaned)))
+        (is (= "1.2" (:mote-id (first cleaned))))
+        (is (= :expired (:reason (first cleaned))))
+        ;; Session moved to completed
+        (is (nil? (session/load-active-session *temp-dir* (:session-id expired-session)))))))
+
+  (testing "Cleans up crashed session (dead PID) and returns mote info"
+    (init-session-dirs)
+    (let [future-time (java.util.Date. (+ (.getTime (java.util.Date.)) 3600000))
+          crashed-session {:session-id "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                          :mote-id "2.3"
+                          :role :verifier
+                          :agent "crashed-agent"
+                          :started-at (java.util.Date.)
+                          :expires-at future-time
+                          :actions []
+                          :pid 999999999}  ; Non-existent PID
+          active-path (str *temp-dir* "/.alethfeld/sessions/active/" (:session-id crashed-session) ".edn")]
+      (io/write-edn active-path crashed-session)
+
+      (let [cleaned (session/cleanup-stale-sessions! *temp-dir*)]
+        (is (= 1 (count cleaned)))
+        (is (= "2.3" (:mote-id (first cleaned))))
+        (is (= :crashed (:reason (first cleaned))))
+        ;; Session moved to completed
+        (is (nil? (session/load-active-session *temp-dir* (:session-id crashed-session)))))))
+
+  (testing "Does not clean up valid sessions"
+    (init-session-dirs)
+    (let [valid-session (session/create-session! *temp-dir* "3" :advisor "valid-agent")]
+      (let [cleaned (session/cleanup-stale-sessions! *temp-dir*)]
+        (is (empty? cleaned))
+        ;; Valid session still active
+        (is (some? (session/load-active-session *temp-dir* (:session-id valid-session)))))))
+
+  (testing "Cleans up both expired and crashed in one call"
+    (init-session-dirs)
+    (let [past (java.util.Date. (- (.getTime (java.util.Date.)) 1000))
+          future-time (java.util.Date. (+ (.getTime (java.util.Date.)) 3600000))
+          expired-session {:session-id "11111111-2222-3333-4444-555555555555-11111111-2222-3333-4444-555555555555"
+                          :mote-id "4"
+                          :role :proposer
+                          :agent "expired-agent"
+                          :started-at past
+                          :expires-at past
+                          :actions []}
+          crashed-session {:session-id "66666666-7777-8888-9999-aaaaaaaaaaaa-66666666-7777-8888-9999-aaaaaaaaaaaa"
+                          :mote-id "5"
+                          :role :verifier
+                          :agent "crashed-agent"
+                          :started-at (java.util.Date.)
+                          :expires-at future-time
+                          :actions []
+                          :pid 999999998}]
+
+      (io/write-edn (str *temp-dir* "/.alethfeld/sessions/active/" (:session-id expired-session) ".edn")
+                    expired-session)
+      (io/write-edn (str *temp-dir* "/.alethfeld/sessions/active/" (:session-id crashed-session) ".edn")
+                    crashed-session)
+
+      (let [cleaned (session/cleanup-stale-sessions! *temp-dir*)]
+        (is (= 2 (count cleaned)))
+        (is (some #(= "4" (:mote-id %)) cleaned))
+        (is (some #(= "5" (:mote-id %)) cleaned))
+        (is (some #(= :expired (:reason %)) cleaned))
+        (is (some #(= :crashed (:reason %)) cleaned))))))
+
 ;; =============================================================================
 ;; Directory Initialization Tests
 ;; =============================================================================
