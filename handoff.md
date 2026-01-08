@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step B.2 - Tree View Command
+**Last session:** Step B.3 - Status Summary Command
 
 ## Current State
 
@@ -12,79 +12,79 @@
 
 ### Project Status
 **v0.2 Phase A is 100% COMPLETE** (8 of 8 steps done).
-**v0.2 Phase B is 25% COMPLETE** (2 of 8 steps done).
+**v0.2 Phase B is 37.5% COMPLETE** (3 of 8 steps done).
 
 ---
 
 ## This Session: Completed Work
 
-### Step B.2: Tree View Command (DONE)
+### Step B.3: Status Summary Command (DONE)
 
-Implemented `af tree` command to visualize proof structure:
+Implemented `af status` command to show project overview:
 
-- **Issue:** `alethfeld-pq0f` (now closed)
+- **Issue:** `alethfeld-ftoc` (now closed)
 - **Files modified:**
-  - `src/alethfeld/cmd.clj` - Added cmd-tree command and helpers
-  - `test/alethfeld/cmd/tree_test.clj` - New test file (26 tests)
+  - `src/alethfeld/cmd.clj` - Added cmd-status command
+  - `test/alethfeld/cmd/status_test.clj` - New test file (21 tests)
 
 **Implementation details:**
 
 1. **Command syntax:**
    ```bash
-   af tree <id> [--depth <n>]
+   af status
    ```
 
-2. **Output format:**
-   ```
-   1 [verified] The square root of 2 is irrational
-   +-- 1.1 [verified] Assumption for contradiction...
-   +-- 1.2 [verified] From sqrt(2) = p/q...
-   +-- 1.3 [verified] Lemma: If n^2 is even... (needs-decomposition)
-   |   +-- 1.3.1 [verified] Prove contrapositive...
-   |   \-- 1.3.2 [verified] If n odd, n = 2m + 1
-   \-- 1.4 [verified] p^2 even -> p even (by 1.3)
+2. **Returns data structure:**
+   ```clojure
+   {:project-name "Project Name"
+    :root-motes 1
+    :total-motes 10
+    :status-counts {:verified 5, :fixed 3, :proposed 2}
+    :taint-counts {:needs-decomposition 2, :needs-verification 1}
+    :active-sessions 2
+    :ready-for-work 3}
    ```
 
 3. **Features:**
-   - Status indicators: `[verified]`, `[fixed]`, `[proposed]`, etc.
-   - Taint indicators: `(needs-decomposition)`, etc.
-   - ASCII connectors: `+--`, `\--`, `|   ` for tree structure
-   - Depth limiting with `--depth` flag
-   - Claim truncation at 60 characters
-   - Can start from any mote (shows subtree)
-   - Gracefully handles missing children
+   - Project name from config
+   - Root mote count (depth 1 motes)
+   - Total mote count
+   - Status breakdown (verified, fixed, proposed, contested, refuted)
+   - Taint breakdown (needs-decomposition, needs-verification, etc.)
+   - Active sessions count
+   - Ready for work count (workable, unclaimed motes)
 
-4. **Helper functions in cmd.clj:**
-   - `format-status` - Formats `[status]` indicator
-   - `format-taints` - Formats `(taint1, taint2)` list
-   - `truncate-claim` - Truncates long claims with `...`
-   - `render-tree-node` - Renders single node line
-   - `render-tree` - Recursive tree rendering
+4. **Helper function calls:**
+   - `store/load-config` for project name
+   - `store/load-all-motes` for mote data
+   - `id/id-depth` for root mote detection
+   - `session/load-all-active-sessions` for session count
+   - `job/workable?` for ready-for-work calculation
 
 **Test coverage:**
-- Tree tests: 26 tests, 67 assertions (all passing)
-- Full suite: 888 tests, 2385 assertions
+- Status tests: 21 tests, 40 assertions (all passing)
+- Full suite: 909 tests, 2425 assertions (3 failures from pre-existing flaky concurrency tests)
 
-### Phase B Progress (2/8 steps COMPLETE)
+### Phase B Progress (3/8 steps COMPLETE)
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
 | B.1 | `alethfeld-nzz2` | ✅ DONE | Configurable Quorum |
 | B.2 | `alethfeld-pq0f` | ✅ DONE | Tree View Command |
-| B.3 | `alethfeld-ftoc` | pending | Status Summary Command |
+| B.3 | `alethfeld-ftoc` | ✅ DONE | Status Summary Command |
 | B.4 | `alethfeld-j0v0` | pending | Human-Readable Error Messages |
 
 ### Files Modified This Session
 
 ```
-src/alethfeld/cmd.clj              # Added cmd-tree command
-test/alethfeld/cmd/tree_test.clj   # New test file (26 tests)
+src/alethfeld/cmd.clj              # Added cmd-status command
+test/alethfeld/cmd/status_test.clj # New test file (21 tests)
 ```
 
 ### Test Summary
 
-- **Tree tests:** 26 tests, 67 assertions (all passing)
-- **Full suite:** 888 tests, 2385 assertions
+- **Status tests:** 21 tests, 40 assertions (all passing)
+- **Full suite:** 909 tests, 2425 assertions
 - **Known failures:** Concurrency tests (flaky, pre-existing)
 
 ---
@@ -93,8 +93,7 @@ test/alethfeld/cmd/tree_test.clj   # New test file (26 tests)
 
 ### Phase B: Tier 1 Essential Improvements (Remaining)
 
-1. **B.3: Status Summary Command** - Report mote counts by status
-2. **B.4: Human-Readable Error Messages** - Better success/failure feedback
+1. **B.4: Human-Readable Error Messages** - Better success/failure feedback
 
 ### Phase C: Tier 2 Quality/Safety
 
@@ -113,13 +112,22 @@ bd ready
 ```
 
 Currently unblocked:
-- **Phase B:** B.3, B.4 (all independent)
+- **Phase B:** B.4 (independent)
 - **Phase C:** C.1, C.2, C.3, C.4, C.5 (all independent)
 - Various bug fixes and enhancements
 
 ---
 
 ## Usage Examples
+
+### Status Summary
+
+```bash
+# View project status
+af status
+```
+
+Returns counts of motes by status, taints, sessions, and workable items.
 
 ### Tree View
 
@@ -156,7 +164,7 @@ af config set vote-quorum 1
 ```bash
 # Development
 clj -M:test                                    # Run all tests
-clj -M:test --namespace alethfeld.cmd.tree-test  # Run tree tests only
+clj -M:test --namespace alethfeld.cmd.status-test  # Run status tests only
 
 # Issue tracking
 bd ready                              # Show unblocked issues
