@@ -8,12 +8,21 @@
 ;; -----------------------------------------------------------------------------
 
 (deftest mote-id-test
-  (testing "MoteId validation"
+  (testing "MoteId validation - valid cases"
     (is (s/valid? s/MoteId "1"))
     (is (s/valid? s/MoteId "1.2.3"))
-    (is (s/valid? s/MoteId "root"))
+    (is (s/valid? s/MoteId "10.20.30"))
+    (is (s/valid? s/MoteId "1.2.3.4.5")))
+
+  (testing "MoteId validation - invalid cases"
     (is (not (s/valid? s/MoteId "")))
-    (is (not (s/valid? s/MoteId nil)))))
+    (is (not (s/valid? s/MoteId nil)))
+    (is (not (s/valid? s/MoteId "root")))
+    (is (not (s/valid? s/MoteId "abc")))
+    (is (not (s/valid? s/MoteId "1.2.a")))
+    (is (not (s/valid? s/MoteId ".1")))
+    (is (not (s/valid? s/MoteId "1.")))
+    (is (not (s/valid? s/MoteId "1..2")))))
 
 (deftest status-test
   (testing "Status enum validation"

@@ -200,36 +200,24 @@
    Each error includes a :category key (:parent-child, :cycle, :broken-refs, :atomicity)
    along with the specific error details."
   [motes]
-  (let [errors (cond-> []
-                 ;; Parent-child validation
-                 (when-let [err (validate-parent-child motes)]
-                   true)
-                 (conj {:category :parent-child
-                        :error (validate-parent-child motes)})
+  (let [;; Run each validation once and capture results
+        pc-err (validate-parent-child motes)
+        cycle-err (find-cycles motes)
+        refs-err (validate-refs motes)
+        atomicity-err (validate-proposal-atomicity motes)
 
-                 ;; Cycle detection
-                 (when-let [cycle (find-cycles motes)]
-                   true)
-                 (conj {:category :cycle
-                        :cycle (find-cycles motes)})
+        ;; Build errors list only for failed validations
+        errors (cond-> []
+                 pc-err
+                 (conj {:category :parent-child :error pc-err})
 
-                 ;; Reference validation
-                 (when-let [broken (validate-refs motes)]
-                   true)
-                 (conj {:category :broken-refs
-                        :broken-refs (validate-refs motes)})
+                 cycle-err
+                 (conj {:category :cycle :cycle cycle-err})
 
-                 ;; Proposal atomicity
-                 (when-let [err (validate-proposal-atomicity motes)]
-                   true)
-                 (conj {:category :atomicity
-                        :error (validate-proposal-atomicity motes)}))
+                 refs-err
+                 (conj {:category :broken-refs :broken-refs refs-err})
 
-        ;; Filter out nil errors (when validation passed)
-        actual-errors (filter (fn [e]
-                               (or (:error e)
-                                   (:cycle e)
-                                   (:broken-refs e)))
-                             errors)]
-    {:valid? (empty? actual-errors)
-     :errors (vec actual-errors)}))
+                 atomicity-err
+                 (conj {:category :atomicity :error atomicity-err}))]
+    {:valid? (empty? errors)
+     :errors errors}))

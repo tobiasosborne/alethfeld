@@ -7,8 +7,12 @@
 ;; -----------------------------------------------------------------------------
 
 (def MoteId
-  "Hierarchical Lamport-style ID (e.g., \"1.2.3\")."
-  [:string {:min 1}])
+  "Hierarchical Lamport-style ID (e.g., \"1.2.3\").
+   Must be dot-separated positive integers."
+  [:and
+   [:string {:min 1}]
+   [:fn {:error/message "Must be dot-separated integers (e.g., \"1.2.3\")"}
+    #(boolean (re-matches #"\d+(\.\d+)*" %))]])
 
 (def Status
   "Mote lifecycle status."
