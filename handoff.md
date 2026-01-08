@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.3 Create Command Implementation
+**Last session:** Step 6.4 Ready Command Implementation
 
 ## Current State
 
@@ -35,17 +35,19 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.1 | CLI Infrastructure | 27 (187 assertions) |
 | 6.2 | Init & Show Commands | 43 (70 assertions) |
 | 6.3 | Create Command | 35 (41 assertions) |
+| 6.4 | Ready Command | 37 (61 assertions) |
 
-**Total:** 456 tests, 1382 assertions - all passing
+**Total:** 493 tests, 1443 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.3: Create Command
-- Added `cmd-create!` to `src/alethfeld/cmd.clj`
-  - Root mote creation with --root flag
-  - Child mote creation with parent inheritance
-  - Options: --claim, --difficulty, --priority, --agent
-  - Auto-generates next available IDs
-- Created `test/alethfeld/cmd/create_test.clj` (35 tests)
+- Implemented Step 6.3: Create Command (35 tests)
+- Implemented Step 6.4: Ready Command
+- Added `cmd-ready` to `src/alethfeld/cmd.clj`
+  - Query available jobs with role/difficulty/priority filters
+  - Auto-claim with --agent (skip with --no-claim)
+  - Rendered prompts for each job's role
+  - Sorting by priority then difficulty
+- Created `test/alethfeld/cmd/ready_test.clj` (37 tests)
 
 ### Current Issue
 None in progress.
@@ -54,7 +56,7 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-**Next implementation step:** Step 6.4: Ready Command + Tests
+**Next implementation step:** Step 6.5: Propose/Approve/Reject Commands + Tests
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |
