@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 7.2 Error Handling & Messages + Bug Fixes
+**Last session:** Steps 7.2, 7.3 + Bug Fix
 
 ## Current State
 
@@ -43,6 +43,7 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.9 | Check/Log/Sync Commands | 38 (62 assertions) |
 | 7.1 | End-to-End Integration Tests | 20 (84 assertions) |
 | 7.2 | Error Handling & Messages | 6 (25 assertions) |
+| 7.3 | Build & Distribution | - (install.sh) |
 
 **Total:** 739 tests, 1904 assertions - all passing
 
@@ -54,25 +55,23 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 
 2. **Completed Step 7.2: Error Handling & Messages**
    - Added `--verbose` flag to show stack traces for debugging
-   - Improved error messages for all error types with actionable suggestions:
-     - `:not-initialized` → suggests "Run 'af init'"
-     - `:already-claimed` → suggests "af unclaim <id>"
-     - `:no-proposal` → suggests "af propose <id> --claim"
-     - etc.
-   - Added 6 new tests with 25 assertions for error handling
+   - Improved error messages for all error types with actionable suggestions
+   - Added 6 new tests with 25 assertions
+
+3. **Completed Step 7.3: Build & Distribution**
+   - Created uberjar build (7.4MB) with `clj -T:build uber`
+   - Created `install.sh` script with verification
+   - Updated README with installation and quick start instructions
 
 ### Current Issue
 None in progress.
 
 ## Next Steps
 
-**Next ready issue:** `alethfeld-8ujq` - Step 7.3: Build & Distribution
+**Next ready issue:** `alethfeld-dpdq` - Step 7.4: Documentation
 
-**Step 7.3 requirements:**
-- Create uberjar build
-- Create install script
-- Test on fresh system
-- Document installation in README
+**Remaining implementation steps:**
+- Step 7.4: Documentation (complete README, help docs, troubleshooting)
 
 ### P2 Issues (from code review)
 | Issue | Priority | Description |
@@ -103,23 +102,12 @@ None in progress.
 
 | File | Purpose |
 |------|---------|
-| `src/alethfeld/schema.clj` | Malli schemas |
-| `src/alethfeld/mote.clj` | Mote constructors & transformations |
-| `src/alethfeld/id.clj` | MoteId parsing & navigation |
-| `src/alethfeld/path.clj` | File path derivation |
-| `src/alethfeld/dag.clj` | DAG validation functions |
-| `src/alethfeld/job.clj` | Role derivation, filtering, job selection |
-| `src/alethfeld/prompt.clj` | Prompt templates & rendering |
-| `src/alethfeld/io.clj` | EDN file I/O operations |
-| `src/alethfeld/store.clj` | Mote persistence layer |
-| `src/alethfeld/git.clj` | Git operations |
-| `src/alethfeld/tx.clj` | Transaction layer |
-| `src/alethfeld/proposal.clj` | Proposal workflow |
-| `src/alethfeld/verify.clj` | Verification workflow |
 | `src/alethfeld/cli.clj` | CLI infrastructure |
 | `src/alethfeld/cmd.clj` | Command implementations |
-| `test/alethfeld/integration_test.clj` | End-to-end integration tests |
-| `test/alethfeld/` | All tests |
+| `src/alethfeld/tx.clj` | Transaction layer |
+| `install.sh` | Installation script |
+| `build.clj` | Uberjar build |
+| `README.md` | Installation & usage docs |
 
 ## Blockers
 
@@ -128,8 +116,9 @@ None.
 ## Commands
 
 ```bash
-clj -M:run     # Run CLI
-clj -M:test    # Run tests
-bd ready       # Check ready issues
-bd show <id>   # View issue
+./install.sh       # Install af to ~/.local/bin
+clj -M:run         # Run CLI (dev mode)
+clj -M:test        # Run tests
+clj -T:build uber  # Build uberjar
+bd ready           # Check ready issues
 ```
