@@ -781,6 +781,172 @@
         updated-mote))))
 
 ;; -----------------------------------------------------------------------------
+;; Add-Ref Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-add-ref!
+  "Add an external reference to a mote.
+
+   Arguments (in context):
+   - :id - The mote ID to add reference to (required)
+
+   Options:
+   - :ref - The citation/reference text (required)
+   - :note - Optional note explaining what the reference provides
+
+   Returns the updated mote."
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [ref note]} options]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to add reference to"]})))
+
+    (when-not ref
+      (throw (ex-info "Reference is required"
+                      {:type :validation-failed
+                       :errors ["Provide --ref with the citation"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Create external reference and add to mote
+      (let [external-ref (cond-> {:type :external :ref ref}
+                           note (assoc :note note))
+            updated-mote (mote/add-assumption current-mote external-ref)]
+        (tx/atomic-write! repo-path
+                          (str "Add external reference to " id)
+                          [updated-mote])
+        updated-mote))))
+
+;; -----------------------------------------------------------------------------
+;; Add-Assumption Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-add-assumption!
+  "Add an internal assumption (reference to another mote) to a mote.
+
+   Arguments (in context):
+   - :id - The mote ID to add assumption to (required)
+
+   Options:
+   - :ref - The referenced mote ID (required)
+   - :note - Optional note explaining why this assumption is needed
+
+   Returns the updated mote."
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [ref note]} options]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to add assumption to"]})))
+
+    (when-not ref
+      (throw (ex-info "Reference is required"
+                      {:type :validation-failed
+                       :errors ["Provide --ref with the mote ID to reference"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Validate referenced mote exists
+      (when-not (store/load-mote repo-path ref)
+        (throw (ex-info "Referenced mote not found"
+                        {:type :not-found
+                         :mote-id ref})))
+
+      ;; Create internal reference and add to mote
+      (let [internal-ref (cond-> {:type :internal :ref ref}
+                           note (assoc :note note))
+            updated-mote (mote/add-assumption current-mote internal-ref)]
+        (tx/atomic-write! repo-path
+                          (str "Add internal assumption to " id)
+                          [updated-mote])
+        updated-mote))))
+
+;; -----------------------------------------------------------------------------
+;; Add-Definition Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-add-definition!
+  "Add a symbol definition to a mote.
+
+   Arguments (in context):
+   - :id - The mote ID to add definition to (required)
+
+   Options:
+   - :symbol - The symbol to define (required)
+   - :meaning - The meaning/definition of the symbol (required)
+
+   Returns the updated mote."
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [symbol meaning]} options]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to add definition to"]})))
+
+    (when-not symbol
+      (throw (ex-info "Symbol is required"
+                      {:type :validation-failed
+                       :errors ["Provide --symbol to define"]})))
+
+    (when-not meaning
+      (throw (ex-info "Meaning is required"
+                      {:type :validation-failed
+                       :errors ["Provide --meaning for the symbol"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Create definition and add to mote
+      (let [definition {:symbol symbol :meaning meaning}
+            updated-mote (mote/add-definition current-mote definition)]
+        (tx/atomic-write! repo-path
+                          (str "Add definition to " id)
+                          [updated-mote])
+        updated-mote))))
+
+;; -----------------------------------------------------------------------------
 ;; Handler Registration
 ;; -----------------------------------------------------------------------------
 
@@ -798,7 +964,10 @@
   (cli/register-handler! "vote" cmd-vote!)
   (cli/register-handler! "taint" cmd-taint!)
   (cli/register-handler! "claim" cmd-claim!)
-  (cli/register-handler! "unclaim" cmd-unclaim!))
+  (cli/register-handler! "unclaim" cmd-unclaim!)
+  (cli/register-handler! "add-ref" cmd-add-ref!)
+  (cli/register-handler! "add-assumption" cmd-add-assumption!)
+  (cli/register-handler! "add-definition" cmd-add-definition!))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)

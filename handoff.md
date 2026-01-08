@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.7 Claim/Unclaim Commands Implementation
+**Last session:** Step 6.8 Add-* Commands Implementation
 
 ## Current State
 
@@ -39,21 +39,17 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.5 | Propose/Approve/Reject Commands | 57 (89 assertions) |
 | 6.6 | Update/Vote/Taint Commands | 59 (84 assertions) |
 | 6.7 | Claim/Unclaim Commands | 28 (46 assertions) |
+| 6.8 | Add-* Commands | 38 (67 assertions) |
 
-**Total:** 637 tests, 1662 assertions - all passing
+**Total:** 675 tests, 1729 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.7: Claim/Unclaim Commands (28 tests)
+- Implemented Step 6.8: Add-* Commands (38 tests)
 - Added to `src/alethfeld/cmd.clj`:
-  - `cmd-claim!` - Claim mote for work (errors if already claimed by another)
-  - `cmd-unclaim!` - Release claim on mote
-  - Registered handlers for "claim" and "unclaim"
-- Created `test/alethfeld/cmd/claim_test.clj` (28 tests, 46 assertions)
-  - Claim sets claimed-by and claimed-at
-  - Unclaim clears claim fields
-  - Already-claimed error tests
-  - Claim/unclaim workflow tests
-  - Handler registration tests
+  - `cmd-add-ref!` - Add external reference (citation)
+  - `cmd-add-assumption!` - Add internal assumption (validates ref exists)
+  - `cmd-add-definition!` - Add symbol definition
+- Created `test/alethfeld/cmd/add_test.clj` (38 tests, 67 assertions)
 
 ### Current Issue
 None in progress.
@@ -62,7 +58,7 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-**Next implementation step:** Step 6.8: Add-* Commands + Tests
+**Next implementation step:** Step 6.9: Check/Log/Sync Commands + Tests
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |
