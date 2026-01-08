@@ -16,6 +16,7 @@
             [alethfeld.job :as job]
             [alethfeld.prompt :as prompt]
             [alethfeld.proposal :as proposal]
+            [alethfeld.session :as session]
             [alethfeld.verify :as verify]
             [clojure.string :as str]))
 
@@ -31,6 +32,8 @@
    - motes/ directory
    - proposed/ directory
    - archive/ directory
+   - sessions/active/ directory
+   - sessions/completed/ directory
 
    Also initializes git and commits the initial structure.
 
@@ -55,6 +58,8 @@
       (git/git-config! repo-path "user.email" "alethfeld@local"))
     ;; Initialize repository structure
     (let [config (store/init-repo! repo-path :project-name project-name)]
+      ;; Initialize session directories
+      (session/ensure-session-dirs! repo-path)
       ;; Commit the initial structure
       (git/git-add-all! repo-path)
       (git/git-commit! repo-path (str "Initialize Alethfeld: " project-name))
@@ -281,10 +286,23 @@
 
       ;; Auto-claim if agent provided and not --no-claim
       (if (and agent (not no-claim) (seq jobs-with-prompts))
-        (let [;; Update motes with claims (collect without saving yet)
+        (let [;; Ensure session directories exist
+              _ (session/ensure-session-dirs! repo-path)
+              ;; Update motes with claims and create sessions
               claimed-jobs (mapv (fn [j]
-                                   (let [updated-mote (mote/set-claimed-by (:mote j) agent)]
-                                     (assoc j :mote updated-mote :claimed-by agent)))
+                                   (let [;; Create session for this job
+                                         job-role (:role j)
+                                         sess (session/create-session! repo-path
+                                                                       (:mote-id j)
+                                                                       job-role
+                                                                       agent)
+                                         ;; Update mote with claim
+                                         updated-mote (mote/set-claimed-by (:mote j) agent)]
+                                     (assoc j
+                                            :mote updated-mote
+                                            :claimed-by agent
+                                            :session-id (:session-id sess)
+                                            :session sess)))
                                  jobs-with-prompts)
               ;; Extract updated motes for atomic write
               updated-motes (mapv :mote claimed-jobs)
@@ -692,20 +710,22 @@
 ;; -----------------------------------------------------------------------------
 
 (defn cmd-claim!
-  "Claim a mote for work.
+  "Claim a mote for work with a role-based session.
 
    Arguments (in context):
    - :id - The mote ID to claim (required)
 
    Options:
    - :agent - Agent name (required)
+   - :role - Role for this session (required)
+           One of: proposer, advisor, prover, verifier, ref-checker, counterexample
 
    Errors if mote is already claimed by another agent.
 
-   Returns the updated mote."
+   Returns the updated mote with :session-id."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [agent]} options]
+        {:keys [agent role]} options]
 
     ;; Validation
     (when-not id
@@ -717,6 +737,18 @@
       (throw (ex-info "Agent name is required"
                       {:type :validation-failed
                        :errors ["Provide --agent to claim the mote"]})))
+
+    (when-not role
+      (throw (ex-info "Role is required"
+                      {:type :validation-failed
+                       :errors ["Provide --role (proposer, advisor, prover, verifier, ref-checker, counterexample)"]})))
+
+    ;; Validate role is valid
+    (when-not (contains? session/role-actions role)
+      (throw (ex-info "Invalid role"
+                      {:type :validation-failed
+                       :errors [(str "Invalid role: " role
+                                     ". Must be one of: proposer, advisor, prover, verifier, ref-checker, counterexample")]})))
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
@@ -739,12 +771,16 @@
                            :mote-id id
                            :claimed-by current-claimer}))))
 
-      ;; Set claim
-      (let [updated-mote (mote/set-claimed-by current-mote agent)]
+      ;; Ensure session directories exist
+      (session/ensure-session-dirs! repo-path)
+
+      ;; Create session
+      (let [sess (session/create-session! repo-path id role agent)
+            updated-mote (mote/set-claimed-by current-mote agent)]
         (tx/atomic-write! repo-path
-                          (str "Claim mote " id " for " agent)
+                          (str "Claim mote " id " for " agent " as " (name role))
                           [updated-mote])
-        updated-mote))))
+        (assoc updated-mote :session-id (:session-id sess))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Unclaim Command

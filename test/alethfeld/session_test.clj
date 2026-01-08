@@ -604,3 +604,23 @@
                                :proposed-by nil
                                :refined-by nil}}]
       (is (= #{"alice"} (session/get-contributors mote))))))
+
+;; =============================================================================
+;; Schema Integration Tests
+;; =============================================================================
+
+(deftest contributors-schema-test
+  (testing "Valid contributors passes schema"
+    (let [contributors {:created-by "alice"
+                        :proposed-by "bob"
+                        :refined-by #{"carol"}
+                        :refs-checked-by #{"dave"}}]
+      (is (m/validate schema/Contributors contributors))))
+
+  (testing "Minimal contributors passes schema"
+    (let [contributors {:created-by "alice"}]
+      (is (m/validate schema/Contributors contributors))))
+
+  (testing "Invalid contributors fails schema"
+    (is (not (m/validate schema/Contributors {})))
+    (is (not (m/validate schema/Contributors {:proposed-by "bob"})))))
