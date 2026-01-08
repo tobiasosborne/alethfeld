@@ -48,3 +48,11 @@ clj -M:test
 - One mote per EDN file
 - Malli for schema validation
 - Git commit per CLI operation (ACID)
+
+## Test Conventions
+
+- Test files live in `test/` mirroring `src/` structure
+- Namespace naming: `alethfeld.foo` → `alethfeld.foo-test`
+- Use `clojure.test` with `deftest`, `testing`, `is`
+- Run all tests: `clj -M:test`
+- Test runner: cognitect-labs/test-runner
