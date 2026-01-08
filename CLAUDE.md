@@ -1,5 +1,11 @@
 # Alethfeld Development Guide
 
+## Critical: Ignore Archive
+
+**NEVER reference `./archive/` directory.** It contains deprecated v1 code with different schemas and specifications. All current work follows:
+- `docs/TECH-SPEC.md` - The authoritative specification
+- `docs/IMPLEMENTATION-PLAN.md` - The implementation steps
+
 ## Session Handoff
 
 **IMPORTANT:** Always read `handoff.md` at the start of each session. Update it before ending your session with current state, blockers, and next steps.

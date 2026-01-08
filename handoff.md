@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Completed Step 2.3 DAG Validation + Phase 2.1 Context Templates
+**Last session:** Completed Step 2.3 DAG Validation (reverted invalid context templates work)
 
 ## Current State
 
@@ -23,9 +23,8 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 2.1 | ID Operations | 13 |
 | 2.2 | Path Derivation | 13 |
 | 2.3 | DAG Validation | 22 |
-| 2.1-ctx | Context Templates | 25 |
 
-**Total:** 98 tests, 551 assertions - all passing
+**Total:** 78 tests, 454 assertions - all passing
 
 ### Current Issue
 None in progress.
@@ -48,8 +47,6 @@ This involves:
 | `src/alethfeld/id.clj` | MoteId parsing & navigation |
 | `src/alethfeld/path.clj` | File path derivation |
 | `src/alethfeld/dag.clj` | DAG validation functions |
-| `src/alethfeld/context/templates.clj` | Orchestrator context templates |
-| `resources/templates/` | Phase template markdown files |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
