@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Comprehensive Code Review
+**Last session:** Step 5.2 Proposal Workflow Implementation
 
 ## Current State
 
@@ -30,13 +30,15 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 4.2 | Mote Persistence | 35 (69 assertions) |
 | 4.3 | Git Operations | 37 (59 assertions) |
 | 5.1 | Transaction Wrapper | 26 (62 assertions) |
+| 5.2 | Proposal Workflow | 27 (87 assertions) |
 
-**Total:** 300 tests, 899 assertions - all passing
+**Total:** 326 tests, 986 assertions - all passing
 
 ### Recent Work (this session)
-- Ran 3 parallel code review agents (Linus style, Code Health, Test Coverage)
-- Compiled master code review report
-- Created 13 new beads issues from findings
+- Implemented Step 5.2: Proposal Workflow (`src/alethfeld/proposal.clj`)
+- Added 27 tests for proposal lifecycle (create, approve, reject, quorum)
+- Fixed DAG validation to handle proposed/rejected motes correctly
+- Updated `dag.clj` to exclude proposed/rejected motes from orphan check
 
 ### Current Issue
 None in progress.
@@ -58,7 +60,6 @@ None in progress.
 |-------|----------|-------------|
 | `alethfeld-l3i7` | P2 | Fix job comparator NPE on invalid priority |
 | `alethfeld-sek2` | P2 | Fix proposed children not resolved in prompts |
-| `alethfeld-6atb` | P2 | Add proposal workflow tests |
 | `alethfeld-tfmc` | P2 | Add verification workflow tests |
 | `alethfeld-f1zo` | P2 | Document race condition windows |
 | `alethfeld-3rje` | P2 | Implement claim timeout mechanism |
@@ -94,6 +95,7 @@ None in progress.
 | `src/alethfeld/store.clj` | Mote persistence layer |
 | `src/alethfeld/git.clj` | Git operations |
 | `src/alethfeld/tx.clj` | Transaction layer |
+| `src/alethfeld/proposal.clj` | Proposal workflow |
 | `test/alethfeld/` | All tests |
 
 ## Blockers

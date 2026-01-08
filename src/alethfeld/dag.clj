@@ -55,14 +55,18 @@
     motes)
 
    ;; Check 2: Every mote claiming a parent must be listed in that parent's children
+   ;; Exceptions:
+   ;; - Proposed motes: tracked in the proposal structure until approved
+   ;; - Rejected motes: archived after proposal rejection, never added to :children
    (some
     (fn [[mote-id mote]]
-      (when-let [claimed-parent (:parent mote)]
-        (when-let [parent-mote (get motes claimed-parent)]
-          (when-not (some #{mote-id} (:children parent-mote))
-            {:type :orphan-child
-             :child-id mote-id
-             :claimed-parent claimed-parent}))))
+      (when-not (#{:proposed :rejected} (:status mote))  ; Skip proposed/rejected
+        (when-let [claimed-parent (:parent mote)]
+          (when-let [parent-mote (get motes claimed-parent)]
+            (when-not (some #{mote-id} (:children parent-mote))
+              {:type :orphan-child
+               :child-id mote-id
+               :claimed-parent claimed-parent})))))
     motes)))
 
 ;; -----------------------------------------------------------------------------
