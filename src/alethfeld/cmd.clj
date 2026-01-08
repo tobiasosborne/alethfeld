@@ -1621,6 +1621,65 @@
          :mote-count (count lines)}))))
 
 ;; -----------------------------------------------------------------------------
+;; Status Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-status
+  "Display project status summary.
+
+   Returns a map with:
+   - :project-name - Name of the project
+   - :root-motes - Number of root motes
+   - :total-motes - Total number of motes
+   - :status-counts - Map of status -> count
+   - :taint-counts - Map of taint -> count
+   - :active-sessions - Number of active sessions
+   - :ready-for-work - Number of workable motes"
+  [_ctx]
+  (let [repo-path "."]
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    (let [;; Load config for project name
+          config (store/load-config repo-path)
+          project-name (:project-name config "Unnamed Project")
+
+          ;; Load all motes
+          motes (store/load-all-motes repo-path)
+          mote-list (vals motes)
+          total-motes (count mote-list)
+
+          ;; Count root motes (depth 1)
+          root-motes (count (filter #(= 1 (id/id-depth (:id %))) mote-list))
+
+          ;; Count by status
+          status-counts (frequencies (map :status mote-list))
+
+          ;; Count by taint
+          taint-counts (->> mote-list
+                            (mapcat :taint)
+                            frequencies)
+
+          ;; Load active sessions
+          active-sessions (session/load-all-active-sessions repo-path)
+
+          ;; Count workable motes (using job/workable?)
+          claim-timeout (:claim-timeout-minutes config)
+          workable-count (count (filter #(job/workable? % :claim-timeout claim-timeout) mote-list))]
+
+      {:project-name project-name
+       :root-motes root-motes
+       :total-motes total-motes
+       :status-counts status-counts
+       :taint-counts taint-counts
+       :active-sessions (count active-sessions)
+       :ready-for-work workable-count})))
+
+;; -----------------------------------------------------------------------------
 ;; Handler Registration
 ;; -----------------------------------------------------------------------------
 
@@ -1647,7 +1706,8 @@
   (cli/register-handler! "log" cmd-log)
   (cli/register-handler! "sync" cmd-sync!)
   (cli/register-handler! "config" cmd-config)
-  (cli/register-handler! "tree" cmd-tree))
+  (cli/register-handler! "tree" cmd-tree)
+  (cli/register-handler! "status" cmd-status))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)
