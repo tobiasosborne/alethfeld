@@ -293,6 +293,23 @@
       (with-validation repo-path message do-update)
       (transact! repo-path message do-update))))
 
+(defn atomic-write-config!
+  "Write config atomically with git commit.
+
+   Arguments:
+   - repo-path: Path to the repository
+   - message: Git commit message
+   - config: Config map to write
+
+   Returns map with:
+   - :result - The config that was written
+   - :commit - Commit info {:sha, :message}"
+  [repo-path message config]
+  (transact! repo-path message
+             (fn [repo]
+               (store/save-config! repo config)
+               config)))
+
 ;; -----------------------------------------------------------------------------
 ;; Transaction Status
 ;; -----------------------------------------------------------------------------

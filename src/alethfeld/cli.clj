@@ -432,6 +432,11 @@
            :usage "af sync"
            :options []}
 
+   "config" {:description "Manage project configuration"
+             :usage "af config <list|get|set> [key] [value]"
+             :options []
+             :optional-id true}
+
    "help" {:description "Show help"
            :usage "af help [command]"
            :options []}})

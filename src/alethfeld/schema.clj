@@ -187,6 +187,20 @@
    [:format {:optional true} [:enum :edn :json]]])
 
 ;; -----------------------------------------------------------------------------
+;; Config
+;; -----------------------------------------------------------------------------
+
+(def Config
+  "Project configuration stored in config.edn."
+  [:map
+   [:project-name :string]
+   [:version :string]
+   [:default-difficulty Difficulty]
+   [:proposal-quorum {:optional true} [:int {:min 1}]]
+   [:vote-quorum {:optional true} [:int {:min 1}]]
+   [:claim-timeout-minutes {:optional true} [:int {:min 1}]]])
+
+;; -----------------------------------------------------------------------------
 ;; Session
 ;; -----------------------------------------------------------------------------
 
