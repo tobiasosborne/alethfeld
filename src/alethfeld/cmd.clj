@@ -1489,6 +1489,138 @@
                                      ". Use: list, get, set")]})))))
 
 ;; -----------------------------------------------------------------------------
+;; Tree Command
+;; -----------------------------------------------------------------------------
+
+(defn- format-status
+  "Format mote status as a bracketed indicator."
+  [status]
+  (str "[" (name status) "]"))
+
+(defn- format-taints
+  "Format mote taints as parenthesized indicators."
+  [taints]
+  (when (seq taints)
+    (str " (" (str/join ", " (map name taints)) ")")))
+
+(defn- truncate-claim
+  "Truncate claim text to a maximum length."
+  [claim max-len]
+  (if (> (count claim) max-len)
+    (str (subs claim 0 (- max-len 3)) "...")
+    claim))
+
+(defn- render-tree-node
+  "Render a single tree node line.
+
+   Arguments:
+   - mote: The mote to render
+   - prefix: The prefix string for indentation
+   - connector: The connector string ('+--', '\\--', or empty)
+   - max-claim-len: Maximum length for claim text
+
+   Returns a string representing this node."
+  [mote prefix connector max-claim-len]
+  (let [mote-id (:id mote)
+        status (format-status (:status mote))
+        taints (format-taints (:taint mote))
+        claim (truncate-claim (:claim mote) max-claim-len)]
+    (str prefix connector mote-id " " status " " claim taints)))
+
+(defn- render-tree
+  "Recursively render a tree of motes.
+
+   Arguments:
+   - mote: The root mote to render
+   - motes: Map of all motes for child lookup
+   - prefix: Current indentation prefix
+   - is-last: Whether this is the last child
+   - current-depth: Current depth in the tree
+   - max-depth: Maximum depth to render (nil for unlimited)
+   - max-claim-len: Maximum length for claim text
+   - is-root: Whether this is the root node (no connector)
+
+   Returns a vector of strings (one per line)."
+  ([mote motes prefix is-last current-depth max-depth max-claim-len]
+   ;; Entry point - root node
+   (render-tree mote motes prefix is-last current-depth max-depth max-claim-len true))
+
+  ([mote motes prefix is-last current-depth max-depth max-claim-len is-root]
+   (let [;; Determine connector for this node
+         connector (if is-root "" (if is-last "\\-- " "+-- "))
+         ;; Render this node
+         node-line (render-tree-node mote prefix connector max-claim-len)
+         ;; Get children
+         children (:children mote)
+         ;; Check if we should render children
+         should-render-children? (and (seq children)
+                                      (or (nil? max-depth)
+                                          (< current-depth max-depth)))
+         ;; Calculate prefix for children
+         child-prefix (if is-root
+                        ""
+                        (str prefix (if is-last "    " "|   ")))]
+     (if should-render-children?
+       ;; Render this node and all children
+       (let [child-motes (keep #(get motes %) children)
+             child-count (count child-motes)
+             child-lines (mapcat
+                           (fn [idx child]
+                             (render-tree child motes child-prefix
+                                          (= idx (dec child-count))
+                                          (inc current-depth)
+                                          max-depth
+                                          max-claim-len
+                                          false))
+                           (range)
+                           child-motes)]
+         (cons node-line child-lines))
+       ;; Just this node
+       [node-line]))))
+
+(defn cmd-tree
+  "Display a mote and its descendants as a tree.
+
+   Arguments (in context):
+   - :id - The mote ID to display (required)
+
+   Options:
+   - :depth - Maximum depth to display (default: unlimited)
+
+   Returns a map with:
+   - :lines - Vector of rendered tree lines
+   - :mote-count - Number of motes displayed"
+  [{:keys [id options]}]
+  (let [repo-path "."
+        max-depth (:depth options)]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to display tree for"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load the mote
+    (let [mote (store/load-mote repo-path id)]
+      (when-not mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Load all motes for child lookup
+      (let [motes (store/load-all-motes repo-path)
+            ;; Render the tree
+            lines (render-tree mote motes "" true 0 max-depth 60)]
+        {:lines (vec lines)
+         :mote-count (count lines)}))))
+
+;; -----------------------------------------------------------------------------
 ;; Handler Registration
 ;; -----------------------------------------------------------------------------
 
@@ -1514,7 +1646,8 @@
   (cli/register-handler! "check" cmd-check)
   (cli/register-handler! "log" cmd-log)
   (cli/register-handler! "sync" cmd-sync!)
-  (cli/register-handler! "config" cmd-config))
+  (cli/register-handler! "config" cmd-config)
+  (cli/register-handler! "tree" cmd-tree))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)
