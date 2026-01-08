@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 3.3 Prompt Rendering
+**Last session:** Step 3.3 + 4.1 Complete
 
 ## Current State
 
@@ -26,22 +26,20 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 3.1 | Role Derivation | 21 (77 assertions) |
 | 3.2 | Job Selection Algorithm | 23 (58 assertions) |
 | 3.3 | Prompt Rendering | 43 (63 assertions) |
+| 4.1 | EDN I/O | 37 (50 assertions) |
 
-**Total:** 165 tests, 659 assertions - all passing
+**Total:** 202 tests, 709 assertions - all passing
 
 ### Recent Work (this session)
 - Completed `alethfeld-djwx`: Step 3.3 Prompt Rendering + Tests
-- Created `src/alethfeld/prompt.clj` with:
-  - `format-assumptions`: assumptions → readable string
-  - `format-definitions`: definitions → readable string
-  - `format-vote-summary`: votes → summary string
-  - `format-proposal-vote-summary`: proposal votes → summary
-  - `format-children`: child motes → formatted list
-  - `format-proposed-children`: numbered list for proposals
-  - `format-external-refs`: external refs only
-  - `role-templates`: data-driven templates for all 6 roles
-  - `render-prompt`: role + job → complete prompt string
-- All 6 role templates implemented: proposer, advisor, prover, verifier, ref-checker, counterexample
+- Completed `alethfeld-rck4`: Step 4.1 EDN I/O + Tests
+- Created `src/alethfeld/io.clj` with:
+  - `read-edn`: path → EDN data (nil if missing/empty)
+  - `write-edn`: path + data → writes file (creates dirs)
+  - `delete-file`: path → deletes file (returns bool)
+  - `move-file`: src + dst → moves file (creates dirs)
+  - `list-edn-files`: dir → list of .edn paths (optional recursive)
+  - `file-exists?`, `dir-exists?`, `ensure-dir`: utility functions
 
 ### Current Issue
 None in progress.
@@ -50,14 +48,14 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-Phase 3 (Job Selection) is now complete. Phase 4 (File I/O) is next:
-- `alethfeld-rck4`: Step 4.1 EDN I/O + Tests
+Phase 4 (File I/O) continues:
+- `alethfeld-7n4e`: Step 4.2 Mote Persistence + Tests
 
 This involves:
-- Create `src/alethfeld/io.clj`
-- `read-edn`: path → EDN data (or nil)
-- `write-edn`: path + data → writes file (creates dirs)
-- Error handling for malformed EDN
+- `load-mote`: id + base-path → Mote
+- `save-mote`: mote + base-path → writes file
+- `delete-mote`: id + base-path → removes file
+- Integration with path derivation from Step 2.2
 
 ### Code Review Issues (from previous session)
 | Issue | Priority | Description |
@@ -79,6 +77,7 @@ This involves:
 | `src/alethfeld/dag.clj` | DAG validation functions |
 | `src/alethfeld/job.clj` | Role derivation, filtering, job selection |
 | `src/alethfeld/prompt.clj` | Prompt templates & rendering |
+| `src/alethfeld/io.clj` | EDN file I/O operations |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
