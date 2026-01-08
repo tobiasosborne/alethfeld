@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Code review and P1 bug fixes
+**Last session:** Step 3.1 Role Derivation
 
 ## Current State
 
@@ -23,26 +23,33 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 2.1 | ID Operations | 13 |
 | 2.2 | Path Derivation | 13 |
 | 2.3 | DAG Validation | 22 |
+| 3.1 | Role Derivation | 21 (77 assertions) |
 
-**Total:** 78 tests, 461 assertions - all passing
+**Total:** 99 tests, 538 assertions - all passing
 
-### Recent Fixes (this session)
-- `alethfeld-2m2a`: Fixed double validation calls in `dag.clj:validate-mote-graph`
-- `alethfeld-1ihk`: Strengthened MoteId schema to validate Lamport-style format
+### Recent Work (this session)
+- Completed `alethfeld-8g9a`: Step 3.1 Role Derivation + Tests
+- Created `src/alethfeld/job.clj` with:
+  - `mote->roles`: Returns set of roles based on taint flags
+  - `mote->role`: Returns primary role (priority-ordered)
+  - `workable?`: Checks if mote needs work
+  - `matches-filter?`: Filters motes by role/difficulty/priority
 
 ### Current Issue
 None in progress.
 
 ## Next Steps
 
-**Next ready issue:** `alethfeld-8g9a` (Step 3.1: Role Derivation + Tests)
+**Next ready issue:** `alethfeld-xm4r` (Step 3.2: Job Selection Algorithm + Tests)
 
 This involves:
-- Create `job.clj` with job selection functions
-- Functions: mote->role, workable?, matches-filter?
-- Write comprehensive tests
+- `select-jobs`: filter + sort + take N
+- `priority-rank`: priority -> numeric rank for sorting
+- `job-comparator`: sort by priority, then difficulty
+- `build-job`: mote + context -> Job record
+- Comprehensive tests for selection algorithm
 
-### Code Review Issues (created this session)
+### Code Review Issues (from previous session)
 | Issue | Priority | Description |
 |-------|----------|-------------|
 | `alethfeld-9b04` | P2 | Add comment to find-cycles DFS algorithm |
@@ -60,6 +67,7 @@ This involves:
 | `src/alethfeld/id.clj` | MoteId parsing & navigation |
 | `src/alethfeld/path.clj` | File path derivation |
 | `src/alethfeld/dag.clj` | DAG validation functions |
+| `src/alethfeld/job.clj` | Role derivation & filtering |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
