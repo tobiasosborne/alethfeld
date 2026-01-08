@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.5 Propose/Approve/Reject Commands Implementation
+**Last session:** Step 6.6 Update/Vote/Taint Commands Implementation
 
 ## Current State
 
@@ -37,20 +37,21 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.3 | Create Command | 35 (41 assertions) |
 | 6.4 | Ready Command | 37 (61 assertions) |
 | 6.5 | Propose/Approve/Reject Commands | 57 (89 assertions) |
+| 6.6 | Update/Vote/Taint Commands | 59 (84 assertions) |
 
-**Total:** 550 tests, 1532 assertions - all passing
+**Total:** 609 tests, 1616 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.5: Propose/Approve/Reject Commands (57 tests)
+- Implemented Step 6.6: Update/Vote/Taint Commands (59 tests)
 - Added to `src/alethfeld/cmd.clj`:
-  - `cmd-propose!` - Create proposal with child claims (supports @N difficulty notation)
-  - `cmd-approve!` - Cast approve vote with optional reason
-  - `cmd-reject!` - Cast reject vote with optional reason
-  - `parse-claims` helper for @ difficulty notation
-- Created `test/alethfeld/cmd/proposal_test.clj` (57 tests, 89 assertions)
-  - Full lifecycle tests for proposal creation
-  - Quorum behavior tests (approve/reject)
-  - Mixed voting tests
+  - `cmd-update!` - Update claim, priority, difficulty fields
+  - `cmd-vote!` - Cast verification vote (:for/:against with quorum handling)
+  - `cmd-taint!` - Add/remove taint flags (supports multiple taints)
+  - `parse-priority` and `parse-taint` helpers
+- Created `test/alethfeld/cmd/update_test.clj` (59 tests, 84 assertions)
+  - Update field tests (claim, priority, difficulty)
+  - Vote quorum tests (verified, refuted, contested)
+  - Taint add/remove tests
   - Validation error tests
   - Handler registration tests
 
@@ -61,7 +62,7 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-**Next implementation step:** Step 6.6: Update/Vote/Taint Commands + Tests
+**Next implementation step:** Step 6.7: Claim/Unclaim Commands + Tests
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |

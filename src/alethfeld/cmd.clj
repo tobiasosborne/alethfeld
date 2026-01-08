@@ -14,6 +14,7 @@
             [alethfeld.job :as job]
             [alethfeld.prompt :as prompt]
             [alethfeld.proposal :as proposal]
+            [alethfeld.verify :as verify]
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
@@ -443,6 +444,244 @@
       (:result result))))
 
 ;; -----------------------------------------------------------------------------
+;; Update Command
+;; -----------------------------------------------------------------------------
+
+(def ^:private valid-priorities
+  "Valid priority values."
+  #{:p0 :p1 :p2 :p3 :p4})
+
+(defn- parse-priority
+  "Parse priority string to keyword. Returns nil if invalid."
+  [s]
+  (when s
+    (let [kw (keyword (str/lower-case s))]
+      (when (valid-priorities kw)
+        kw))))
+
+(defn cmd-update!
+  "Update mote fields.
+
+   Arguments (in context):
+   - :id - The mote ID to update (required)
+
+   Options:
+   - :claim - New claim text
+   - :priority - New priority (p0-p4)
+   - :difficulty - New difficulty (1-5)
+   - :agent - Agent name (default: 'cli-user')
+
+   At least one of claim/priority/difficulty must be provided.
+
+   Returns the updated mote."
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [claim priority difficulty agent]} options
+        agent (or agent "cli-user")]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to update"]})))
+
+    (when (and (nil? claim) (nil? priority) (nil? difficulty))
+      (throw (ex-info "No update fields provided"
+                      {:type :validation-failed
+                       :errors ["Provide at least one of --claim, --priority, or --difficulty"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Parse and validate priority
+      (let [parsed-priority (when priority (parse-priority priority))]
+        (when (and priority (nil? parsed-priority))
+          (throw (ex-info "Invalid priority"
+                          {:type :validation-failed
+                           :errors [(str "Priority must be p0-p4, got: " priority)]})))
+
+        ;; Validate difficulty
+        (when (and difficulty (or (< difficulty 1) (> difficulty 5)))
+          (throw (ex-info "Invalid difficulty"
+                          {:type :validation-failed
+                           :errors [(str "Difficulty must be 1-5, got: " difficulty)]})))
+
+        ;; Apply updates
+        (let [updated-mote (cond-> current-mote
+                            claim (mote/set-claim claim)
+                            parsed-priority (mote/set-priority parsed-priority)
+                            difficulty (mote/set-difficulty difficulty))]
+          (tx/atomic-write! repo-path
+                            (str "Update mote " id)
+                            [updated-mote])
+          updated-mote)))))
+
+;; -----------------------------------------------------------------------------
+;; Vote Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-vote!
+  "Cast a verification vote on a mote.
+
+   Arguments (in context):
+   - :id - The mote ID to vote on (required)
+
+   Options:
+   - :for - Vote in favor of verification
+   - :against - Vote against verification
+   - :reason - Reason for vote (optional)
+   - :agent - Agent name (default: 'cli-user')
+
+   Exactly one of --for or --against must be provided.
+
+   When quorum is reached:
+   - :verified if unanimous for votes
+   - :refuted if unanimous against votes
+   - :contested if mixed votes
+
+   Returns map with:
+   - :vote-cast - The vote that was cast
+   - :quorum-status - :pending, :verified, :refuted, or :contested
+   - :status-changed - Whether the mote status changed
+   - :new-status - The new mote status"
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [for against reason agent]} options
+        agent (or agent "cli-user")]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to vote on"]})))
+
+    (when (and for against)
+      (throw (ex-info "Cannot vote both for and against"
+                      {:type :validation-failed
+                       :errors ["Provide either --for or --against, not both"]})))
+
+    (when (and (not for) (not against))
+      (throw (ex-info "Vote direction required"
+                      {:type :validation-failed
+                       :errors ["Provide --for or --against"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Cast vote
+    (let [vote-type (if for :for :against)
+          result (verify/cast-vote! repo-path id agent vote-type :reason reason)]
+      (:result result))))
+
+;; -----------------------------------------------------------------------------
+;; Taint Command
+;; -----------------------------------------------------------------------------
+
+(def ^:private valid-taints
+  "Valid taint values."
+  #{:needs-decomposition :needs-proposal-review :needs-refinement
+    :needs-verification :needs-refs :needs-votes :needs-counterexample})
+
+(defn- parse-taint
+  "Parse taint string to keyword. Returns nil if invalid."
+  [s]
+  (when s
+    (let [kw (keyword (str/replace (str/lower-case s) #"^:" ""))]
+      (when (valid-taints kw)
+        kw))))
+
+(defn cmd-taint!
+  "Add or remove taints from a mote.
+
+   Arguments (in context):
+   - :id - The mote ID to modify (required)
+
+   Options:
+   - :add - Taint to add (can be specified multiple times)
+   - :remove - Taint to remove (can be specified multiple times)
+   - :agent - Agent name (default: 'cli-user')
+
+   Valid taints:
+   - needs-decomposition
+   - needs-proposal-review
+   - needs-refinement
+   - needs-verification
+   - needs-refs
+   - needs-votes
+   - needs-counterexample
+
+   At least one of --add or --remove must be provided.
+
+   Returns the updated mote."
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [add remove agent]} options
+        agent (or agent "cli-user")
+        ;; Support both single value and vector for add/remove
+        adds (if (sequential? add) add (when add [add]))
+        removes (if (sequential? remove) remove (when remove [remove]))]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to modify taints"]})))
+
+    (when (and (empty? adds) (empty? removes))
+      (throw (ex-info "No taint changes provided"
+                      {:type :validation-failed
+                       :errors ["Provide at least one --add or --remove"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Parse and validate taints
+      (let [parsed-adds (map parse-taint adds)
+            parsed-removes (map parse-taint removes)]
+        (when-let [invalid (first (filter nil? (concat
+                                                 (when (seq adds) parsed-adds)
+                                                 (when (seq removes) parsed-removes))))]
+          (let [invalid-values (concat
+                                 (filter #(nil? (parse-taint %)) adds)
+                                 (filter #(nil? (parse-taint %)) removes))]
+            (throw (ex-info "Invalid taint"
+                            {:type :validation-failed
+                             :errors [(str "Invalid taint: " (first invalid-values)
+                                           ". Valid taints: " (str/join ", " (map name valid-taints)))]}))))
+
+        ;; Apply taint changes
+        (let [updated-mote (as-> current-mote m
+                            (reduce mote/add-taint m (filter some? parsed-adds))
+                            (reduce mote/remove-taint m (filter some? parsed-removes)))]
+          (tx/atomic-write! repo-path
+                            (str "Update taints on " id)
+                            [updated-mote])
+          updated-mote)))))
+
+;; -----------------------------------------------------------------------------
 ;; Handler Registration
 ;; -----------------------------------------------------------------------------
 
@@ -455,7 +694,10 @@
   (cli/register-handler! "ready" cmd-ready)
   (cli/register-handler! "propose" cmd-propose!)
   (cli/register-handler! "approve" cmd-approve!)
-  (cli/register-handler! "reject" cmd-reject!))
+  (cli/register-handler! "reject" cmd-reject!)
+  (cli/register-handler! "update" cmd-update!)
+  (cli/register-handler! "vote" cmd-vote!)
+  (cli/register-handler! "taint" cmd-taint!))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)
