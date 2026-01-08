@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.6 Update/Vote/Taint Commands Implementation
+**Last session:** Step 6.7 Claim/Unclaim Commands Implementation
 
 ## Current State
 
@@ -38,21 +38,21 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.4 | Ready Command | 37 (61 assertions) |
 | 6.5 | Propose/Approve/Reject Commands | 57 (89 assertions) |
 | 6.6 | Update/Vote/Taint Commands | 59 (84 assertions) |
+| 6.7 | Claim/Unclaim Commands | 28 (46 assertions) |
 
-**Total:** 609 tests, 1616 assertions - all passing
+**Total:** 637 tests, 1662 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.6: Update/Vote/Taint Commands (59 tests)
+- Implemented Step 6.7: Claim/Unclaim Commands (28 tests)
 - Added to `src/alethfeld/cmd.clj`:
-  - `cmd-update!` - Update claim, priority, difficulty fields
-  - `cmd-vote!` - Cast verification vote (:for/:against with quorum handling)
-  - `cmd-taint!` - Add/remove taint flags (supports multiple taints)
-  - `parse-priority` and `parse-taint` helpers
-- Created `test/alethfeld/cmd/update_test.clj` (59 tests, 84 assertions)
-  - Update field tests (claim, priority, difficulty)
-  - Vote quorum tests (verified, refuted, contested)
-  - Taint add/remove tests
-  - Validation error tests
+  - `cmd-claim!` - Claim mote for work (errors if already claimed by another)
+  - `cmd-unclaim!` - Release claim on mote
+  - Registered handlers for "claim" and "unclaim"
+- Created `test/alethfeld/cmd/claim_test.clj` (28 tests, 46 assertions)
+  - Claim sets claimed-by and claimed-at
+  - Unclaim clears claim fields
+  - Already-claimed error tests
+  - Claim/unclaim workflow tests
   - Handler registration tests
 
 ### Current Issue
@@ -62,7 +62,7 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-**Next implementation step:** Step 6.7: Claim/Unclaim Commands + Tests
+**Next implementation step:** Step 6.8: Add-* Commands + Tests
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |

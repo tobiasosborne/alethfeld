@@ -682,6 +682,105 @@
           updated-mote)))))
 
 ;; -----------------------------------------------------------------------------
+;; Claim Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-claim!
+  "Claim a mote for work.
+
+   Arguments (in context):
+   - :id - The mote ID to claim (required)
+
+   Options:
+   - :agent - Agent name (required)
+
+   Errors if mote is already claimed by another agent.
+
+   Returns the updated mote."
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [agent]} options]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to claim"]})))
+
+    (when-not agent
+      (throw (ex-info "Agent name is required"
+                      {:type :validation-failed
+                       :errors ["Provide --agent to claim the mote"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Check if already claimed by another agent
+      (let [current-claimer (:claimed-by current-mote)]
+        (when (and current-claimer (not= current-claimer agent))
+          (throw (ex-info "Mote already claimed"
+                          {:type :already-claimed
+                           :mote-id id
+                           :claimed-by current-claimer}))))
+
+      ;; Set claim
+      (let [updated-mote (mote/set-claimed-by current-mote agent)]
+        (tx/atomic-write! repo-path
+                          (str "Claim mote " id " for " agent)
+                          [updated-mote])
+        updated-mote))))
+
+;; -----------------------------------------------------------------------------
+;; Unclaim Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-unclaim!
+  "Release claim on a mote.
+
+   Arguments (in context):
+   - :id - The mote ID to unclaim (required)
+
+   Returns the updated mote."
+  [{:keys [id]}]
+  (let [repo-path "."]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to unclaim"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Clear claim
+      (let [updated-mote (mote/clear-claim current-mote)]
+        (tx/atomic-write! repo-path
+                          (str "Unclaim mote " id)
+                          [updated-mote])
+        updated-mote))))
+
+;; -----------------------------------------------------------------------------
 ;; Handler Registration
 ;; -----------------------------------------------------------------------------
 
@@ -697,7 +796,9 @@
   (cli/register-handler! "reject" cmd-reject!)
   (cli/register-handler! "update" cmd-update!)
   (cli/register-handler! "vote" cmd-vote!)
-  (cli/register-handler! "taint" cmd-taint!))
+  (cli/register-handler! "taint" cmd-taint!)
+  (cli/register-handler! "claim" cmd-claim!)
+  (cli/register-handler! "unclaim" cmd-unclaim!))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)
