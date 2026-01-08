@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.9 Check/Log/Sync Commands Implementation
+**Last session:** Step 7.1 End-to-End Integration Tests Implementation
 
 ## Current State
 
@@ -41,33 +41,37 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.7 | Claim/Unclaim Commands | 28 (46 assertions) |
 | 6.8 | Add-* Commands | 38 (67 assertions) |
 | 6.9 | Check/Log/Sync Commands | 38 (62 assertions) |
+| 7.1 | End-to-End Integration Tests | 20 (84 assertions) |
 
-**Total:** 712 tests, 1791 assertions - all passing
+**Total:** 732 tests, 1875 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.9: Check/Log/Sync Commands (38 tests)
-- Added to `src/alethfeld/cmd.clj`:
-  - `cmd-check` - Validate entire DAG integrity (schema + DAG validation)
-  - `cmd-log` - Show git history for a mote
-  - `cmd-sync!` - Pull, commit, push (gracefully handles no remote)
-- Created `test/alethfeld/cmd/util_test.clj` (38 tests, 62 assertions)
-- Fixed `dispatch-unimplemented-test` to use non-existent command name
+- Implemented Step 7.1: End-to-End Integration Tests (20 tests)
+- Created `test/alethfeld/integration_test.clj` (675 lines)
+- Test coverage includes:
+  - Full lifecycle: init → create → propose → approve → verify
+  - Proposal rejection and re-proposal workflow
+  - Contested verification scenarios
+  - Multi-agent parallel claims, proposal review, and verification
+  - Conflict detection (double claim, duplicate proposal, duplicate vote, cycles)
+  - Recovery tests (orphan detection, broken refs, inconsistent parent-child)
+  - Transaction atomicity with rollback on validation failure
+  - Git history tracking tests
+  - Deep nesting and DAG consistency tests
+- Closed issues: `alethfeld-ygi8`, `alethfeld-dnzx`, `alethfeld-auxb`
 
 ### Current Issue
-None in progress (Step 6.9 complete).
+None in progress (Step 7.1 complete).
 
 ## Next Steps
 
 **Next ready issue:** Check `bd ready` for next task
 
-**Next implementation step:** Step 7.1: End-to-End Integration Tests
+**Next implementation step:** Step 7.2: Error Handling & Messages
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |
 |-------|----------|-------------|
-| `alethfeld-dnzx` | P0 | Implement CLI commands (Steps 6.1-6.9) |
-| `alethfeld-daci` | P0 | Add end-to-end integration tests |
-| `alethfeld-auxb` | P1 | Add CLI command tests |
 | `alethfeld-9rtt` | P1 | Fix transaction rollback race condition |
 
 ### Serious Issues (from code review)
@@ -114,6 +118,7 @@ None in progress (Step 6.9 complete).
 | `src/alethfeld/verify.clj` | Verification workflow |
 | `src/alethfeld/cli.clj` | CLI infrastructure |
 | `src/alethfeld/cmd.clj` | Command implementations |
+| `test/alethfeld/integration_test.clj` | End-to-end integration tests |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
