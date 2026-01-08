@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step A.8 - Prompt Updates with Session Constraints
+**Last session:** Step B.1 - Configurable Quorum
 
 ## Current State
 
@@ -12,92 +12,102 @@
 
 ### Project Status
 **v0.2 Phase A is 100% COMPLETE** (8 of 8 steps done).
+**v0.2 Phase B is 12.5% COMPLETE** (1 of 8 steps done).
 
 ---
 
 ## This Session: Completed Work
 
-### Step A.8: Prompt Updates with Session Constraints (DONE)
+### Step B.1: Configurable Quorum (DONE)
 
-Implemented session-aware prompts that tell agents exactly what they can do:
+Implemented configurable quorum for solo workflows (quorum=1):
 
-- **Issue:** `alethfeld-j37u` (now closed)
-- **Files modified:** `src/alethfeld/prompt.clj`, `src/alethfeld/cmd.clj`, `test/alethfeld/prompt_test.clj`
+- **Issue:** `alethfeld-nzz2` (now closed)
+- **Files modified:**
+  - `src/alethfeld/schema.clj` - Added Config schema
+  - `src/alethfeld/cmd.clj` - Added cmd-config command
+  - `src/alethfeld/cli.clj` - Registered config command
+  - `src/alethfeld/tx.clj` - Added atomic-write-config!
+  - `test/alethfeld/cmd/config_test.clj` - New test file (21 tests)
 
 **Implementation details:**
 
-1. **Session context rendering in prompts:**
-   - SESSION: `<session-id>`
-   - MOTE: `<mote-id>`
-   - ROLE: `<role-name>`
+1. **Config schema in schema.clj:**
+   ```clojure
+   (def Config
+     [:map
+      [:project-name :string]
+      [:version :string]
+      [:default-difficulty Difficulty]
+      [:proposal-quorum {:optional true} [:int {:min 1}]]
+      [:vote-quorum {:optional true} [:int {:min 1}]]
+      [:claim-timeout-minutes {:optional true} [:int {:min 1}]]])
+   ```
 
-2. **ALLOWED COMMANDS section:**
-   - Lists commands the role can execute with `--session` flag
-   - Format: `af <command> <mote-id> ... --session <session-id>`
+2. **New `af config` command with subcommands:**
+   - `af config list` - Show all configuration
+   - `af config get <key>` - Get a specific value
+   - `af config set <key> <value>` - Set a value (creates git commit)
 
-3. **FORBIDDEN actions section:**
-   - Lists actions the role cannot perform
-   - Shows which roles CAN perform each action
-   - Format: `- <action description> (<roles> only)`
+3. **Valid config keys:**
+   - `project-name` (string)
+   - `version` (string)
+   - `default-difficulty` (1-5)
+   - `proposal-quorum` (integer >= 1, default 2)
+   - `vote-quorum` (integer >= 1, default 2)
+   - `claim-timeout-minutes` (integer >= 1, default 30)
 
-4. **Session-aware footer:**
-   - Replaces `When done: af unclaim <mote-id>`
-   - With `When finished: af done --session <session-id>`
-
-5. **Integration in cmd-ready:**
-   - Prompts re-rendered after session creation
-   - Session context included in returned jobs
+4. **Quorum already read from config:**
+   - `proposal.clj` already has `get-quorum` reading `:proposal-quorum`
+   - `verify.clj` already has `get-vote-quorum` reading `:vote-quorum`
+   - No changes needed to proposal/verify modules
 
 **Test coverage:**
-- Prompt tests: 53 tests, 113 assertions (10 new session context tests)
-- Full suite: 841 tests, 2280 assertions
+- Config tests: 21 tests, 35 assertions (all passing)
+- Full suite: 862 tests, 2318 assertions
 
-### Phase A Progress (8/8 steps COMPLETE)
+### Phase B Progress (1/4 steps COMPLETE)
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
-| A.1 | `alethfeld-s4y6` | ✅ DONE | Session Schema & Storage |
-| A.2 | `alethfeld-b0sn` | ✅ DONE | Role-Action Matrix |
-| A.3 | `alethfeld-aa2d` | ✅ DONE | Contributors Tracking & Self-Vote Prevention |
-| A.4 | `alethfeld-oopq` | ✅ DONE | Session Creation in Ready/Claim |
-| A.5 | `alethfeld-32yv` | ✅ DONE | Session Enforcement Middleware |
-| A.6 | `alethfeld-8gz7` | ✅ DONE | Done Command |
-| A.7 | `alethfeld-49vy` | ✅ DONE | Stale Session Cleanup |
-| A.8 | `alethfeld-j37u` | ✅ DONE | Prompt Updates with Session Constraints |
+| B.1 | `alethfeld-nzz2` | ✅ DONE | Configurable Quorum |
+| B.2 | `alethfeld-pq0f` | pending | Tree View Command |
+| B.3 | `alethfeld-ftoc` | pending | Status Summary Command |
+| B.4 | `alethfeld-j0v0` | pending | Human-Readable Error Messages |
 
 ### Files Modified This Session
 
 ```
-src/alethfeld/prompt.clj      # Added session context rendering
-src/alethfeld/cmd.clj         # Re-render prompts with session in cmd-ready
-test/alethfeld/prompt_test.clj # Added 10 session context tests
+src/alethfeld/schema.clj          # Added Config schema
+src/alethfeld/cmd.clj             # Added cmd-config command
+src/alethfeld/cli.clj             # Registered config command
+src/alethfeld/tx.clj              # Added atomic-write-config!
+test/alethfeld/cmd/config_test.clj # New test file
 ```
 
 ### Test Summary
 
-- **Prompt tests:** 53 tests, 113 assertions (all passing)
-- **Full suite:** 841 tests, 2280 assertions
+- **Config tests:** 21 tests, 35 assertions (all passing)
+- **Full suite:** 862 tests, 2318 assertions
 - **Known failures:** Concurrency tests (flaky, pre-existing), generate-id-test (rare UUID collision)
 
 ---
 
 ## Next Steps (Recommended Order)
 
-### Phase B: Tier 1 Essential Improvements (Independent)
+### Phase B: Tier 1 Essential Improvements (Remaining)
 
-These can be done in parallel:
+1. **B.2: Tree View Command** - Visualize proof structure at a glance
+2. **B.3: Status Summary Command** - Report mote counts by status
+3. **B.4: Human-Readable Error Messages** - Better success/failure feedback
 
-1. **B.1: Configurable Quorum** - Allow solo workflows with quorum=1
-2. **B.2: Progress Tracking** - Report mote counts by status
-3. **B.3: Root-First Prioritization** - Roots break ties in job selection
-4. **B.4: Informative Messages** - Better success/failure feedback
+### Phase C: Tier 2 Quality/Safety
 
-### Phase C: Tier 2 Quality/Safety (A.5 dependency now satisfied)
-
-1. **C.1: Contributor Tracking Propagation** - Track contributors across children
-2. **C.2: Enhanced Validation** - Cross-mote consistency checks
-3. **C.3: Audit Log** - Persistent action log
-4. **C.4: Undo/Rollback** - Git-based rollback for mistakes
+1. **C.1: Batch Voting** - Vote on multiple motes at once
+2. **C.2: Auto-Propagation** - Propagate votes across children
+3. **C.3: Proposal Withdrawal** - Cancel own proposal without quorum
+4. **C.4: Cross-References / Dependencies** - Track mote dependencies
+5. **C.5: Atomic Markers on Creation** - Create motes with markers set
 
 ---
 
@@ -108,24 +118,34 @@ bd ready
 ```
 
 Currently unblocked:
-- **Phase B:** B.1, B.2, B.3, B.4 (all independent)
-- **Phase C:** C.1, C.2, C.3, C.4 (A.5 dependency satisfied)
+- **Phase B:** B.2, B.3, B.4 (all independent)
+- **Phase C:** C.1, C.2, C.3, C.4, C.5 (all independent)
+- Various bug fixes and enhancements
 
 ---
 
-## Session System Summary (Phase A Complete)
+## Usage Examples
 
-The v0.2 session system is now fully implemented:
+### Solo Workflow (quorum=1)
 
-**Working features:**
-- `af ready --agent X` creates sessions (returns session-id)
-- `af claim ID --agent X --role R` creates sessions (requires --role)
-- `af done --session <token>` ends session and releases mote
-- **Session enforcement on mutations** - All mutation commands require `--session`
-  - Commands: propose, approve, reject, vote, taint, add-ref, add-assumption, add-definition, unclaim
-  - Role permissions enforced per role-actions matrix
-- **Stale session cleanup** - `af ready` automatically cleans up expired/crashed sessions
-- **Session-aware prompts** - Prompts include SESSION/MOTE/ROLE, ALLOWED/FORBIDDEN commands
+```bash
+# Configure for solo work
+af config set proposal-quorum 1
+af config set vote-quorum 1
+
+# Now a single approve vote approves proposals
+# And a single verification vote verifies motes
+```
+
+### Check Configuration
+
+```bash
+# List all config
+af config list
+
+# Get specific value
+af config get proposal-quorum
+```
 
 ---
 
@@ -141,7 +161,7 @@ The v0.2 session system is now fully implemented:
 ```bash
 # Development
 clj -M:test                                    # Run all tests
-clj -M:test --namespace alethfeld.prompt-test  # Run prompt tests only
+clj -M:test --namespace alethfeld.cmd.config-test  # Run config tests only
 
 # Issue tracking
 bd ready                              # Show unblocked issues
@@ -157,5 +177,5 @@ bd stats                              # Project statistics
 |----------|---------|
 | `docs/IMPLEMENTATION-PLAN.md` | Full v0.2 spec with all step details |
 | `docs/TECH-SPEC.md` | v0.1 technical spec |
-| `src/alethfeld/session.clj` | Session management module |
-| `src/alethfeld/prompt.clj` | Prompt templates with session context |
+| `src/alethfeld/cmd.clj` | Main command implementations |
+| `src/alethfeld/schema.clj` | All Malli schemas including Config |
