@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Completed Step 2.3 DAG Validation, cleaned up 24 invalid issues from archived v1 spec
+**Last session:** Code review and P1 bug fixes
 
 ## Current State
 
@@ -17,14 +17,18 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | Step | Description | Tests |
 |------|-------------|-------|
 | 0.2 | Test Infrastructure | 2 |
-| 1.1 | Schema Definitions | 22 (104 assertions) |
+| 1.1 | Schema Definitions | 22 (111 assertions) |
 | 1.2 | Mote Constructors | 11 |
 | 1.3 | Mote Transformations | 14 |
 | 2.1 | ID Operations | 13 |
 | 2.2 | Path Derivation | 13 |
 | 2.3 | DAG Validation | 22 |
 
-**Total:** 78 tests, 454 assertions - all passing
+**Total:** 78 tests, 461 assertions - all passing
+
+### Recent Fixes (this session)
+- `alethfeld-2m2a`: Fixed double validation calls in `dag.clj:validate-mote-graph`
+- `alethfeld-1ihk`: Strengthened MoteId schema to validate Lamport-style format
 
 ### Current Issue
 None in progress.
@@ -37,6 +41,15 @@ This involves:
 - Create `job.clj` with job selection functions
 - Functions: mote->role, workable?, matches-filter?
 - Write comprehensive tests
+
+### Code Review Issues (created this session)
+| Issue | Priority | Description |
+|-------|----------|-------------|
+| `alethfeld-9b04` | P2 | Add comment to find-cycles DFS algorithm |
+| `alethfeld-kvcp` | P2 | Make validation error collection consistent |
+| `alethfeld-gp1q` | P2 | Fix flaky generate-id-test |
+| `alethfeld-ann3` | P3 | Make now function injectable for test determinism |
+| `alethfeld-x982` | P3 | Add property-based tests for ID/path operations |
 
 ## Key Files
 
