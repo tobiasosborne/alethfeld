@@ -684,6 +684,121 @@
       (:result result))))
 
 ;; -----------------------------------------------------------------------------
+;; Batch Vote Command
+;; -----------------------------------------------------------------------------
+
+(defn- find-eligible-motes-for-voting
+  "Find all motes that an agent can vote on.
+
+   Returns motes that:
+   - Need verification (status :fixed with :needs-verification taint)
+   - Agent hasn't already voted on
+   - Agent can vote on (not a contributor)
+
+   Arguments:
+   - repo-path: Path to the repository
+   - agent: Agent identifier
+
+   Returns sequence of [mote-id mote] pairs."
+  [repo-path agent]
+  (let [all-motes (store/load-all-motes repo-path)]
+    (->> all-motes
+         (filter (fn [[_id mote]]
+                   (and (verify/needs-verification? mote)
+                        (not (verify/has-voted? mote agent))
+                        (session/can-vote? mote agent))))
+         (sort-by first))))
+
+(defn cmd-vote-all!
+  "Cast verification votes on multiple motes at once.
+
+   Options:
+   - :session - Session token (required)
+   - :for - Vote in favor of verification
+   - :against - Vote against verification
+   - :reason - Reason for votes (optional)
+   - :agent - Agent name (defaults to session agent)
+   - :pending - Only vote on motes needing verification (default true)
+   - :dry-run - Show what would be voted on without voting
+
+   Finds all motes that need verification and that the agent can vote on
+   (excluding self-votes), then casts the specified vote on each.
+
+   Returns map with:
+   - :voted - Vector of mote IDs that were voted on
+   - :skipped - Vector of maps with :mote-id and :reason for skipped motes
+   - :total-voted - Count of votes cast
+   - :total-skipped - Count of motes skipped
+   - :dry-run - True if this was a dry run"
+  [{:keys [options]}]
+  (let [repo-path "."
+        {:keys [for against reason session dry-run]} options]
+
+    ;; Validation
+    (when (and for against)
+      (throw (ex-info "Cannot vote both for and against"
+                      {:type :validation-failed
+                       :errors ["Provide either --for or --against, not both"]})))
+
+    (when (and (not for) (not against))
+      (throw (ex-info "Vote direction required"
+                      {:type :validation-failed
+                       :errors ["Provide --for or --against"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Session enforcement (but allow viewing dry-run without session)
+    (when (and (not dry-run) (not session))
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (let [;; Get agent from session or options
+          sess (when session
+                 (session/load-session repo-path session))
+          agent (or (:agent options)
+                    (:agent sess)
+                    (when dry-run "dry-run-agent"))
+
+          _ (when (and (not dry-run) (not agent))
+              (throw (ex-info "Agent name is required"
+                              {:type :validation-failed
+                               :errors ["Provide --agent or use a valid session"]})))
+
+          ;; Find eligible motes
+          eligible (find-eligible-motes-for-voting repo-path agent)
+          eligible-ids (map first eligible)]
+
+      (if dry-run
+        ;; Dry run - just report what would be voted on
+        {:voted []
+         :would-vote (vec eligible-ids)
+         :total-would-vote (count eligible-ids)
+         :dry-run true}
+
+        ;; Actually cast votes
+        (let [vote-type (if for :for :against)
+              results (reduce
+                       (fn [acc [mote-id _mote]]
+                         (try
+                           (verify/cast-vote! repo-path mote-id agent vote-type :reason reason)
+                           (update acc :voted conj mote-id)
+                           (catch Exception e
+                             (update acc :skipped conj
+                                     {:mote-id mote-id
+                                      :reason (ex-message e)}))))
+                       {:voted [] :skipped []}
+                       eligible)]
+          (assoc results
+                 :total-voted (count (:voted results))
+                 :total-skipped (count (:skipped results))
+                 :dry-run false))))))
+
+;; -----------------------------------------------------------------------------
 ;; Taint Command
 ;; -----------------------------------------------------------------------------
 
@@ -1695,6 +1810,7 @@
   (cli/register-handler! "reject" cmd-reject!)
   (cli/register-handler! "update" cmd-update!)
   (cli/register-handler! "vote" cmd-vote!)
+  (cli/register-handler! "vote-all" cmd-vote-all!)
   (cli/register-handler! "taint" cmd-taint!)
   (cli/register-handler! "claim" cmd-claim!)
   (cli/register-handler! "unclaim" cmd-unclaim!)

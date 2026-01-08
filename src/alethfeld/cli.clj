@@ -246,6 +246,16 @@
                      ["-R" "--reason TEXT" "Reason for vote"]]
            :requires-id true}
 
+   "vote-all" {:description "Batch vote on multiple motes"
+               :usage "af vote-all --session TOKEN --for|--against [--reason TEXT]"
+               :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                         ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
+                         [nil "--for" "Vote for (valid)"]
+                         [nil "--against" "Vote against (invalid)"]
+                         ["-R" "--reason TEXT" "Reason for all votes"]
+                         [nil "--pending" "Only vote on motes needing verification (default)"]
+                         [nil "--dry-run" "Show what would be voted on without voting"]]}
+
    "update" {:description "Update mote fields"
              :usage "af update <id> --session TOKEN [OPTIONS]"
              :options [["-S" "--session TOKEN" "Session token (required for mutations)"]
