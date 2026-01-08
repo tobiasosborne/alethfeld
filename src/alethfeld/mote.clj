@@ -110,13 +110,15 @@
    - :claimed-at - Timestamp, defaults to nil
    - :created-at - Timestamp, defaults to now
    - :updated-at - Timestamp, defaults to now
+   - :contributors - Contributors tracking map (auto-initialized)
    - :meta - Additional metadata map"
   [id claim created-by & {:keys [status taint priority difficulty
                                   parent children proposal
                                   assumptions definitions votes
                                   claimed-by claimed-at
-                                  created-at updated-at meta]}]
-  (let [ts (or created-at (now))]
+                                  created-at updated-at contributors meta]}]
+  (let [ts (or created-at (now))
+        default-contributors {:created-by created-by}]
     (cond-> {:id id
              :claim claim
              :status (or status :fixed)
@@ -129,7 +131,8 @@
              :votes (or votes [])
              :created-by created-by
              :created-at ts
-             :updated-at (or updated-at ts)}
+             :updated-at (or updated-at ts)
+             :contributors (or contributors default-contributors)}
       parent (assoc :parent parent)
       proposal (assoc :proposal proposal)
       claimed-by (assoc :claimed-by claimed-by)

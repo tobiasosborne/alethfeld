@@ -9,6 +9,7 @@
       - :contested if votes are mixed
    3. Taints are updated based on outcome"
   (:require [alethfeld.mote :as mote]
+            [alethfeld.session :as session]
             [alethfeld.store :as store]
             [alethfeld.tx :as tx]))
 
@@ -114,7 +115,8 @@
    Throws if:
    - Mote not found
    - Mote status is not :fixed (can only verify fixed motes)
-   - Agent has already voted"
+   - Agent has already voted
+   - Agent is a contributor (self-vote prevention)"
   [repo-path mote-id agent vote-type & {:keys [reason]}]
   (tx/with-validation
     repo-path
@@ -139,6 +141,13 @@
                           {:type :already-voted
                            :mote-id mote-id
                            :agent agent})))
+        ;; Check for self-vote (contributor cannot vote)
+        (when-not (session/can-vote? current-mote agent)
+          (throw (ex-info "Contributors cannot vote on their own work"
+                          {:type :self-vote
+                           :mote-id mote-id
+                           :agent agent
+                           :contributors (session/get-contributors current-mote)})))
         ;; Cast the vote
         (let [vote (mote/make-vote agent vote-type :reason reason)
               voted-mote (mote/add-vote current-mote vote)

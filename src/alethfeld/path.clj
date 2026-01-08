@@ -15,6 +15,9 @@
 (def ^:const motes-dir "motes")
 (def ^:const proposed-dir "proposed")
 (def ^:const archive-dir "archive")
+(def ^:const sessions-dir "sessions")
+(def ^:const active-sessions-dir "active")
+(def ^:const completed-sessions-dir "completed")
 (def ^:const config-file "config.edn")
 
 ;; -----------------------------------------------------------------------------
@@ -164,3 +167,40 @@
       (if anc-path
         (str (motes-path) "/" anc-path)
         (motes-path)))))
+
+;; -----------------------------------------------------------------------------
+;; Session Paths
+;; -----------------------------------------------------------------------------
+
+(defn sessions-base-path
+  "Return the base path to the sessions directory.
+
+   Example: (sessions-base-path) => \".alethfeld/sessions\""
+  []
+  (str alethfeld-dir "/" sessions-dir))
+
+(defn active-sessions-path
+  "Return the path to the active sessions directory.
+
+   Example: (active-sessions-path) => \".alethfeld/sessions/active\""
+  []
+  (str (sessions-base-path) "/" active-sessions-dir))
+
+(defn completed-sessions-path
+  "Return the path to the completed sessions directory.
+
+   Example: (completed-sessions-path) => \".alethfeld/sessions/completed\""
+  []
+  (str (sessions-base-path) "/" completed-sessions-dir))
+
+(defn session-path
+  "Return the file path for a session.
+
+   Examples:
+     (session-path \"abc-123\" :active)    => \".alethfeld/sessions/active/abc-123.edn\"
+     (session-path \"abc-123\" :completed) => \".alethfeld/sessions/completed/abc-123.edn\""
+  [session-id status]
+  (let [base (case status
+               :active (active-sessions-path)
+               :completed (completed-sessions-path))]
+    (str base "/" session-id ".edn")))

@@ -99,6 +99,19 @@
    [:status [:enum :pending :approved :rejected]]])
 
 ;; -----------------------------------------------------------------------------
+;; Contributors
+;; -----------------------------------------------------------------------------
+
+(def Contributors
+  "Tracks all agents who contributed to a mote.
+   Used for self-vote prevention - contributors cannot vote on their own work."
+  [:map
+   [:created-by :string]
+   [:proposed-by {:optional true} :string]
+   [:refined-by {:optional true} [:set :string]]
+   [:refs-checked-by {:optional true} [:set :string]]])
+
+;; -----------------------------------------------------------------------------
 ;; Mote
 ;; -----------------------------------------------------------------------------
 
@@ -126,6 +139,7 @@
    [:created-by :string]
    [:created-at inst?]
    [:updated-at inst?]
+   [:contributors {:optional true} Contributors]
    [:meta {:optional true} [:map-of :keyword :any]]])
 
 ;; -----------------------------------------------------------------------------
@@ -171,6 +185,29 @@
    [:max {:optional true} [:int {:min 1}]]
    [:no-claim {:optional true} :boolean]
    [:format {:optional true} [:enum :edn :json]]])
+
+;; -----------------------------------------------------------------------------
+;; Session
+;; -----------------------------------------------------------------------------
+
+(def SessionId
+  "Dual-UUID session identifier for 256 bits of entropy."
+  [:and
+   [:string {:min 73 :max 73}]  ; Two UUIDs (36 chars each) + hyphen = 73
+   [:fn {:error/message "Must be dual-UUID format (e.g., \"uuid-uuid\")"}
+    #(boolean (re-matches #"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" %))]])
+
+(def Session
+  "A role-bound work session on a mote."
+  [:map
+   [:session-id SessionId]
+   [:mote-id MoteId]
+   [:role Role]
+   [:agent :string]
+   [:started-at inst?]
+   [:expires-at inst?]
+   [:pid {:optional true} :int]
+   [:actions [:vector :keyword]]])
 
 ;; -----------------------------------------------------------------------------
 ;; Validation Helpers
