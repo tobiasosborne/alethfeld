@@ -7,7 +7,38 @@
             [alethfeld.store :as store]
             [alethfeld.dag :as dag]
             [alethfeld.io :as io]
-            [babashka.fs :as fs]))
+            [babashka.fs :as fs])
+  (:import [java.util.concurrent.locks ReentrantLock]
+           [java.util.concurrent ConcurrentHashMap]))
+
+;; -----------------------------------------------------------------------------
+;; Repository Locking
+;; -----------------------------------------------------------------------------
+
+(def ^:private repo-locks
+  "Map of canonical repo paths to their ReentrantLocks.
+   Used to serialize transactions per repository."
+  (ConcurrentHashMap.))
+
+(defn- get-repo-lock
+  "Get or create a lock for the given repository path.
+   Uses canonical path to ensure consistent locking."
+  [repo-path]
+  (let [canonical (str (fs/canonicalize repo-path))]
+    (.computeIfAbsent repo-locks canonical
+                      (reify java.util.function.Function
+                        (apply [_ _] (ReentrantLock.))))))
+
+(defn- with-repo-lock
+  "Execute f while holding the repository lock.
+   Ensures only one transaction runs at a time per repository."
+  [repo-path f]
+  (let [lock (get-repo-lock repo-path)]
+    (.lock lock)
+    (try
+      (f)
+      (finally
+        (.unlock lock)))))
 
 ;; -----------------------------------------------------------------------------
 ;; Internal Helpers
@@ -68,33 +99,38 @@
    The function f should perform mote operations using store functions.
    After f completes, all .alethfeld/ changes are staged and committed.
 
+   Thread safety: Uses per-repository locking to serialize transactions.
+   Multiple threads can safely call transact! on the same repository.
+
    Returns map with:
    - :result - Return value of f
    - :commit - Commit info {:sha, :message}
 
    Throws if f throws (changes are NOT automatically rolled back in this case)."
   [repo-path message f]
-  ;; Ensure git is initialized
-  (when-not (git/git-initialized? repo-path)
-    (git/git-init! repo-path))
-  (ensure-git-config! repo-path)
+  (with-repo-lock repo-path
+    (fn []
+      ;; Ensure git is initialized
+      (when-not (git/git-initialized? repo-path)
+        (git/git-init! repo-path))
+      (ensure-git-config! repo-path)
 
-  ;; Execute the function
-  (let [result (f repo-path)]
-    ;; Stage and commit
-    (git/git-add-all! repo-path)
-    (let [status (git/git-status repo-path)]
-      (if (or (seq (:staged status))
-              (not (git/git-has-commits? repo-path)))
-        ;; Changes to commit (or first commit)
-        (let [commit (if (seq (:staged status))
-                       (git/git-commit! repo-path message)
-                       (git/git-commit! repo-path message :allow-empty true))]
-          {:result result
-           :commit commit})
-        ;; No changes - still return success but no commit
-        {:result result
-         :commit nil}))))
+      ;; Execute the function
+      (let [result (f repo-path)]
+        ;; Stage and commit
+        (git/git-add-all! repo-path)
+        (let [status (git/git-status repo-path)]
+          (if (or (seq (:staged status))
+                  (not (git/git-has-commits? repo-path)))
+            ;; Changes to commit (or first commit)
+            (let [commit (if (seq (:staged status))
+                           (git/git-commit! repo-path message)
+                           (git/git-commit! repo-path message :allow-empty true))]
+              {:result result
+               :commit commit})
+            ;; No changes - still return success but no commit
+            {:result result
+             :commit nil}))))))
 
 (defn with-validation
   "Execute a function with validation, rolling back on failure.
@@ -109,6 +145,9 @@
    2. Validates the mote graph
    3. If valid: commits changes
    4. If invalid: restores previous state and throws
+
+   Thread safety: Uses per-repository locking to serialize transactions.
+   Multiple threads can safely call with-validation on the same repository.
 
    Returns map with:
    - :result - Return value of f
@@ -128,43 +167,45 @@
    1. The window is typically <100ms for normal operations
    2. Validated changes are not rolled back (data integrity preserved)
    3. Manual recovery is straightforward: run `git add . && git commit -m 'recovery'`
-   4. Concurrent access should use git locking (not yet implemented)
+   4. Concurrent access is serialized via per-repository locks
 
    Future improvements could validate against git index instead of working tree,
    or add startup recovery to detect uncommitted validated changes."
   [repo-path message f]
-  ;; Ensure git is initialized
-  (when-not (git/git-initialized? repo-path)
-    (git/git-init! repo-path))
-  (ensure-git-config! repo-path)
+  (with-repo-lock repo-path
+    (fn []
+      ;; Ensure git is initialized
+      (when-not (git/git-initialized? repo-path)
+        (git/git-init! repo-path))
+      (ensure-git-config! repo-path)
 
-  ;; Take snapshot before changes
-  (let [snapshot (snapshot-files repo-path)]
-    ;; Execute function and validate - rollback on failure here
-    (let [result (try
-                   (f repo-path)
-                   (catch Exception e
-                     (restore-snapshot! repo-path snapshot)
-                     (throw e)))
-          ;; Validate the graph
-          motes (store/load-all-motes repo-path :include-archived true)
-          validation (dag/validate-mote-graph motes)]
-      (if (:valid? validation)
-        ;; Valid - commit (no rollback after this point, changes are validated)
-        (do
-          (git/git-add-all! repo-path)
-          (let [status (git/git-status repo-path)]
-            (if (seq (:staged status))
-              {:result result
-               :commit (git/git-commit! repo-path message)}
-              {:result result
-               :commit nil})))
-        ;; Invalid - rollback and throw
-        (do
-          (restore-snapshot! repo-path snapshot)
-          (throw (ex-info "Validation failed after transaction"
-                          {:type :validation-failed
-                           :errors (:errors validation)})))))))
+      ;; Take snapshot before changes
+      (let [snapshot (snapshot-files repo-path)]
+        ;; Execute function and validate - rollback on failure here
+        (let [result (try
+                       (f repo-path)
+                       (catch Exception e
+                         (restore-snapshot! repo-path snapshot)
+                         (throw e)))
+              ;; Validate the graph
+              motes (store/load-all-motes repo-path :include-archived true)
+              validation (dag/validate-mote-graph motes)]
+          (if (:valid? validation)
+            ;; Valid - commit (no rollback after this point, changes are validated)
+            (do
+              (git/git-add-all! repo-path)
+              (let [status (git/git-status repo-path)]
+                (if (seq (:staged status))
+                  {:result result
+                   :commit (git/git-commit! repo-path message)}
+                  {:result result
+                   :commit nil})))
+            ;; Invalid - rollback and throw
+            (do
+              (restore-snapshot! repo-path snapshot)
+              (throw (ex-info "Validation failed after transaction"
+                              {:type :validation-failed
+                               :errors (:errors validation)})))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Atomic Operations
