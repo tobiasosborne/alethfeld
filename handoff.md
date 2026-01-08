@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Completed Step 2.3 DAG Validation (reverted invalid context templates work)
+**Last session:** Completed Step 2.3 DAG Validation, cleaned up 24 invalid issues from archived v1 spec
 
 ## Current State
 
