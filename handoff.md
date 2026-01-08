@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 4.3 Complete
+**Last session:** Step 5.1 Complete
 
 ## Current State
 
@@ -29,20 +29,21 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 4.1 | EDN I/O | 37 (50 assertions) |
 | 4.2 | Mote Persistence | 35 (69 assertions) |
 | 4.3 | Git Operations | 37 (59 assertions) |
+| 5.1 | Transaction Wrapper | 26 (62 assertions) |
 
-**Total:** 274 tests, 837 assertions - all passing
+**Total:** 300 tests, 899 assertions - all passing
 
 ### Recent Work (this session)
 - Completed `alethfeld-41di`: Step 4.3 Git Operations
-- Created `src/alethfeld/git.clj` with:
-  - `git-init!`: Initialize git repo with custom branch
-  - `git-add!`, `git-add-all!`: Stage files (single or .alethfeld/)
-  - `git-commit!`: Create commit with message
-  - `git-log`: Get commit history with path filtering
-  - `git-status`: Check repo status (clean/staged/unstaged/untracked)
-  - `git-pull!`, `git-push!`: Remote operations
-  - `git-config!`, `git-config`: Configuration management
-  - `git-initialized?`, `git-has-commits?`, `git-has-remote?`: Status queries
+- Completed `alethfeld-g69f`: Step 5.1 Transaction Wrapper
+- Created `src/alethfeld/tx.clj` with:
+  - `transact!`: Wraps operations in git commit
+  - `with-validation`: Validates before commit, rolls back on failure
+  - `atomic-write!`: Write multiple motes atomically
+  - `atomic-delete!`: Delete multiple motes atomically
+  - `atomic-update!`: Update single mote with validation
+  - `pending-changes?`: Check for uncommitted changes
+  - `last-commit`: Get last commit info
 
 ### Current Issue
 None in progress.
@@ -51,13 +52,14 @@ None in progress.
 
 **Next ready issue:** Check `bd ready` for next task
 
-Phase 5 (Transaction Layer) is next:
-- `alethfeld-g69f`: Step 5.1 Transaction Wrapper + Tests
+Phase 5 (Transaction Layer) continues:
+- `alethfeld-1r5t`: Step 5.2 Proposal Workflow + Tests
 
 This involves:
-- `transact!`: Wraps operations in git commit
-- `with-validation`: Validates before commit, rolls back on failure
-- `atomic-write!`: Write multiple motes atomically
+- `create-proposal!`: Create proposed children
+- `approve-proposal!`: Cast approval vote
+- `reject-proposal!`: Cast rejection vote
+- `check-proposal-quorum`: Check vote status
 
 ### Code Review Issues (from previous session)
 | Issue | Priority | Description |
@@ -82,6 +84,7 @@ This involves:
 | `src/alethfeld/io.clj` | EDN file I/O operations |
 | `src/alethfeld/store.clj` | Mote persistence layer |
 | `src/alethfeld/git.clj` | Git operations |
+| `src/alethfeld/tx.clj` | Transaction layer |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
