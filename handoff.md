@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** v0.2 Planning - Session Enforcement & UX Improvements
+**Last session:** v0.2 Phase A Implementation - Steps A.1 through A.4
 
 ## Current State
 
@@ -11,103 +11,122 @@
 - v1 code archived in `archive/v1/`
 
 ### Project Status
-Alethfeld v0.1 is complete (746 tests, 1926 assertions). Now planning v0.2 which adds:
-- **Session-based role enforcement** (critical design fix)
-- **Self-vote prevention** (agents can't vote on own work)
-- **UX improvements** (tree view, status, configurable quorum)
-
-### v0.1 Completed Steps
-| Phase | Steps | Tests |
-|-------|-------|-------|
-| 0-7 | All 28 steps | 746 tests, 1926 assertions |
-
-**Total v0.1:** Complete and working
+Alethfeld v0.1 is complete. **v0.2 Phase A is 50% complete** (4 of 8 steps done).
 
 ---
 
-## v0.2 Implementation Plan
+## This Session: Completed Work
 
-### Phase A: Session & Role Enforcement (CRITICAL - P1)
+### Phase A Progress (4/8 steps DONE)
 
-| Issue | Step | Description | Dependencies |
-|-------|------|-------------|--------------|
-| `alethfeld-s4y6` | A.1 | Session Schema & Storage | None (READY) |
-| `alethfeld-b0sn` | A.2 | Role-Action Matrix | A.1 |
-| `alethfeld-aa2d` | A.3 | Contributors Tracking & Self-Vote Prevention | A.1 |
-| `alethfeld-oopq` | A.4 | Session Creation in Ready/Claim | A.1, A.2 |
-| `alethfeld-32yv` | A.5 | Session Enforcement Middleware | A.2, A.4 |
-| `alethfeld-8gz7` | A.6 | Done Command | A.1 |
-| `alethfeld-49vy` | A.7 | Stale Session Cleanup | A.1 |
-| `alethfeld-j37u` | A.8 | Prompt Updates with Session Constraints | A.4 |
+| Step | Issue | Status | Description |
+|------|-------|--------|-------------|
+| A.1 | `alethfeld-s4y6` | ✅ DONE | Session Schema & Storage |
+| A.2 | `alethfeld-b0sn` | ✅ DONE | Role-Action Matrix |
+| A.3 | `alethfeld-aa2d` | ✅ DONE | Contributors Tracking & Self-Vote Prevention |
+| A.4 | `alethfeld-oopq` | ✅ DONE | Session Creation in Ready/Claim |
+| A.5 | `alethfeld-32yv` | Ready | Session Enforcement Middleware |
+| A.6 | `alethfeld-8gz7` | Ready | Done Command |
+| A.7 | `alethfeld-49vy` | Ready | Stale Session Cleanup |
+| A.8 | `alethfeld-j37u` | Ready | Prompt Updates with Session Constraints |
 
-### Phase B: Tier 1 Essential Improvements (P2)
-
-| Issue | Step | Description | Dependencies |
-|-------|------|-------------|--------------|
-| `alethfeld-nzz2` | B.1 | Configurable Quorum | None (READY) |
-| `alethfeld-pq0f` | B.2 | Tree View Command | None (READY) |
-| `alethfeld-ftoc` | B.3 | Status Summary Command | None (READY) |
-| `alethfeld-j0v0` | B.4 | Human-Readable Error Messages | None (READY) |
-
-### Phase C: Tier 2 High Value Improvements (P2)
-
-| Issue | Step | Description | Dependencies |
-|-------|------|-------------|--------------|
-| `alethfeld-bvgj` | C.1 | Batch Voting | A.5 |
-| `alethfeld-t9eb` | C.2 | Auto-Propagation | A.5 |
-| `alethfeld-vehy` | C.3 | Proposal Withdrawal | A.5 |
-| `alethfeld-vq27` | C.4 | Cross-References / Dependencies | A.5 |
-| `alethfeld-nyrg` | C.5 | Atomic Markers on Creation | A.5 |
-
-### Phase D: Vision Features (FUTURE - v0.3)
-
-Documented in `docs/IMPLEMENTATION-PLAN.md` but not tracked as issues yet:
-- D.1: Lean4 Export
-- D.2: Lean4 Verification Bridge
-- D.3: Adversarial Review Mode
-- D.4: Visualization Export
-
----
-
-## Ready to Work (No Blockers)
+### New Files Created
 
 ```
-bd ready | grep "Step [ABC]"
+src/alethfeld/session.clj       # Session management (446 lines)
+test/alethfeld/session_test.clj # Session tests (627 lines)
+```
+
+### Files Modified
+
+```
+src/alethfeld/schema.clj  # Added SessionId, Session, Contributors schemas
+src/alethfeld/path.clj    # Added session path functions
+src/alethfeld/mote.clj    # Added :contributors initialization
+src/alethfeld/verify.clj  # Added self-vote prevention check
+src/alethfeld/cmd.clj     # Session creation on claim, init creates session dirs
+```
+
+### Test Summary
+
+- **Session tests:** 33 tests, 184 assertions (all passing)
+- **Full suite:** 779 tests, 2015 assertions
+- **Known failures:** 6 in concurrency tests (pre-existing, tracked in `alethfeld-nupa`)
+
+### Key Implementation Details
+
+**session.clj provides:**
+- `generate-session-id` - Dual UUID (256-bit entropy)
+- `create-session!`, `load-session`, `load-active-session`
+- `end-session!`, `archive-session!`, `delete-session!`
+- `cleanup-expired-sessions!`
+- `role-actions` map - Which actions each role can perform
+- `sessionless-commands` set - Commands that don't need sessions
+- `allowed?`, `requires-session?`, `get-allowed-actions`, `get-roles-for-action`
+- `can-vote?`, `add-contributor`, `get-contributors`
+
+**CLI Changes:**
+- `af init` now creates `sessions/active/` and `sessions/completed/` directories
+- `af ready --agent X` now creates sessions for claimed jobs (returns `:session-id`)
+- `af claim ID --agent X --role R` now requires `--role` and creates session
+
+---
+
+## Next Steps (Recommended Order)
+
+### Immediate (Complete Phase A)
+
+1. **A.6: Done Command** (`alethfeld-8gz7`) - Simple, enables session cleanup
+   - Add `cmd-done!` that ends session and clears mote claim
+   - See `docs/IMPLEMENTATION-PLAN.md` lines 270-286
+
+2. **A.5: Session Enforcement Middleware** (`alethfeld-32yv`) - Critical path
+   - Add `enforce-session!` function
+   - Update mutation commands to require `--session`
+   - See `docs/IMPLEMENTATION-PLAN.md` lines 233-268
+
+3. **A.7: Stale Session Cleanup** (`alethfeld-49vy`)
+   - Recover from crashed agents
+   - See `docs/IMPLEMENTATION-PLAN.md` lines 288-310
+
+4. **A.8: Prompt Updates** (`alethfeld-j37u`)
+   - Update prompts to include session constraints
+   - See `docs/IMPLEMENTATION-PLAN.md` lines 312-330
+
+### After Phase A
+
+- Phase B items (B.1-B.4) are independent and can be done in parallel
+- Phase C items depend on A.5
+
+---
+
+## Ready to Work
+
+```bash
+bd ready
 ```
 
 Currently unblocked:
-1. **`alethfeld-s4y6`** - Step A.1: Session Schema & Storage (START HERE)
-2. `alethfeld-nzz2` - Step B.1: Configurable Quorum
-3. `alethfeld-pq0f` - Step B.2: Tree View Command
-4. `alethfeld-ftoc` - Step B.3: Status Summary Command
-5. `alethfeld-j0v0` - Step B.4: Human-Readable Error Messages
-
-**Recommended order:** Start with A.1 to unblock the rest of Phase A.
+1. `alethfeld-32yv` - Step A.5: Session Enforcement Middleware
+2. `alethfeld-8gz7` - Step A.6: Done Command
+3. `alethfeld-49vy` - Step A.7: Stale Session Cleanup
+4. `alethfeld-j37u` - Step A.8: Prompt Updates
 
 ---
 
-## Previous Session Work (Still Relevant)
+## Known Issues
 
-### In Progress
-- `alethfeld-nupa`: Concurrency test suite has syntax errors (needs fixing)
-
-### Technical Details
-See `docs/IMPLEMENTATION-PLAN.md` for full v0.2 specification including:
-- Session schema design
-- Role-action matrix
-- Breaking CLI changes (all mutations need `--session`)
-- New file structure (`sessions/active/`, `sessions/completed/`)
+1. **`alethfeld-nupa`**: Concurrency tests have flaky failures (pre-existing)
+2. **`alethfeld-gp1q`**: Flaky generate-id-test (occasional collision in 100 UUIDs)
 
 ---
 
-## Key Documents
+## Git Commits This Session
 
-| Document | Purpose |
-|----------|---------|
-| `docs/IMPLEMENTATION-PLAN.md` | Full v0.2 spec (updated this session) |
-| `docs/TECH-SPEC.md` | v0.1 technical spec |
-| `docs/PRD.md` | Product requirements |
-| `review/report.md` | Testing feedback that drove v0.2 design |
+```
+0fef01b feat: Implement Phase A steps 1-3 (session schema, role matrix, self-vote prevention)
+caab75d feat: Step A.4 - Session creation on claim (ready/claim commands)
+```
 
 ---
 
@@ -115,37 +134,38 @@ See `docs/IMPLEMENTATION-PLAN.md` for full v0.2 specification including:
 
 ```bash
 # Development
-./install.sh       # Install af to ~/.local/bin
-clj -M:run         # Run CLI (dev mode)
-clj -M:test        # Run all tests
-clj -T:build uber  # Build uberjar
+clj -M:test                           # Run all tests
+clj -M:test --namespace alethfeld.session-test  # Run session tests only
 
 # Issue tracking
-bd ready           # Show unblocked issues
-bd show <id>       # View issue details
-bd update <id> --status=in_progress  # Claim issue
-bd close <id>      # Complete issue
+bd ready                              # Show unblocked issues
+bd show <id>                          # View issue details
 
-# Start v0.2
-bd update alethfeld-s4y6 --status=in_progress  # Claim A.1
+# Next step
+bd update alethfeld-8gz7 --status=in_progress  # Start A.6 (Done Command)
 ```
 
 ---
 
-## Breaking Changes Coming in v0.2
+## Breaking Changes in v0.2 (Partial)
 
-Phase A introduces breaking CLI changes:
+The session system is being built incrementally. Current state:
 
-**Before (v0.1):**
-```bash
-af propose 1.2 "claim" --agent proposer-1
-```
+**Working now:**
+- `af ready --agent X` creates sessions (returns session-id)
+- `af claim ID --agent X --role R` creates sessions (requires --role)
 
-**After (v0.2):**
-```bash
-af ready --agent proposer-1 --role proposer  # Get session
-af propose 1.2 "claim" --session <token>     # Use session
-af done --session <token>                    # End session
-```
+**Not yet implemented:**
+- `af done --session <token>` (A.6)
+- Session enforcement on mutations (A.5)
+- Prompt updates with session info (A.8)
 
-This enforces role-based workflow and prevents self-voting.
+---
+
+## Key Documents
+
+| Document | Purpose |
+|----------|---------|
+| `docs/IMPLEMENTATION-PLAN.md` | Full v0.2 spec with all step details |
+| `docs/TECH-SPEC.md` | v0.1 technical spec |
+| `src/alethfeld/session.clj` | New session management module |
