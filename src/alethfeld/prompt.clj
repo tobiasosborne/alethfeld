@@ -1,5 +1,7 @@
 (ns alethfeld.prompt
-  "Prompt templates and rendering for agent roles.")
+  "Prompt templates and rendering for agent roles."
+  (:require [alethfeld.session :as session]
+            [clojure.set :as set]))
 
 ;; -----------------------------------------------------------------------------
 ;; Format Helpers
@@ -100,6 +102,110 @@
                     (str "- " ref))))
            (clojure.string/join "\n"))
       "(none)")))
+
+;; -----------------------------------------------------------------------------
+;; Session Context Formatting
+;; -----------------------------------------------------------------------------
+
+(def ^:private action->command-name
+  "Map action keywords to command names."
+  {:propose "propose"
+   :add-definition "add-definition"
+   :add-assumption "add-assumption"
+   :add-ref "add-ref"
+   :approve "approve"
+   :reject "reject"
+   :vote "vote"
+   :taint-add "taint --add <tag>"
+   :taint-remove "taint --remove <tag>"
+   :update-status "update --status <status>"
+   :done "done"})
+
+(def ^:private action->description
+  "Human-readable descriptions for actions."
+  {:propose "create proposals"
+   :add-definition "add definitions"
+   :add-assumption "add assumptions"
+   :add-ref "add references"
+   :approve "approve proposals"
+   :reject "reject proposals"
+   :vote "cast votes"
+   :taint-add "add taints"
+   :taint-remove "remove taints"
+   :update-status "update status"
+   :done "end session"})
+
+(defn- format-allowed-commands
+  "Format allowed commands for a role with session context.
+
+   Arguments:
+   - role: The session role keyword
+   - mote-id: The mote ID
+   - session-id: The session ID
+
+   Returns a formatted string of allowed commands."
+  [role mote-id session-id]
+  (let [allowed-actions (session/get-allowed-actions role)
+        ;; Exclude :done from the list (shown separately)
+        command-actions (disj allowed-actions :done)]
+    (if (seq command-actions)
+      (->> command-actions
+           (map (fn [action]
+                  (let [cmd-name (get action->command-name action (name action))]
+                    (str "  af " cmd-name " " mote-id " ... --session " session-id))))
+           (clojure.string/join "\n"))
+      "  (none)")))
+
+(defn- format-forbidden-actions
+  "Format forbidden actions for a role.
+
+   Arguments:
+   - role: The session role keyword
+
+   Returns a formatted string of forbidden actions with which roles can do them."
+  [role]
+  (let [allowed (session/get-allowed-actions role)
+        ;; All possible mutation actions (excluding :done which everyone has)
+        all-actions #{:propose :add-definition :add-assumption :add-ref
+                      :approve :reject :vote :taint-add :taint-remove :update-status}
+        forbidden (set/difference all-actions allowed)]
+    (if (seq forbidden)
+      (->> forbidden
+           (map (fn [action]
+                  (let [roles-for-action (session/get-roles-for-action action)
+                        role-names (clojure.string/join ", " (map name roles-for-action))
+                        description (get action->description action (name action))]
+                    (str "  - " description " (" role-names " only)"))))
+           (clojure.string/join "\n"))
+      "  (none)")))
+
+(defn- render-session-context
+  "Render session context block for a prompt.
+
+   Arguments:
+   - session: Session map with :session-id, :mote-id, :role
+   - mote-id: The mote ID
+
+   Returns a formatted session context string."
+  [session mote-id]
+  (let [session-id (:session-id session)
+        role (:role session)]
+    (str "═══════════════════════════════════════════════════════════════════════════════\n"
+         "SESSION CONTEXT\n"
+         "═══════════════════════════════════════════════════════════════════════════════\n"
+         "\n"
+         "SESSION: " session-id "\n"
+         "MOTE: " mote-id "\n"
+         "ROLE: " (name role) "\n"
+         "\n"
+         "ALLOWED COMMANDS:\n"
+         (format-allowed-commands role mote-id session-id) "\n"
+         "\n"
+         "FORBIDDEN (your role cannot):\n"
+         (format-forbidden-actions role) "\n"
+         "\n"
+         "When finished: af done --session " session-id "\n"
+         "═══════════════════════════════════════════════════════════════════════════════")))
 
 ;; -----------------------------------------------------------------------------
 ;; Prompt Templates (Data-Driven)
@@ -327,15 +433,25 @@ When done: af unclaim {{mote-id}}"}})
 
    Options:
    - :resolved-children - Vector of resolved child motes (for proposals/verification)
+   - :session - Session map (when provided, includes session context block)
+
+   When session is provided, the prompt includes:
+   - Session context header with SESSION, MOTE, ROLE
+   - ALLOWED COMMANDS with --session flag
+   - FORBIDDEN actions list
+   - 'af done --session <id>' instead of 'af unclaim'
 
    Returns the complete prompt string."
-  [job & {:keys [resolved-children]}]
+  [job & {:keys [resolved-children session]}]
   (let [role (:role job)
         template (get role-templates role)
         context (build-context job :resolved-children resolved-children)
         mote-id (:mote-id context)]
     (when template
       (str
+       ;; Session context (if session provided)
+       (when session
+         (str (render-session-context session mote-id) "\n\n"))
        ;; Header
        (:header template)
        "\n\n"
@@ -348,4 +464,10 @@ When done: af unclaim {{mote-id}}"}})
        (:task template)
        "\n\n"
        ;; Commands (with mote-id substitution)
-       (substitute-mote-id (:commands template) mote-id)))))
+       (let [base-commands (substitute-mote-id (:commands template) mote-id)]
+         (if session
+           ;; Replace "When done: af unclaim <mote>" with "When finished: af done --session <session>"
+           (clojure.string/replace base-commands
+                                   #"When done: af unclaim [^\n]+"
+                                   (str "When finished: af done --session " (:session-id session)))
+           base-commands))))))

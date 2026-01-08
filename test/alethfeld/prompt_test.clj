@@ -467,3 +467,162 @@
     (let [job (assoc (test-job) :role :invalid-role)
           prompt (prompt/render-prompt job)]
       (is (nil? prompt)))))
+
+;; =============================================================================
+;; render-prompt Tests - Session Context (A.8)
+;; =============================================================================
+
+(defn- test-session
+  "Create a test session map."
+  [& {:keys [session-id mote-id role agent]
+      :or {session-id "sess-abc123-def456"
+           mote-id "1.2.3"
+           role :verifier
+           agent "test-agent"}}]
+  {:session-id session-id
+   :mote-id mote-id
+   :role role
+   :agent agent
+   :started-at #inst "2026-01-08T00:00:00"
+   :expires-at #inst "2026-01-08T00:30:00"
+   :actions []})
+
+(deftest render-prompt-session-context-header-test
+  (testing "Session context header is included when session provided"
+    (let [session (test-session :session-id "sess-test-1234"
+                                :mote-id "2.1.3"
+                                :role :verifier)
+          job (test-job :role :verifier
+                        :mote (test-mote :id "2.1.3" :taint #{:needs-verification}))
+          prompt-str (prompt/render-prompt job :session session)]
+      (is (str/includes? prompt-str "SESSION CONTEXT"))
+      (is (str/includes? prompt-str "SESSION: sess-test-1234"))
+      (is (str/includes? prompt-str "MOTE: 2.1.3"))
+      (is (str/includes? prompt-str "ROLE: verifier")))))
+
+(deftest render-prompt-session-context-absent-test
+  (testing "Session context not included when no session provided"
+    (let [job (test-job :role :verifier
+                        :mote (test-mote :id "2.1.3" :taint #{:needs-verification}))
+          prompt-str (prompt/render-prompt job)]
+      (is (not (str/includes? prompt-str "SESSION CONTEXT")))
+      (is (not (str/includes? prompt-str "ALLOWED COMMANDS:"))))))
+
+(deftest render-prompt-session-allowed-commands-verifier-test
+  (testing "Verifier allowed commands are listed"
+    (let [session (test-session :session-id "sess-verify-123"
+                                :mote-id "3.1"
+                                :role :verifier)
+          job (test-job :role :verifier
+                        :mote (test-mote :id "3.1" :taint #{:needs-verification}))
+          prompt-str (prompt/render-prompt job :session session)]
+      ;; Verifier can: vote, taint-add
+      (is (str/includes? prompt-str "ALLOWED COMMANDS:"))
+      (is (str/includes? prompt-str "af vote"))
+      (is (str/includes? prompt-str "af taint --add"))
+      (is (str/includes? prompt-str "--session sess-verify-123")))))
+
+(deftest render-prompt-session-allowed-commands-proposer-test
+  (testing "Proposer allowed commands are listed"
+    (let [session (test-session :session-id "sess-propose-456"
+                                :mote-id "4.2"
+                                :role :proposer)
+          job (test-job :role :proposer
+                        :mote (test-mote :id "4.2" :taint #{:needs-decomposition}))
+          prompt-str (prompt/render-prompt job :session session)]
+      ;; Proposer can: propose, add-definition, add-assumption, add-ref
+      (is (str/includes? prompt-str "af propose"))
+      (is (str/includes? prompt-str "af add-definition"))
+      (is (str/includes? prompt-str "af add-assumption"))
+      (is (str/includes? prompt-str "af add-ref")))))
+
+(deftest render-prompt-session-allowed-commands-advisor-test
+  (testing "Advisor allowed commands are listed"
+    (let [session (test-session :session-id "sess-advise-789"
+                                :mote-id "5.1"
+                                :role :advisor)
+          mote (test-mote :id "5.1"
+                          :taint #{:needs-proposal-review}
+                          :proposal {:id "prop-123"
+                                     :proposed-by "p1"
+                                     :proposed-at #inst "2026-01-07"
+                                     :children []
+                                     :votes []
+                                     :status :pending})
+          job (test-job :role :advisor :mote mote)
+          prompt-str (prompt/render-prompt job :session session)]
+      ;; Advisor can: approve, reject
+      (is (str/includes? prompt-str "af approve"))
+      (is (str/includes? prompt-str "af reject")))))
+
+(deftest render-prompt-session-forbidden-actions-test
+  (testing "Forbidden actions are listed for verifier role"
+    (let [session (test-session :role :verifier)
+          job (test-job :role :verifier
+                        :mote (test-mote :taint #{:needs-verification}))
+          prompt-str (prompt/render-prompt job :session session)]
+      (is (str/includes? prompt-str "FORBIDDEN (your role cannot):"))
+      ;; Verifier cannot propose, approve, reject, add-assumption, etc.
+      (is (str/includes? prompt-str "create proposals"))
+      (is (str/includes? prompt-str "approve proposals"))
+      (is (str/includes? prompt-str "reject proposals")))))
+
+(deftest render-prompt-session-forbidden-actions-prover-test
+  (testing "Prover has limited forbidden actions"
+    (let [session (test-session :role :prover)
+          job (test-job :role :prover
+                        :mote (test-mote :taint #{:needs-refinement}))
+          prompt-str (prompt/render-prompt job :session session)]
+      ;; Prover can do many things, but cannot: approve, reject, vote, update-status, taint-add
+      (is (str/includes? prompt-str "approve proposals"))
+      (is (str/includes? prompt-str "reject proposals"))
+      (is (str/includes? prompt-str "cast votes")))))
+
+(deftest render-prompt-session-done-command-test
+  (testing "Session prompt ends with 'af done --session' instead of 'af unclaim'"
+    (let [session (test-session :session-id "sess-done-test")
+          job (test-job :role :verifier
+                        :mote (test-mote :taint #{:needs-verification}))
+          prompt-str (prompt/render-prompt job :session session)]
+      ;; Should have "When finished: af done --session <id>"
+      (is (str/includes? prompt-str "When finished: af done --session sess-done-test"))
+      ;; Should NOT have "af unclaim"
+      (is (not (str/includes? prompt-str "af unclaim"))))))
+
+(deftest render-prompt-no-session-unclaim-test
+  (testing "Non-session prompt still has 'af unclaim'"
+    (let [job (test-job :role :verifier
+                        :mote (test-mote :taint #{:needs-verification}))
+          prompt-str (prompt/render-prompt job)]
+      ;; Should have "When done: af unclaim"
+      (is (str/includes? prompt-str "When done: af unclaim")))))
+
+(deftest render-prompt-session-context-all-roles-test
+  (testing "Session context works for all roles"
+    (let [roles [:proposer :advisor :prover :verifier :ref-checker :counterexample]
+          taints {:proposer #{:needs-decomposition}
+                  :advisor #{:needs-proposal-review}
+                  :prover #{:needs-refinement}
+                  :verifier #{:needs-verification}
+                  :ref-checker #{:needs-refs}
+                  :counterexample #{:needs-counterexample}}
+          make-mote (fn [role]
+                      (let [taint (get taints role)]
+                        (if (= role :advisor)
+                          (test-mote :taint taint
+                                     :proposal {:id "prop-123"
+                                                :proposed-by "p1"
+                                                :proposed-at #inst "2026-01-07"
+                                                :children []
+                                                :votes []
+                                                :status :pending})
+                          (test-mote :taint taint))))]
+      (doseq [role roles]
+        (testing (str "Role: " (name role))
+          (let [session (test-session :role role)
+                job (test-job :role role :mote (make-mote role))
+                prompt-str (prompt/render-prompt job :session session)]
+            (is (str/includes? prompt-str "SESSION CONTEXT"))
+            (is (str/includes? prompt-str (str "ROLE: " (name role))))
+            (is (str/includes? prompt-str "ALLOWED COMMANDS:"))
+            (is (str/includes? prompt-str "FORBIDDEN (your role cannot):"))))))))

@@ -333,12 +333,18 @@
                                                                        job-role
                                                                        agent)
                                          ;; Update mote with claim
-                                         updated-mote (mote/set-claimed-by (:mote j) agent)]
+                                         updated-mote (mote/set-claimed-by (:mote j) agent)
+                                         ;; Re-render prompt with session context
+                                         resolved-children (resolve-children (:mote j) motes)
+                                         session-prompt (prompt/render-prompt j
+                                                                              :resolved-children resolved-children
+                                                                              :session sess)]
                                      (assoc j
                                             :mote updated-mote
                                             :claimed-by agent
                                             :session-id (:session-id sess)
-                                            :session sess)))
+                                            :session sess
+                                            :prompt session-prompt)))
                                  jobs-with-prompts)
               ;; Extract updated motes for atomic write
               updated-motes (mapv :mote claimed-jobs)
