@@ -9,7 +9,8 @@
   (:require [clojure.tools.cli :as cli]
             [clojure.string :as str]
             [clojure.data.json :as json]
-            [clojure.pprint :as pprint])
+            [clojure.pprint :as pprint]
+            [alethfeld.errors :as err])
   (:gen-class))
 
 ;; Command handlers are registered by alethfeld.cmd namespace.
@@ -105,95 +106,10 @@
   false)
 
 (defn error-message
-  "Generate user-friendly error message from exception."
+  "Generate user-friendly error message from exception.
+   Delegates to alethfeld.errors/format-error for consistent formatting."
   [ex]
-  (let [data (ex-data ex)
-        msg (ex-message ex)]
-    (case (:type data)
-      ;; Repository errors
-      :not-initialized
-      (str "Error: Not an Alethfeld repository.\n"
-           "Run 'af init' to initialize a new repository.")
-
-      :already-initialized
-      (str "Error: Repository already initialized.\n"
-           "The .alethfeld/ directory already exists.")
-
-      :not-git-repo
-      (str "Error: Not a git repository.\n"
-           "Run 'git init' first, then 'af init'.")
-
-      ;; Mote errors
-      :not-found
-      (str "Error: Mote not found: " (:mote-id data) "\n"
-           "Run 'af check' to validate repository integrity.")
-
-      :validation-failed
-      (str "Error: Validation failed\n"
-           (str/join "\n" (map #(str "  - " %) (:errors data))))
-
-      :invalid-status
-      (str "Error: Invalid status transition.\n"
-           "Current status: " (when (:status data) (name (:status data))) "\n"
-           msg)
-
-      ;; Claim errors
-      :already-claimed
-      (str "Error: Mote " (:mote-id data) " is already claimed by " (:claimed-by data) ".\n"
-           "Use 'af unclaim " (:mote-id data) "' first, or use a different mote.")
-
-      ;; Voting errors
-      :already-voted
-      (str "Error: Agent '" (:agent data) "' has already voted on this mote.\n"
-           "Each agent can only vote once.")
-
-      ;; Proposal errors
-      :no-proposal
-      (str "Error: " msg "\n"
-           "Use 'af propose <id> --claim \"...\"' to create a proposal first.")
-
-      :proposal-exists
-      (str "Error: A proposal already exists on this mote.\n"
-           "Proposal ID: " (:proposal-id data) "\n"
-           "Use 'af approve' or 'af reject' to resolve the current proposal first.")
-
-      ;; Git errors
-      :git-error
-      (str "Error: Git operation failed.\n"
-           msg
-           (when (:stderr data) (str "\n" (:stderr data))))
-
-      ;; Session errors
-      :invalid-session
-      (str "Error: Invalid or expired session.\n"
-           "Session ID: " (:session-id data) "\n"
-           "Use 'af ready --agent NAME' or 'af claim' to start a new session.")
-
-      :session-expired
-      (str "Error: Session has expired.\n"
-           "Session ID: " (:session-id data) "\n"
-           "Expired at: " (:expires-at data) "\n"
-           "Use 'af ready --agent NAME' or 'af claim' to start a new session.")
-
-      :session-mote-mismatch
-      (str "Error: Session is for a different mote.\n"
-           "Session mote: " (:session-mote-id data) "\n"
-           "Requested mote: " (:requested-mote-id data) "\n"
-           "Each session is locked to a specific mote.")
-
-      :action-not-allowed
-      (str "Error: Action not allowed for your role.\n"
-           "Your role: " (name (:role data)) "\n"
-           "Attempted action: " (name (:action data)) "\n"
-           "Allowed actions: " (str/join ", " (map name (:allowed-actions data))))
-
-      :session-not-found
-      (str "Error: Session not found or already ended.\n"
-           "Session ID: " (:session-id data) "\n"
-           "The session may have expired or been ended with 'af done'.")
-
-      ;; Default
-      (str "Error: " msg))))
+  (err/format-error ex))
 
 (defn- format-stack-trace
   "Format exception stack trace for verbose output."
@@ -214,25 +130,7 @@
    (handle-error ex fmt false))
   ([ex fmt verbose]
    (let [data (ex-data ex)
-         code (case (:type data)
-                :not-found :not-found
-                :validation-failed :validation-error
-                :invalid-status :error
-                :already-voted :conflict
-                :already-claimed :conflict
-                :no-proposal :error
-                :proposal-exists :conflict
-                :not-initialized :error
-                :already-initialized :error
-                :not-git-repo :error
-                :git-error :error
-                ;; Session errors
-                :invalid-session :error
-                :session-expired :error
-                :session-mote-mismatch :error
-                :action-not-allowed :error
-                :session-not-found :not-found
-                :error)]
+         code (err/error-type->exit-code (:type data))]
      (if (= fmt :json)
        (do
          (println (format-json (cond-> {:error (ex-message ex)
@@ -613,10 +511,7 @@
       (catch clojure.lang.ExceptionInfo e
         {:error true
          :exception e
-         :exit-code (case (:type (ex-data e))
-                      :not-found :not-found
-                      :validation-failed :validation-error
-                      :error)}))))
+         :exit-code (err/error-type->exit-code (:type (ex-data e)))}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Main Entry Point

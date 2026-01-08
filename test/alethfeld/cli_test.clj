@@ -171,7 +171,7 @@
   (testing "no-proposal error"
     (let [ex (ex-info "No proposal found" {:type :no-proposal})
           msg (cli/error-message ex)]
-      (is (str/includes? msg "No proposal"))
+      (is (str/includes? msg "No active proposal"))
       (is (str/includes? msg "af propose") "should suggest propose command")))
 
   (testing "proposal-exists error"
