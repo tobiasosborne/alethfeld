@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.1 CLI Infrastructure Implementation
+**Last session:** Step 6.2 Init & Show Commands Implementation
 
 ## Current State
 
@@ -33,17 +33,18 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 5.2 | Proposal Workflow | 27 (87 assertions) |
 | 5.3 | Verification Workflow | 27 (98 assertions) |
 | 6.1 | CLI Infrastructure | 27 (187 assertions) |
+| 6.2 | Init & Show Commands | 43 (70 assertions) |
 
-**Total:** 380 tests, 1271 assertions - all passing
+**Total:** 421 tests, 1341 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.1: CLI Infrastructure (`src/alethfeld/cli.clj`)
-- Added clojure.tools.cli dependency for argument parsing
-- Full command infrastructure with 19 command definitions
-- Output formatting (EDN/JSON) with `format-output`
-- Exit handling with proper codes and error messages
-- Command dispatch with handler registry
-- 27 tests with 187 assertions covering parsing, dispatch, formatting
+- Implemented Step 6.2: Init & Show Commands
+- Created `src/alethfeld/cmd.clj` with command implementations
+- `cmd-init!`: Creates .alethfeld/, config.edn, initializes git, commits
+- `cmd-show`: Loads and displays mote by ID
+- Updated CLI to load command handlers via `ensure-handlers!`
+- Created `test/alethfeld/cmd/init_test.clj` (23 tests)
+- Created `test/alethfeld/cmd/show_test.clj` (20 tests)
 
 ### Current Issue
 None in progress.
@@ -51,6 +52,8 @@ None in progress.
 ## Next Steps
 
 **Next ready issue:** Check `bd ready` for next task
+
+**Next implementation step:** Step 6.3: Create Command + Tests
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |
@@ -102,6 +105,8 @@ None in progress.
 | `src/alethfeld/tx.clj` | Transaction layer |
 | `src/alethfeld/proposal.clj` | Proposal workflow |
 | `src/alethfeld/verify.clj` | Verification workflow |
+| `src/alethfeld/cli.clj` | CLI infrastructure |
+| `src/alethfeld/cmd.clj` | Command implementations |
 | `test/alethfeld/` | All tests |
 
 ## Blockers

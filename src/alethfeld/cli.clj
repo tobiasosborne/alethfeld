@@ -12,6 +12,13 @@
             [clojure.pprint :as pprint])
   (:gen-class))
 
+;; Command handlers are registered by alethfeld.cmd namespace.
+;; Require it at runtime to avoid circular dependency.
+(defn- ensure-handlers!
+  "Ensure command handlers are loaded."
+  []
+  (require 'alethfeld.cmd))
+
 ;; -----------------------------------------------------------------------------
 ;; Version
 ;; -----------------------------------------------------------------------------
@@ -544,4 +551,5 @@
 (defn -main
   "CLI entry point for Alethfeld."
   [& args]
+  (ensure-handlers!)
   (run (vec args) :exit? true))
