@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 6.8 Add-* Commands Implementation
+**Last session:** Step 6.9 Check/Log/Sync Commands Implementation
 
 ## Current State
 
@@ -40,25 +40,27 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 6.6 | Update/Vote/Taint Commands | 59 (84 assertions) |
 | 6.7 | Claim/Unclaim Commands | 28 (46 assertions) |
 | 6.8 | Add-* Commands | 38 (67 assertions) |
+| 6.9 | Check/Log/Sync Commands | 38 (62 assertions) |
 
-**Total:** 675 tests, 1729 assertions - all passing
+**Total:** 712 tests, 1791 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 6.8: Add-* Commands (38 tests)
+- Implemented Step 6.9: Check/Log/Sync Commands (38 tests)
 - Added to `src/alethfeld/cmd.clj`:
-  - `cmd-add-ref!` - Add external reference (citation)
-  - `cmd-add-assumption!` - Add internal assumption (validates ref exists)
-  - `cmd-add-definition!` - Add symbol definition
-- Created `test/alethfeld/cmd/add_test.clj` (38 tests, 67 assertions)
+  - `cmd-check` - Validate entire DAG integrity (schema + DAG validation)
+  - `cmd-log` - Show git history for a mote
+  - `cmd-sync!` - Pull, commit, push (gracefully handles no remote)
+- Created `test/alethfeld/cmd/util_test.clj` (38 tests, 62 assertions)
+- Fixed `dispatch-unimplemented-test` to use non-existent command name
 
 ### Current Issue
-None in progress.
+None in progress (Step 6.9 complete).
 
 ## Next Steps
 
 **Next ready issue:** Check `bd ready` for next task
 
-**Next implementation step:** Step 6.9: Check/Log/Sync Commands + Tests
+**Next implementation step:** Step 7.1: End-to-End Integration Tests
 
 ### Critical Issues (from code review)
 | Issue | Priority | Description |

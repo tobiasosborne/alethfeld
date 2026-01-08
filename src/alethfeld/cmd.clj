@@ -11,6 +11,8 @@
             [alethfeld.cli :as cli]
             [alethfeld.mote :as mote]
             [alethfeld.id :as id]
+            [alethfeld.path :as path]
+            [alethfeld.dag :as dag]
             [alethfeld.job :as job]
             [alethfeld.prompt :as prompt]
             [alethfeld.proposal :as proposal]
@@ -947,6 +949,188 @@
         updated-mote))))
 
 ;; -----------------------------------------------------------------------------
+;; Check Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-check
+  "Validate entire DAG integrity.
+
+   Validates:
+   1. All parent refs exist
+   2. All children refs exist and point back
+   3. No cycles in assumption graph
+   4. All internal assumption refs exist
+   5. Schema validation on all motes
+
+   Returns a result map:
+   - :valid? - true if all validations passed
+   - :mote-count - number of motes checked
+   - :schema-errors - vector of schema validation errors (if any)
+   - :dag-errors - vector of DAG validation errors (if any)"
+  [_ctx]
+  (let [repo-path "."]
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load all motes (including proposed)
+    (let [motes (store/load-all-motes repo-path :include-archived true)
+
+          ;; Schema validation
+          schema-errors (->> motes
+                             (keep (fn [[mote-id mote]]
+                                     (when-let [explanation (store/validate-mote mote)]
+                                       {:mote-id mote-id
+                                        :error explanation})))
+                             vec)
+
+          ;; DAG validation
+          dag-result (dag/validate-mote-graph motes)
+          dag-errors (:errors dag-result)
+
+          ;; Combine results
+          all-valid? (and (empty? schema-errors)
+                          (:valid? dag-result))]
+
+      {:valid? all-valid?
+       :mote-count (count motes)
+       :schema-errors (when (seq schema-errors) schema-errors)
+       :dag-errors (when (seq dag-errors) dag-errors)})))
+
+;; -----------------------------------------------------------------------------
+;; Log Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-log
+  "Show git history for a mote.
+
+   Arguments (in context):
+   - :id - The mote ID to show history for (required)
+
+   Options:
+   - :limit - Maximum number of commits to show (default: 50)
+
+   Returns a vector of commit maps:
+   - :sha - Commit SHA (short)
+   - :message - Commit message"
+  [{:keys [id options]}]
+  (let [repo-path "."
+        limit (or (:limit options) 50)]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to show history for"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Load mote to get its current status/path
+    (let [mote (store/load-mote repo-path id)]
+      (when-not mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Get file path for the mote
+      (let [mote-file-path (path/mote-id->path id (:status mote))
+            history (git/git-log repo-path :path mote-file-path :max-count limit)]
+        (or history [])))))
+
+;; -----------------------------------------------------------------------------
+;; Sync Command
+;; -----------------------------------------------------------------------------
+
+(defn- iso-timestamp
+  "Get current ISO 8601 timestamp."
+  []
+  (.format (java.time.OffsetDateTime/now)
+           java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME))
+
+(defn cmd-sync!
+  "Synchronize local changes with remote.
+
+   Equivalent to:
+   1. git pull --rebase
+   2. git add .alethfeld/
+   3. git commit -m 'af sync <timestamp>' --allow-empty
+   4. git push
+
+   Options:
+   - :no-push - Skip the push step (useful for offline work)
+
+   Returns a result map:
+   - :pulled - true if pull succeeded (or :skipped if no remote)
+   - :committed - true if commit was made
+   - :pushed - true if push succeeded (or :skipped if no remote or --no-push)
+   - :commit-sha - SHA of the sync commit (if committed)
+
+   Note: If no remote is configured, pull and push are skipped gracefully."
+  [{:keys [options]}]
+  (let [repo-path "."
+        no-push (:no-push options)]
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Check git is initialized
+    (when-not (git/git-initialized? repo-path)
+      (throw (ex-info "Not a git repository"
+                      {:type :not-git-repo
+                       :path repo-path})))
+
+    (let [has-remote (git/git-has-remote? repo-path)
+
+          ;; Step 1: Pull (if remote exists)
+          pull-result (when has-remote
+                        (try
+                          (git/git-pull! repo-path)
+                          (catch Exception e
+                            (let [data (ex-data e)]
+                              ;; Re-throw if it's not just "no remote"
+                              (when-not (= :no-remote (:type data))
+                                (throw e))
+                              nil))))
+
+          ;; Step 2: Stage all .alethfeld/ changes
+          _ (git/git-add-all! repo-path)
+
+          ;; Step 3: Commit with timestamp
+          timestamp (iso-timestamp)
+          commit-msg (str "af sync " timestamp)
+          commit-result (git/git-commit! repo-path commit-msg :allow-empty true)
+
+          ;; Step 4: Push (if remote exists and not --no-push)
+          push-result (when (and has-remote (not no-push))
+                        (try
+                          (git/git-push! repo-path)
+                          (catch Exception e
+                            (let [data (ex-data e)]
+                              ;; Re-throw if it's not just "no remote"
+                              (when-not (= :no-remote (:type data))
+                                (throw e))
+                              nil))))]
+
+      {:pulled (if pull-result true :skipped)
+       :committed true
+       :pushed (cond
+                 no-push :skipped
+                 (not has-remote) :skipped
+                 push-result true
+                 :else false)
+       :commit-sha (:sha commit-result)})))
+
+;; -----------------------------------------------------------------------------
 ;; Handler Registration
 ;; -----------------------------------------------------------------------------
 
@@ -967,7 +1151,10 @@
   (cli/register-handler! "unclaim" cmd-unclaim!)
   (cli/register-handler! "add-ref" cmd-add-ref!)
   (cli/register-handler! "add-assumption" cmd-add-assumption!)
-  (cli/register-handler! "add-definition" cmd-add-definition!))
+  (cli/register-handler! "add-definition" cmd-add-definition!)
+  (cli/register-handler! "check" cmd-check)
+  (cli/register-handler! "log" cmd-log)
+  (cli/register-handler! "sync" cmd-sync!))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)

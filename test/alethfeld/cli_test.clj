@@ -324,8 +324,8 @@
 
 (deftest dispatch-unimplemented-test
   (testing "dispatch to unimplemented command"
-    ;; Use 'check' command which is not yet implemented
-    (let [result (cli/dispatch {:command "check" :options {}})]
+    ;; Use a command that doesn't exist
+    (let [result (cli/dispatch {:command "nonexistent-cmd" :options {}})]
       (is (:error result))
       (is (str/includes? (first (:messages result)) "not yet implemented")))))
 
