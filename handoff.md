@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Completed Steps 0.2, 1.1, 1.2, 1.3
+**Last session:** Completed Steps 0.2, 1.1-1.3, 2.1-2.2
 
 ## Current State
 
@@ -11,62 +11,51 @@
 - v1 code archived in `archive/v1/`
 
 ### Project Status
-Alethfeld v0.1 is a complete rewrite. We're building a CLI tool (`af`) for collaborative proof verification with AI agent swarms.
+Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborative proof verification with AI agent swarms.
 
-### Completed
-1. Step 0.1: Repository & Build Structure
-2. Step 0.2: Test Infrastructure
-3. Step 1.1: Schema Definitions + Validation Tests
-4. Step 1.2: Mote Constructor Functions + Tests
-5. **Step 1.3: Mote Transformation Functions + Tests**
-   - Added pure transformation functions to `mote.clj`
-   - Functions: add-assumption, add-definition, add-vote, add-taint, remove-taint, set-status, set-claimed-by, clear-claim, set-proposal, clear-proposal, add-child, set-priority, set-difficulty, set-claim
-   - All tests passing: 47 tests, 236 assertions
+### Completed Steps
+| Step | Description | Tests |
+|------|-------------|-------|
+| 0.2 | Test Infrastructure | 2 |
+| 1.1 | Schema Definitions | 22 (104 assertions) |
+| 1.2 | Mote Constructors | 11 |
+| 1.3 | Mote Transformations | 14 |
+| 2.1 | ID Operations | 13 |
+| 2.2 | Path Derivation | 13 |
+
+**Total:** 73 tests, 383 assertions - all passing
 
 ### Current Issue
 None in progress.
 
 ## Next Steps
 
-**Next ready issue:** `alethfeld-vx2m` (Step 2.1: ID Operations + Tests)
+**Next ready issue:** `alethfeld-cbso` (Step 2.3: DAG Validation + Tests)
 
 This involves:
-- Create `id.clj` with MoteId parsing and manipulation
-- Functions: parse-id, parent-id, child-id, sibling-ids, id-depth
+- Create `dag.clj` with DAG validation functions
+- Functions: validate-parent-child, find-cycles, validate-refs
 - Write comprehensive tests
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `docs/PRD.md` | Product requirements |
-| `docs/TECH-SPEC.md` | Technical specification (schemas, CLI spec) |
-| `docs/IMPLEMENTATION-PLAN.md` | 28 steps across 7 phases |
-| `deps.edn` | Clojure dependencies |
-| `src/alethfeld/cli.clj` | CLI entry point |
 | `src/alethfeld/schema.clj` | Malli schemas |
 | `src/alethfeld/mote.clj` | Mote constructors & transformations |
+| `src/alethfeld/id.clj` | MoteId parsing & navigation |
+| `src/alethfeld/path.clj` | File path derivation |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
 
 None.
 
-## Commands Reference
+## Commands
 
 ```bash
-# Run CLI
-clj -M:run
-
-# Run tests
-clj -M:test
-
-# Build uberjar
-clj -T:build uber
-
-# Check ready issues
-bd ready
-
-# View issue
-bd show <id>
+clj -M:run     # Run CLI
+clj -M:test    # Run tests
+bd ready       # Check ready issues
+bd show <id>   # View issue
 ```
