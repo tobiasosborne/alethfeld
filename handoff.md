@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Completed Steps 0.2, 1.1-1.3, 2.1-2.2
+**Last session:** Completed Step 2.3 DAG Validation + Phase 2.1 Context Templates
 
 ## Current State
 
@@ -22,19 +22,21 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 1.3 | Mote Transformations | 14 |
 | 2.1 | ID Operations | 13 |
 | 2.2 | Path Derivation | 13 |
+| 2.3 | DAG Validation | 22 |
+| 2.1-ctx | Context Templates | 25 |
 
-**Total:** 73 tests, 383 assertions - all passing
+**Total:** 98 tests, 551 assertions - all passing
 
 ### Current Issue
 None in progress.
 
 ## Next Steps
 
-**Next ready issue:** `alethfeld-cbso` (Step 2.3: DAG Validation + Tests)
+**Next ready issue:** `alethfeld-8g9a` (Step 3.1: Role Derivation + Tests)
 
 This involves:
-- Create `dag.clj` with DAG validation functions
-- Functions: validate-parent-child, find-cycles, validate-refs
+- Create `job.clj` with job selection functions
+- Functions: mote->role, workable?, matches-filter?
 - Write comprehensive tests
 
 ## Key Files
@@ -45,6 +47,9 @@ This involves:
 | `src/alethfeld/mote.clj` | Mote constructors & transformations |
 | `src/alethfeld/id.clj` | MoteId parsing & navigation |
 | `src/alethfeld/path.clj` | File path derivation |
+| `src/alethfeld/dag.clj` | DAG validation functions |
+| `src/alethfeld/context/templates.clj` | Orchestrator context templates |
+| `resources/templates/` | Phase template markdown files |
 | `test/alethfeld/` | All tests |
 
 ## Blockers
