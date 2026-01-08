@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-08
-**Last session:** Step 5.3 Verification Workflow Implementation
+**Last session:** Step 6.1 CLI Infrastructure Implementation
 
 ## Current State
 
@@ -32,15 +32,18 @@ Alethfeld v0.1 is a complete rewrite. Building a CLI tool (`af`) for collaborati
 | 5.1 | Transaction Wrapper | 26 (62 assertions) |
 | 5.2 | Proposal Workflow | 27 (87 assertions) |
 | 5.3 | Verification Workflow | 27 (98 assertions) |
+| 6.1 | CLI Infrastructure | 27 (187 assertions) |
 
-**Total:** 353 tests, 1084 assertions - all passing
+**Total:** 380 tests, 1271 assertions - all passing
 
 ### Recent Work (this session)
-- Implemented Step 5.3: Verification Workflow (`src/alethfeld/verify.clj`)
-- Added 27 tests for verification lifecycle (cast-vote, quorum, status transitions)
-- Pure functions: `count-verification-votes`, `check-verification-quorum`, `has-voted?`
-- Transaction function: `cast-vote!` with full taint management
-- Query function: `verification-status` for checking vote progress
+- Implemented Step 6.1: CLI Infrastructure (`src/alethfeld/cli.clj`)
+- Added clojure.tools.cli dependency for argument parsing
+- Full command infrastructure with 19 command definitions
+- Output formatting (EDN/JSON) with `format-output`
+- Exit handling with proper codes and error messages
+- Command dispatch with handler registry
+- 27 tests with 187 assertions covering parsing, dispatch, formatting
 
 ### Current Issue
 None in progress.
