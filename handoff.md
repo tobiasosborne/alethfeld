@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** v0.2 Implementation - Batch 1 & 2
+**Last session:** v0.2 Implementation - Batch 3
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -10,7 +10,7 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 1085 tests, ~6530 assertions
+clj -M:test                    # Should pass 1098 tests, ~6520 assertions
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
 bd ready                       # See available work
@@ -24,9 +24,9 @@ bd ready                       # See available work
 - **Branch:** `main` (v2 development)
 - **Default branch on GitHub:** `legacy` (v1, public-facing)
 - **Latest commits:**
+  - `feat(ux): Add smart role detection hint and job reservations`
   - `feat(ux): Agent UX improvements for v0.2` (--name rename, session timeout, --atomic hint)
   - `feat(cmd): Add approve-all command for batch proposal approval`
-  - `feat(repair): Add DAG repair command for recovery`
 
 ### Project Status
 | Phase | Status | Progress |
@@ -34,14 +34,14 @@ bd ready                       # See available work
 | Phase A | Session & Role Enforcement | **100% COMPLETE** |
 | Phase B | Essential UX Improvements | **100% COMPLETE** |
 | Phase C | Quality/Safety Features | **100% COMPLETE** |
-| **v0.2** | **Agent UX Improvements** | **5/19 steps complete** |
+| **v0.2** | **Agent UX Improvements** | **7/19 steps complete** |
 
 ### v0.2 Progress
 
 | Step | ID | Status | Description |
 |------|-----|--------|-------------|
 | 1.1 | `alethfeld-cwe5` | **DONE** | Rename --agent to --name |
-| 1.2 | `alethfeld-pubp` | Ready | Smart role detection hint |
+| 1.2 | `alethfeld-pubp` | **DONE** | Smart role detection hint |
 | 1.3 | `alethfeld-19kq` | **DONE** | Add --atomic hint to proposer prompt |
 | 1.4 | `alethfeld-umt5` | Open | Contextual --atomic suggestion |
 | 2.1 | `alethfeld-7pby` | **DONE** | Add approve-all command |
@@ -49,13 +49,13 @@ bd ready                       # See available work
 | 3.x | Various | Open | Session ergonomics (3 issues) |
 | 4.x | Various | Open | Visibility improvements (3 issues) |
 | 5.2 | `alethfeld-lqpn` | **DONE** | Session auto-expire |
-| 5.3 | `alethfeld-zh6d` | Ready | Add af ready --reserve |
+| 5.3 | `alethfeld-zh6d` | **DONE** | Add af ready --reserve |
 | 5.4 | `alethfeld-m1z0` | **DONE** | Add af repair command |
 | 6.x | Various | Open | Documentation (3 issues) |
 
 ### Test Health
-- **Total tests:** 1,085
-- **Total assertions:** ~6,530
+- **Total tests:** 1,098
+- **Total assertions:** ~6,520
 - **Status:** ALL PASSING
 - **Known flaky tests:**
   - 3 concurrency tests (marked `^:flaky`, test isolation issues)
@@ -63,54 +63,42 @@ bd ready                       # See available work
 
 ---
 
-## This Session: v0.2 Implementation
+## This Session: v0.2 Implementation - Batch 3
 
 ### What Was Done
 
-Implemented 5 v0.2 issues in this session:
+Implemented 2 v0.2 issues in this session:
 
-**1. Rename --agent to --name (cwe5)**
-- Changed all CLI options from `--agent` to `--name` with `-n` short form
-- Added deprecation warning system for `--agent` option
-- Updated `AF_NAME` env var (legacy `AF_AGENT` still works)
-- Updated all tests
+**1. Smart role detection hint (pubp)**
+- When `--name` matches a role name (e.g., "advisor"), prints helpful hint
+- Suggests correct usage: `af ready --name <your-name> --role advisor`
+- Prevents common confusion between `--name` and `--role`
+- Added helper functions in cmd.clj: `name-looks-like-role?`, `format-role-hint`
 
-**2. Add --atomic hint to proposer prompt (19kq)**
-- Updated `prompts/proposer.md` with guidance for self-evident claims
-- Added tip about using `--atomic` for leaf nodes
-
-**3. Add approve-all command (7pby)**
-- New command: `af approve-all --session TOKEN [--reason TEXT]`
-- Batch approves all pending proposals agent can vote on
-- Mirrors existing `vote-all` pattern for verifiers
-
-**4. Session auto-expire config (lqpn)**
-- Added `:session-timeout-minutes` to Config schema
-- Configurable session duration (default 30 min)
-
-**5. Add af repair command (m1z0)**
-- New namespace: `src/alethfeld/repair.clj`
-- Detects: orphaned parents, stale sessions, phantom children, broken refs, cycles
-- Modes: default (show issues), `--dry-run`, `--auto` (fix automatically)
+**2. Job reservations for parallel subagents (zh6d)**
+- New flag: `af ready --reserve --role <role>`
+  - Creates 60-second reservation, returns token
+  - No session created until claimed
+- New flag: `af ready --name <agent> --claim-reservation <token>`
+  - Claims reservation and creates full session
+- Prevents race conditions when orchestrator spawns parallel subagents
+- Added reservation system in session.clj: create/load/claim/delete/cleanup
 
 ### Files Modified
 
 ```
-src/alethfeld/cli.clj        - Added approve-all, repair commands; --name option
-src/alethfeld/cmd.clj        - Added cmd-approve-all!, cmd-repair; :name handling
-src/alethfeld/repair.clj     - NEW: DAG repair module
-src/alethfeld/schema.clj     - Added :session-timeout-minutes
-prompts/proposer.md          - Added --atomic guidance
-test/alethfeld/cli_test.clj  - Updated tests for --name
-test/alethfeld/session_test.clj - Added config timeout tests
+src/alethfeld/cli.clj          - Added --reserve and --claim-reservation options
+src/alethfeld/cmd.clj          - Role hint in cmd-ready; reservation handling
+src/alethfeld/path.clj         - Added reservations-path, reservation-path
+src/alethfeld/session.clj      - New reservation system (7 functions)
+test/alethfeld/cmd/ready_test.clj    - Tests for role detection hint
+test/alethfeld/session_test.clj      - Tests for reservation system
 ```
 
 ### Commits
 
 ```
-61fc64f feat(ux): Agent UX improvements for v0.2
-bd3e0eb feat(cmd): Add approve-all command for batch proposal approval
-b181a71 feat(repair): Add DAG repair command for recovery
+d654682 feat(ux): Add smart role detection hint and job reservations
 ```
 
 ---
@@ -120,8 +108,7 @@ b181a71 feat(repair): Add DAG repair command for recovery
 ### Recommended Next Issues
 
 **P1 (High Priority):**
-1. `alethfeld-pubp` - Smart role detection hint (unblocked by cwe5)
-2. `alethfeld-zh6d` - Add af ready --reserve (unblocked by lqpn)
+1. `alethfeld-ka8d` - Centralize session enforcement to middleware layer
 
 **P2 (Medium Priority):**
 - `alethfeld-hyzu` - Add --max flag to af ready
