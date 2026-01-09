@@ -1,0 +1,32 @@
+;; Role definitions for Alethfeld agents
+;; Each role has a specific purpose and set of allowed actions
+
+{:proposer
+ {:description "Break claims into sub-claims"
+  :long-description "Decompose motes into 2-5 substeps that together prove the claim. Each substep must be independently verifiable."
+  :actions #{:propose :add-definition :add-assumption :add-ref :done}}
+
+ :advisor
+ {:description "Review and approve/reject proposals"
+  :long-description "Evaluate proposed decompositions for completeness, exhaustiveness, and mutual exclusivity. Vote to approve or reject."
+  :actions #{:approve :reject :done}}
+
+ :prover
+ {:description "Add references and refine claims"
+  :long-description "Add missing assumptions, external references, and definitions. Ensure claims are precisely stated."
+  :actions #{:propose :add-definition :add-assumption :add-ref :taint-remove :done}}
+
+ :verifier
+ {:description "Vote on claim validity"
+  :long-description "Validate that substeps logically entail claims. Check assumptions are justified. Vote for or against."
+  :actions #{:vote :taint-add :done}}
+
+ :ref-checker
+ {:description "Validate external references"
+  :long-description "Verify external references exist and support claims as stated. Flag misquotations or misattributions."
+  :actions #{:add-ref :taint-remove :done}}
+
+ :counterexample
+ {:description "Find flaws and counterexamples"
+  :long-description "Construct counterexamples and find edge cases where claims fail. Check boundary conditions."
+  :actions #{:vote :update-status :done}}}

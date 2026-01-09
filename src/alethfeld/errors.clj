@@ -4,8 +4,100 @@
    This module provides:
    - Structured error type definitions
    - User-friendly error messages with actionable hints
-   - Error formatting for both EDN and plain text output"
+   - Error formatting for both EDN and plain text output
+   - Role suggestions using Levenshtein distance"
   (:require [clojure.string :as str]))
+
+;; -----------------------------------------------------------------------------
+;; Role Definitions
+;; -----------------------------------------------------------------------------
+
+(def valid-roles
+  "Map of valid role keywords to their descriptions."
+  {:proposer      "Break claims into sub-claims"
+   :advisor       "Review and approve/reject proposals"
+   :prover        "Add references and refine claims"
+   :verifier      "Vote on claim validity"
+   :ref-checker   "Validate external references"
+   :counterexample "Find flaws and counterexamples"})
+
+(def role-allowed-actions
+  "Map of roles to their allowed actions with example commands."
+  {:proposer      {:actions [:propose :done :taint-add]
+                   :examples ["af propose 1 --claim \"...\" --session xxx"
+                              "af done --session xxx"]}
+   :advisor       {:actions [:approve :reject :done :taint-add]
+                   :examples ["af approve 1 --session xxx"
+                              "af reject 1 --reason \"...\" --session xxx"
+                              "af done --session xxx"]}
+   :prover        {:actions [:add-ref :add-assumption :add-definition :refine :done :taint-add]
+                   :examples ["af add-ref 1.2 --ref \"...\" --session xxx"
+                              "af done --session xxx"]}
+   :verifier      {:actions [:vote :vote-all :done :taint-add]
+                   :examples ["af vote 1.2 --for --session xxx"
+                              "af vote 1.2 --against --reason \"...\" --session xxx"
+                              "af done --session xxx"]}
+   :ref-checker   {:actions [:check-refs :done :taint-add]
+                   :examples ["af check-refs 1.2 --session xxx"
+                              "af done --session xxx"]}
+   :counterexample {:actions [:counterexample :done :taint-add]
+                    :examples ["af counterexample 1.2 --example \"...\" --session xxx"
+                               "af done --session xxx"]}})
+
+;; -----------------------------------------------------------------------------
+;; Levenshtein Distance for Suggestions
+;; -----------------------------------------------------------------------------
+
+(defn levenshtein-distance
+  "Calculate the Levenshtein (edit) distance between two strings.
+   Returns the minimum number of single-character edits (insertions,
+   deletions, or substitutions) required to change s1 into s2."
+  [s1 s2]
+  (let [len1 (count s1)
+        len2 (count s2)]
+    (cond
+      (zero? len1) len2
+      (zero? len2) len1
+      :else
+      (let [;; Initialize the distance matrix as a 2D vector
+            ;; We only need the previous row and current row
+            init-row (vec (range (inc len2)))]
+        (loop [i 0
+               prev-row init-row]
+          (if (>= i len1)
+            (peek prev-row)
+            (let [curr-row (loop [j 0
+                                  row [(inc i)]]
+                             (if (>= j len2)
+                               row
+                               (let [cost (if (= (nth s1 i) (nth s2 j)) 0 1)
+                                     insert (inc (nth row j))
+                                     delete (inc (nth prev-row (inc j)))
+                                     substitute (+ (nth prev-row j) cost)]
+                                 (recur (inc j)
+                                        (conj row (min insert delete substitute))))))]
+              (recur (inc i) curr-row))))))))
+
+(defn suggest-role
+  "Suggest a valid role based on Levenshtein distance.
+   Returns the best matching role keyword, or nil if no close match.
+   Only suggests if the edit distance is <= 4 (reasonable typo threshold).
+   This allows for common misspellings like 'reviewer' -> 'verifier'."
+  [invalid-role]
+  (let [invalid-str (name invalid-role)
+        role-distances (for [role (keys valid-roles)]
+                         {:role role
+                          :distance (levenshtein-distance invalid-str (name role))})
+        best-match (first (sort-by :distance role-distances))]
+    (when (and best-match (<= (:distance best-match) 4))
+      (:role best-match))))
+
+(defn format-valid-roles
+  "Format the list of valid roles with descriptions for display."
+  []
+  (str/join "\n" (map (fn [[role desc]]
+                        (format "  %-13s - %s" (name role) desc))
+                      valid-roles)))
 
 ;; -----------------------------------------------------------------------------
 ;; Error Message Formatters
@@ -174,7 +266,7 @@
           "then claim the desired mote."))
 
    :action-not-allowed
-   (fn [{:keys [role action allowed-actions agent proposer mote-id]}]
+   (fn [{:keys [role action allowed-actions agent proposer mote-id session-id]}]
      (if proposer
        ;; Withdrawal-specific error
        (str "Error: Only the proposer can withdraw a proposal.\n\n"
@@ -182,18 +274,43 @@
             "Proposer: " proposer "\n"
             (when mote-id (str "Mote: " mote-id "\n"))
             "\nTo fix: Only the agent who created the proposal can withdraw it.")
-       ;; Role-based error
-       (str "Error: Action not allowed for your role.\n\n"
-            "Your role: " (when role (name role)) "\n"
-            "Attempted action: " (when action (name action)) "\n"
-            (when (seq allowed-actions)
-              (str "Allowed actions: " (str/join ", " (map name allowed-actions)))))))
+       ;; Role-based error with helpful guidance (Section 2.3)
+       (let [role-kw (when role (if (keyword? role) role (keyword role)))
+             role-info (get role-allowed-actions role-kw)
+             role-examples (:examples role-info)
+             ;; Find which role CAN do this action
+             required-role (first (for [[r info] role-allowed-actions
+                                        :when (some #{action} (:actions info))]
+                                    r))]
+         (str "Cannot " (when action (name action)) ": your role is '" (when role (name role)) "'\n\n"
+              (when required-role
+                (str (str/capitalize (name action)) " requires role '" (name required-role) "'. "))
+              "As a " (when role (name role)) ", you can:\n"
+              (if role-examples
+                (str/join "\n" (map #(str "  " %) role-examples))
+                (when (seq allowed-actions)
+                  (str "  Allowed actions: " (str/join ", " (map name allowed-actions)))))
+              "\n\nTo get " (when required-role (str (name required-role) " ")) "work instead:\n"
+              "  af done" (when session-id (str " --session " session-id)) "               -> End current session\n"
+              "  af ready --agent <name>" (when required-role (str " --role " (name required-role))) " -> Get " (when required-role (str (name required-role) " ")) "work"))))
 
    :session-not-found
    (fn [{:keys [session-id]}]
-     (str "Error: Session not found or already ended.\n"
-          (when session-id (str "Session ID: " session-id "\n"))
-          "\nThe session may have expired or been ended with 'af done'."))
+     ;; Section 2.2: Session errors explain why + recovery steps
+     (str "Session not found: " (if session-id
+                                   (let [id-str (str session-id)]
+                                     (if (> (count id-str) 12)
+                                       (str (subs id-str 0 12) "...")
+                                       id-str))
+                                   "<unknown>") "\n\n"
+          "This can happen if:\n"
+          "  * The session expired (timeout: 30 minutes)\n"
+          "  * The session was ended with 'af done'\n"
+          "  * The session ID is incorrect\n\n"
+          "To get a new session:\n"
+          "  af ready --agent <name>    -> Claim a job and get new session\n\n"
+          "To check your active sessions:\n"
+          "  af status                  -> Shows active sessions"))
 
    ;; -------------------------------------------------------------------------
    ;; File/Parse Errors
@@ -215,7 +332,23 @@
    (fn [{:keys [role action allowed-roles]}]
      (str "Error: Role '" (when role (name role)) "' cannot perform '" (when action (name action)) "'.\n\n"
           (when (seq allowed-roles)
-            (str "This action requires: " (str/join ", " (map name allowed-roles))))))})
+            (str "This action requires: " (str/join ", " (map name allowed-roles))))))
+
+   ;; -------------------------------------------------------------------------
+   ;; Invalid Role Error (2.1)
+   ;; -------------------------------------------------------------------------
+
+   :invalid-role
+   (fn [{:keys [role]}]
+     (let [role-name (if (keyword? role) (name role) (str role))
+           suggestion (when role (suggest-role (if (keyword? role) role (keyword role))))]
+       (str "Invalid role: \"" role-name "\"\n\n"
+            "Valid roles:\n"
+            (format-valid-roles)
+            (when suggestion
+              (str "\n\nDid you mean: " (name suggestion) "?"))
+            "\n\nGet available work:\n"
+            "  af ready --agent <name>    -> Shows what roles are needed")))})
 
 ;; -----------------------------------------------------------------------------
 ;; Error Formatting Functions

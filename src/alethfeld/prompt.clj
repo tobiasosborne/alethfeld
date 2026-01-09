@@ -1,7 +1,18 @@
 (ns alethfeld.prompt
-  "Prompt templates and rendering for agent roles."
+  "Prompt templates and rendering for agent roles.
+
+   Templates can be loaded from external files in prompts/ directory:
+   - prompts/roles.edn - Role definitions and descriptions
+   - prompts/<role>.md - Role-specific prompt templates (proposer.md, etc.)
+   - prompts/session-context.md - Session context block template
+
+   Uses mustache-style {{placeholder}} interpolation.
+   Falls back to embedded templates if external files are missing."
   (:require [alethfeld.session :as session]
-            [clojure.set :as set]))
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.set :as set]
+            [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
 ;; Format Helpers
@@ -22,7 +33,7 @@
                 (if note
                   (str "- [" (name type) "] " ref ": " note)
                   (str "- [" (name type) "] " ref))))
-         (clojure.string/join "\n"))
+         (str/join "\n"))
     "(none)"))
 
 (defn format-definitions
@@ -36,7 +47,7 @@
     (->> definitions
          (map (fn [{:keys [symbol meaning]}]
                 (str "- " symbol ": " meaning)))
-         (clojure.string/join "\n"))
+         (str/join "\n"))
     "(none)"))
 
 (defn format-vote-summary
@@ -73,7 +84,7 @@
     (->> children
          (map (fn [{:keys [id claim status]}]
                 (str "- " id ": " claim " [" (name status) "]")))
-         (clojure.string/join "\n"))
+         (str/join "\n"))
     "(none)"))
 
 (defn- format-proposed-children
@@ -91,7 +102,7 @@
                             (str (inc i) ". " id ": " claim " (difficulty " difficulty ")"))
                           ;; String ID only - show degraded format
                           (str (inc i) ". " child " (details not loaded)"))))
-         (clojure.string/join "\n"))
+         (str/join "\n"))
     "(none)"))
 
 (defn- format-external-refs
@@ -105,8 +116,119 @@
                   (if note
                     (str "- " ref ": \"" note "\"")
                     (str "- " ref))))
-           (clojure.string/join "\n"))
+           (str/join "\n"))
       "(none)")))
+
+;; -----------------------------------------------------------------------------
+;; External Template Loading
+;; -----------------------------------------------------------------------------
+
+(def ^:private prompts-dir
+  "Directory containing external prompt templates.
+   Resolved relative to classpath or filesystem."
+  "prompts")
+
+(defn- find-prompts-dir
+  "Find the prompts directory. Checks:
+   1. Current working directory + /prompts
+   2. Classpath resource prompts/
+
+   Returns a File or nil if not found."
+  []
+  (let [cwd-prompts (io/file prompts-dir)]
+    (when (.isDirectory cwd-prompts)
+      cwd-prompts)))
+
+(defn- load-template-file
+  "Load a template file from the prompts directory.
+
+   Arguments:
+   - filename: Name of the file (e.g., 'verifier.md')
+
+   Returns the file contents as a string, or nil if not found."
+  [filename]
+  (when-let [dir (find-prompts-dir)]
+    (let [file (io/file dir filename)]
+      (when (.exists file)
+        (slurp file)))))
+
+(defn- load-roles-edn
+  "Load the roles.edn file containing role definitions.
+
+   Returns a map of role -> {:description :long-description :actions}
+   or nil if file not found."
+  []
+  (when-let [content (load-template-file "roles.edn")]
+    (try
+      (edn/read-string content)
+      (catch Exception _ nil))))
+
+(defn- interpolate-template
+  "Replace {{placeholder}} patterns in template with values from context.
+
+   Arguments:
+   - template: String containing {{key}} placeholders
+   - context: Map of keyword -> value
+
+   Returns the interpolated string."
+  [template context]
+  (reduce-kv
+   (fn [s k v]
+     (str/replace s (str "{{" (name k) "}}") (str v)))
+   template
+   context))
+
+;; Cache for loaded templates (reset on each call to support hot-reloading)
+(def ^:private external-templates-cache (atom nil))
+
+(defn- load-external-role-template
+  "Load an external role template file.
+
+   Arguments:
+   - role: Role keyword (e.g., :verifier)
+
+   Returns the template content string, or nil if not found."
+  [role]
+  (load-template-file (str (name role) ".md")))
+
+(defn- load-session-context-template
+  "Load the session context template file.
+
+   Returns the template content string, or nil if not found."
+  []
+  (load-template-file "session-context.md"))
+
+(defn get-role-definitions
+  "Get role definitions from external file or embedded fallback.
+
+   Returns a map of role -> {:description :long-description :actions}."
+  []
+  (or (load-roles-edn)
+      ;; Fallback to embedded definitions
+      {:proposer
+       {:description "Break claims into sub-claims"
+        :long-description "Decompose motes into 2-5 substeps that together prove the claim."
+        :actions #{:propose :add-definition :add-assumption :add-ref :done}}
+       :advisor
+       {:description "Review and approve/reject proposals"
+        :long-description "Evaluate proposed decompositions for completeness and mutual exclusivity."
+        :actions #{:approve :reject :done}}
+       :prover
+       {:description "Add references and refine claims"
+        :long-description "Add missing assumptions, external references, and definitions."
+        :actions #{:propose :add-definition :add-assumption :add-ref :taint-remove :done}}
+       :verifier
+       {:description "Vote on claim validity"
+        :long-description "Validate that substeps logically entail claims. Vote for or against."
+        :actions #{:vote :taint-add :done}}
+       :ref-checker
+       {:description "Validate external references"
+        :long-description "Verify external references exist and support claims as stated."
+        :actions #{:add-ref :taint-remove :done}}
+       :counterexample
+       {:description "Find flaws and counterexamples"
+        :long-description "Construct counterexamples and find edge cases where claims fail."
+        :actions #{:vote :update-status :done}}}))
 
 ;; -----------------------------------------------------------------------------
 ;; Session Context Formatting
@@ -158,7 +280,7 @@
            (map (fn [action]
                   (let [cmd-name (get action->command-name action (name action))]
                     (str "  af " cmd-name " " mote-id " ... --session " session-id))))
-           (clojure.string/join "\n"))
+           (str/join "\n"))
       "  (none)")))
 
 (defn- format-forbidden-actions
@@ -178,10 +300,10 @@
       (->> forbidden
            (map (fn [action]
                   (let [roles-for-action (session/get-roles-for-action action)
-                        role-names (clojure.string/join ", " (map name roles-for-action))
+                        role-names (str/join ", " (map name roles-for-action))
                         description (get action->description action (name action))]
                     (str "  - " description " (" role-names " only)"))))
-           (clojure.string/join "\n"))
+           (str/join "\n"))
       "  (none)")))
 
 (defn- render-session-context
@@ -435,7 +557,75 @@ When done: af unclaim {{mote-id}}"}})
 (defn- substitute-mote-id
   "Replace {{mote-id}} placeholders in command text."
   [text mote-id]
-  (clojure.string/replace text "{{mote-id}}" mote-id))
+  (str/replace text "{{mote-id}}" mote-id))
+
+(defn- render-prompt-from-external
+  "Render a prompt using external template file.
+
+   Arguments:
+   - role: Role keyword
+   - context: Context map with all placeholder values
+   - session: Optional session map
+
+   Returns interpolated prompt string, or nil if external template not found."
+  [role context session]
+  (when-let [template (load-external-role-template role)]
+    (let [mote-id (:mote-id context)
+          session-id (when session (:session-id session))
+          ;; Build full context for interpolation
+          full-context (cond-> context
+                         session-id (assoc :session-id session-id
+                                           :role (name role)
+                                           :allowed-commands (format-allowed-commands role mote-id session-id)
+                                           :forbidden-actions (format-forbidden-actions role)))
+          ;; Interpolate the template
+          rendered (interpolate-template template full-context)
+          ;; Handle session context and done command
+          with-session-cmd (if session
+                             (str/replace rendered
+                                          #"When done: af unclaim [^\n]+"
+                                          (str "When finished: af done --session " session-id))
+                             rendered)]
+      ;; Add session context header if session provided
+      (if session
+        (str (render-session-context session mote-id) "\n\n" with-session-cmd)
+        with-session-cmd))))
+
+(defn- render-prompt-from-embedded
+  "Render a prompt using embedded template.
+
+   Arguments:
+   - role: Role keyword
+   - context: Context map with all placeholder values
+   - session: Optional session map
+
+   Returns rendered prompt string, or nil if role template not found."
+  [role context session]
+  (when-let [template (get role-templates role)]
+    (let [mote-id (:mote-id context)]
+      (str
+       ;; Session context (if session provided)
+       (when session
+         (str (render-session-context session mote-id) "\n\n"))
+       ;; Header
+       (:header template)
+       "\n\n"
+       ;; Sections
+       (->> (:sections template)
+            (map #(render-section % context))
+            (str/join "\n\n"))
+       "\n\n"
+       ;; Task
+       (:task template)
+       "\n\n"
+       ;; Commands (with mote-id substitution)
+       (let [base-commands (substitute-mote-id (:commands template) mote-id)]
+         (if session
+           ;; Replace "When done: af unclaim <mote>" with "When finished: af done --session <session>"
+           (str/replace base-commands
+                        #"When done: af unclaim [^\n]+"
+                        (str "When finished: af done --session " (:session-id session)))
+           base-commands))))))
 
 (defn render-prompt
   "Render a complete prompt for a job.
@@ -453,33 +643,13 @@ When done: af unclaim {{mote-id}}"}})
    - FORBIDDEN actions list
    - 'af done --session <id>' instead of 'af unclaim'
 
+   Templates are loaded from external files in prompts/ directory first,
+   with fallback to embedded templates if files are missing.
+
    Returns the complete prompt string."
   [job & {:keys [resolved-children session]}]
   (let [role (:role job)
-        template (get role-templates role)
-        context (build-context job :resolved-children resolved-children)
-        mote-id (:mote-id context)]
-    (when template
-      (str
-       ;; Session context (if session provided)
-       (when session
-         (str (render-session-context session mote-id) "\n\n"))
-       ;; Header
-       (:header template)
-       "\n\n"
-       ;; Sections
-       (->> (:sections template)
-            (map #(render-section % context))
-            (clojure.string/join "\n\n"))
-       "\n\n"
-       ;; Task
-       (:task template)
-       "\n\n"
-       ;; Commands (with mote-id substitution)
-       (let [base-commands (substitute-mote-id (:commands template) mote-id)]
-         (if session
-           ;; Replace "When done: af unclaim <mote>" with "When finished: af done --session <session>"
-           (clojure.string/replace base-commands
-                                   #"When done: af unclaim [^\n]+"
-                                   (str "When finished: af done --session " (:session-id session)))
-           base-commands))))))
+        context (build-context job :resolved-children resolved-children)]
+    ;; Try external template first, fall back to embedded
+    (or (render-prompt-from-external role context session)
+        (render-prompt-from-embedded role context session))))

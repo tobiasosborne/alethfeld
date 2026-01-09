@@ -222,10 +222,10 @@
 ;; -----------------------------------------------------------------------------
 
 (deftest parse-args-no-command-test
-  (testing "no arguments shows help"
+  (testing "no arguments shows bare context output"
     (let [result (cli/parse-args [])]
       (is (nil? (:command result)))
-      (is (:help? result)))))
+      (is (:bare? result)))))
 
 (deftest parse-args-help-test
   (testing "help command"

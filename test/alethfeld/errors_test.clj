@@ -249,10 +249,14 @@
                        :action :vote
                        :allowed-actions [:review :comment]})
           msg (err/format-error ex)]
-      (is (str/includes? msg "Action not allowed"))
+      ;; New format: "Cannot X: your role is Y"
+      (is (str/includes? msg "Cannot vote"))
       (is (str/includes? msg "advisor"))
-      (is (str/includes? msg "vote"))
-      (is (str/includes? msg "review")))))
+      ;; Shows what advisor can do
+      (is (str/includes? msg "af approve"))
+      ;; Shows recovery path
+      (is (str/includes? msg "af done"))
+      (is (str/includes? msg "af ready")))))
 
 (deftest session-not-found-error-test
   (testing "session-not-found error message"
@@ -262,7 +266,9 @@
           msg (err/format-error ex)]
       (is (str/includes? msg "Session not found"))
       (is (str/includes? msg "sess-789"))
-      (is (str/includes? msg "af done")))))
+      ;; New format includes possible causes and recovery
+      (is (str/includes? msg "expired"))
+      (is (str/includes? msg "af ready")))))
 
 ;; -----------------------------------------------------------------------------
 ;; File/Parse Error Tests
@@ -331,3 +337,179 @@
         (is (= "Mote not found" (ex-message e)))
         (is (= :not-found (:type (ex-data e))))
         (is (= "1.2.3" (:mote-id (ex-data e))))))))
+
+;; -----------------------------------------------------------------------------
+;; Levenshtein Distance Tests
+;; -----------------------------------------------------------------------------
+
+(deftest levenshtein-distance-test
+  (testing "identical strings have distance 0"
+    (is (= 0 (err/levenshtein-distance "verifier" "verifier")))
+    (is (= 0 (err/levenshtein-distance "" ""))))
+
+  (testing "empty string to non-empty has distance = length"
+    (is (= 5 (err/levenshtein-distance "" "hello")))
+    (is (= 5 (err/levenshtein-distance "hello" ""))))
+
+  (testing "single character insertions"
+    (is (= 1 (err/levenshtein-distance "verifier" "verifyer")))
+    (is (= 1 (err/levenshtein-distance "advisor" "advisors"))))
+
+  (testing "single character deletions"
+    (is (= 1 (err/levenshtein-distance "proposer" "propose"))))
+
+  (testing "single character substitutions"
+    (is (= 1 (err/levenshtein-distance "verifier" "verifierx"))))
+
+  (testing "complex edits"
+    ;; "reviewer" -> "verifier" requires 4 edits
+    (is (<= 3 (err/levenshtein-distance "reviewer" "verifier") 5))
+    ;; "judge" -> "verifier" is very different
+    (is (> (err/levenshtein-distance "judge" "verifier") 5))))
+
+;; -----------------------------------------------------------------------------
+;; Role Suggestion Tests
+;; -----------------------------------------------------------------------------
+
+(deftest suggest-role-test
+  (testing "suggests correct role for typos"
+    ;; "verifyer" is 1 edit from "verifier"
+    (is (= :verifier (err/suggest-role :verifyer)))
+    ;; "advisr" is 1 edit from "advisor"
+    (is (= :advisor (err/suggest-role :advisr)))
+    ;; "propser" is 1 edit from "proposer"
+    (is (= :proposer (err/suggest-role :propser))))
+
+  (testing "suggests for common misremembered names"
+    ;; "reviewer" is close to "verifier"
+    (is (some? (err/suggest-role :reviewer))))
+
+  (testing "returns nil for completely wrong names"
+    ;; "judge" is too far from any valid role (7 edits to verifier)
+    (is (nil? (err/suggest-role :judge)))
+    ;; "controller" is too far from any valid role
+    (is (nil? (err/suggest-role :controller)))
+    ;; "xyz" is too far from any valid role
+    (is (nil? (err/suggest-role :xyz)))))
+
+(deftest format-valid-roles-test
+  (testing "formats all valid roles"
+    (let [output (err/format-valid-roles)]
+      (is (str/includes? output "proposer"))
+      (is (str/includes? output "advisor"))
+      (is (str/includes? output "prover"))
+      (is (str/includes? output "verifier"))
+      (is (str/includes? output "ref-checker"))
+      (is (str/includes? output "counterexample"))
+      ;; Contains descriptions
+      (is (str/includes? output "Break claims"))
+      (is (str/includes? output "Vote on claim")))))
+
+;; -----------------------------------------------------------------------------
+;; Invalid Role Error Tests (Section 2.1)
+;; -----------------------------------------------------------------------------
+
+(deftest invalid-role-error-test
+  (testing "invalid-role error shows valid roles"
+    (let [ex (ex-info "Invalid role"
+                      {:type :invalid-role
+                       :role :reviewer})
+          msg (err/format-error ex)]
+      (is (str/includes? msg "Invalid role: \"reviewer\""))
+      (is (str/includes? msg "Valid roles:"))
+      (is (str/includes? msg "proposer"))
+      (is (str/includes? msg "advisor"))
+      (is (str/includes? msg "verifier"))
+      (is (str/includes? msg "prover"))
+      (is (str/includes? msg "ref-checker"))
+      (is (str/includes? msg "counterexample"))
+      ;; Shows role descriptions
+      (is (str/includes? msg "Break claims"))
+      (is (str/includes? msg "Vote on claim"))
+      ;; Shows recovery command
+      (is (str/includes? msg "af ready --agent"))))
+
+  (testing "invalid-role suggests similar role"
+    (let [ex (ex-info "Invalid role"
+                      {:type :invalid-role
+                       :role :verifyer})
+          msg (err/format-error ex)]
+      (is (str/includes? msg "Did you mean: verifier?"))))
+
+  (testing "invalid-role with string role"
+    (let [ex (ex-info "Invalid role"
+                      {:type :invalid-role
+                       :role "critic"})
+          msg (err/format-error ex)]
+      (is (str/includes? msg "Invalid role: \"critic\""))
+      (is (str/includes? msg "Valid roles:")))))
+
+;; -----------------------------------------------------------------------------
+;; Improved Action Not Allowed Error Tests (Section 2.3)
+;; -----------------------------------------------------------------------------
+
+(deftest action-not-allowed-improved-error-test
+  (testing "shows what role CAN do"
+    (let [ex (ex-info "Action not allowed"
+                      {:type :action-not-allowed
+                       :role :verifier
+                       :action :approve
+                       :session-id "abc-123"})
+          msg (err/format-error ex)]
+      ;; New format: "Cannot X: your role is Y"
+      (is (str/includes? msg "Cannot approve"))
+      (is (str/includes? msg "verifier"))
+      ;; Shows what verifier can do
+      (is (str/includes? msg "af vote"))
+      ;; Shows recovery path
+      (is (str/includes? msg "af done"))
+      (is (str/includes? msg "af ready"))))
+
+  (testing "suggests correct role for action"
+    (let [ex (ex-info "Action not allowed"
+                      {:type :action-not-allowed
+                       :role :verifier
+                       :action :approve})
+          msg (err/format-error ex)]
+      ;; Approve requires advisor
+      (is (str/includes? msg "advisor"))))
+
+  (testing "proposer withdrawal error unchanged"
+    (let [ex (ex-info "Action not allowed"
+                      {:type :action-not-allowed
+                       :agent "alice"
+                       :proposer "bob"
+                       :mote-id "1.2"})
+          msg (err/format-error ex)]
+      (is (str/includes? msg "Only the proposer"))
+      (is (str/includes? msg "alice"))
+      (is (str/includes? msg "bob")))))
+
+;; -----------------------------------------------------------------------------
+;; Improved Session Not Found Error Tests (Section 2.2)
+;; -----------------------------------------------------------------------------
+
+(deftest session-not-found-improved-error-test
+  (testing "explains possible causes"
+    (let [ex (ex-info "Session not found"
+                      {:type :session-not-found
+                       :session-id "abc-123-def-456-ghi"})
+          msg (err/format-error ex)]
+      ;; Shows truncated session ID
+      (is (str/includes? msg "Session not found"))
+      ;; Lists possible causes
+      (is (str/includes? msg "expired"))
+      (is (str/includes? msg "30 minutes"))
+      (is (str/includes? msg "af done"))
+      (is (str/includes? msg "incorrect"))
+      ;; Shows recovery
+      (is (str/includes? msg "af ready --agent"))
+      ;; Shows how to check status
+      (is (str/includes? msg "af status"))))
+
+  (testing "handles missing session-id"
+    (let [ex (ex-info "Session not found"
+                      {:type :session-not-found})
+          msg (err/format-error ex)]
+      (is (str/includes? msg "Session not found: <unknown>"))
+      (is (str/includes? msg "af ready")))))
