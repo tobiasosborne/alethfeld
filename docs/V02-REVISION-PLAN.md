@@ -9,16 +9,16 @@
 
 ## Executive Summary
 
-Alethfeld v0.1 successfully implements the core proof verification workflow, but agent testing revealed significant UX friction. This revision plan addresses:
+Alethfeld v0.1 successfully implements the core proof verification workflow, but agent testing and workflow analysis revealed significant issues:
 
-1. **Discoverability failures** - Agents couldn't find `--role` or `--atomic` flags
+1. **Workflow paradigm flaw** - Proposers act first, but verifiers should be gatekeepers
 2. **Naming confusion** - `--agent` vs `--role` semantic overlap
 3. **Batch operation gaps** - `vote-all` exists but `approve-all` doesn't
 4. **Session ergonomics** - 73-character UUIDs are unwieldy
 5. **Multi-agent race conditions** - Parallel subagents corrupt DAG
-6. **Quorum invisibility** - Agents didn't know 2 votes were required
+6. **Excessive ceremony** - 2-vote quorums slow down the workflow
 
-**Goal:** Reduce commands-to-completion from 55 to <40, eliminate stuck points.
+**Goal:** Implement verifier-first workflow, reduce commands-to-completion from 55 to <40.
 
 ---
 
@@ -36,7 +36,7 @@ Alethfeld v0.1 successfully implements the core proof verification workflow, but
 
 1. **Role selection confusion** (command 11): Tried `af ready --agent advisor` expecting to get advisor role, but `--agent` is just a name field. Required `af ready --help` to discover `--role` flag.
 
-2. **Atomic flag discovery** (commands 27-31): Unclear how to handle leaf nodes. Explored prover role, verifier role, and `af update` before finding `--atomic` in `af propose --help`.
+2. **Leaf node handling** (commands 27-31): Unclear how to handle claims that don't need decomposition. The old `--atomic` flag was poorly discoverable.
 
 ### What Works Well (Preserve)
 
@@ -49,8 +49,6 @@ Alethfeld v0.1 successfully implements the core proof verification workflow, but
 ---
 
 ## Phase 1: Naming & Discoverability (HIGH PRIORITY)
-
-These fixes address the two explicit stuck points from testing.
 
 ### 1.1 Rename `--agent` to `--name`
 
@@ -78,7 +76,7 @@ af ready --name claude --role advisor
 
 ### 1.2 Smart Role Detection Hint
 
-**Problem:** When `--agent` value matches a known role name, agent was confused.
+**Problem:** When `--name` value matches a known role name, agent was confused.
 
 **Change:** Add contextual hint when this happens:
 ```
@@ -95,52 +93,13 @@ Did you mean: af ready --name <your-name> --role advisor?
 
 ---
 
-### 1.3 Add `--atomic` Hint to Proposer Instructions
-
-**Problem:** Took 5 commands to discover `--atomic` flag for leaf claims.
-
-**Change:** Add to proposer role prompt:
-```
-COMMANDS:
-  af propose <id> --claim "substep" --difficulty N
-  af propose <id> --claim "leaf claim" --atomic    # For self-evident claims
-
-Tip: Use --atomic for claims that need verification but not further decomposition.
-```
-
-**Implementation:**
-- Update proposer prompt template
-- Add to "Next steps" output after `af ready` assigns proposer role
-
-**Files:** `prompts/proposer.md`, `src/alethfeld/cmd.clj`
-
----
-
-### 1.4 Contextual `--atomic` Suggestion
-
-**Problem:** Even with documentation, agents may miss it.
-
-**Change:** When a proposer claims a difficulty-1 mote:
-```
-Hint: This is a difficulty-1 mote. If it's self-evident, use --atomic:
-  af propose 1.1 --claim "..." --atomic --session xxx
-```
-
-**Implementation:**
-- In `cmd-ready`, check if assigned mote has difficulty 1
-- Add conditional hint to output
-
-**Files:** `src/alethfeld/cmd.clj`
-
----
-
 ## Phase 2: Batch Operations Parity (HIGH PRIORITY)
 
 Testing showed `vote-all` made verifier work 4x more efficient. Advisors need the same.
 
 ### 2.1 Add `approve-all` Command
 
-**Problem:** Required 8 separate advisor sessions (2 votes × 4 proposals).
+**Problem:** Multiple advisor approvals required per proof.
 
 **Change:**
 ```bash
@@ -245,15 +204,12 @@ af done         # Uses AF_SESSION
 
 ### 4.1 Show Quorum Progress in Vote Displays
 
-**Problem:** Agents didn't know 2 votes were required until blocked.
+**Problem:** Agents didn't know quorum requirements until blocked.
 
 **Change:**
 ```
-# Before
-VOTES: 1 approve, 0 reject
-
-# After
-VOTES: 1/2 approve, 0 reject (need 1 more for quorum)
+# Show current/required format (quorum is configurable)
+VOTES: 1/1 approve, 0 reject (quorum reached!)
 ```
 
 **Implementation:**
@@ -273,9 +229,9 @@ VOTES: 1/2 approve, 0 reject (need 1 more for quorum)
 sqrt(2) is irrational - 73% verified (14/19)
 
 Progress by stage:
+  Verifier work:    5 remaining (need verification or decomposition demand)
   Proposer work:    0 remaining
   Advisor reviews:  0 remaining (all proposals approved)
-  Verifier votes:   14 remaining (0/14 at quorum)
 
 Structure: 5 intermediate + 14 leaf motes
 Next action: af ready --name <you> --role verifier
@@ -428,33 +384,35 @@ Repair options:
 **Change:**
 ```bash
 $ af workflow
-Alethfeld Proof Workflow
-========================
+Alethfeld Proof Workflow (Verifier-First)
+==========================================
 
 1. INITIALIZE
    af init --name "My Proof"
    af create --root --claim "Main theorem"
 
-2. DECOMPOSE (proposer role)
+2. VERIFY (verifier role) - first step for all motes
+   af ready --name <you> --role verifier
+   - Vote for/against if claim is verifiable as-is
+   - Demand decomposition if claim needs substeps
+   - Demand refinement if claim needs assumptions/definitions
+
+3. DECOMPOSE (proposer role) - only after verifier demands
    af ready --name <you> --role proposer
    af propose <id> --claim "substep 1" --claim "substep 2"
-   Use --atomic for self-evident claims
 
-3. REVIEW (advisor role) - requires 2 approvals
+4. REVIEW (advisor role) - single approval needed
    af ready --name <you> --role advisor
    af approve <id> --reason "..."
    af approve-all --reason "..."  # Batch approve
 
-4. VERIFY (verifier role) - requires 2 votes
-   af ready --name <you> --role verifier
-   af vote <id> --for --reason "..."
-   af vote-all --for --reason "..."  # Batch vote
+5. REPEAT - children go back to verifiers
 
-5. VALIDATE
+6. VALIDATE
    af check   # Verify DAG integrity
    af tree 1  # View proof structure
 
-Roles: proposer, advisor, prover, verifier, ref-checker, counterexample
+Roles: verifier (gatekeeper), proposer, advisor, prover, ref-checker, counterexample
 ```
 
 **Implementation:**
@@ -475,20 +433,23 @@ $ af roles
 Alethfeld Roles
 ===============
 
+verifier      GATEKEEPER - First role for all motes
+              Vote for/against, or demand decomposition/refinement
+              Use when: mote has 'needs-verification' taint
+
 proposer      Break claims into sub-claims (decomposition)
+              Only invoked after verifier demands decomposition
               Use when: mote has 'needs-decomposition' taint
 
 advisor       Review and approve/reject proposals
+              Single vote approves (quorum=1)
               Use when: proposal pending approval
 
-verifier      Vote on whether claims are valid
-              Use when: mote has 'needs-verification' taint
-
 prover        Add references, definitions, assumptions
-              Use when: mote needs more supporting detail
+              Use when: mote has 'needs-refinement' taint
 
 ref-checker   Validate external references exist and apply
-              Use when: mote has references to check
+              Use when: mote has 'needs-refs' taint
 
 counterexample  Find flaws and counterexamples
               Use when: adversarial review needed
@@ -502,50 +463,270 @@ counterexample  Find flaws and counterexamples
 
 ---
 
+## Phase 7: Workflow Refactoring - Verifier-First Paradigm (CRITICAL)
+
+Experience has shown that serious workflow role change is needed. The canonical work cycle should be: **prover ↔ verifier**. The verifier should be aggressive - acting as the first gatekeeper. The proposer is only invoked **after** the verifier complains that the proof is not detailed enough.
+
+### Current Workflow (v0.1)
+```
+New mote → :needs-decomposition → Proposer → Advisor (2 votes) → Children → Verifier
+```
+
+### New Workflow (v0.2)
+```
+New mote → :needs-verification → Verifier → {
+  Votes for → Verified
+  Votes against → Refuted
+  Demands decomposition → :needs-decomposition → Proposer → Advisor (1 vote) → Children → Verifier...
+}
+```
+
+### Design Decisions
+1. **Remove `:atomic` flag** - Verifiers now decide what needs decomposition for all claims
+2. **Change vote quorum to 1** - Single verifier vote to verify (matches proposal quorum)
+3. **Keep prover role** - Verifiers can demand `:needs-refinement` for missing assumptions/definitions
+
+---
+
+### 7.1 Change Default Taint to `:needs-verification`
+
+**Problem:** New motes get `:needs-decomposition`, sending them to proposers first.
+
+**Change:** All new motes start with `:needs-verification` taint.
+
+**Implementation:**
+- `mote.clj` line 136: Default taint `#{:needs-verification}` instead of `#{:needs-decomposition}`
+
+**Files:** `src/alethfeld/mote.clj`
+
+---
+
+### 7.2 Update Proposal Taints for Verifier-First
+
+**Problem:** Non-atomic proposed children get `:needs-decomposition`.
+
+**Change:** All proposed/promoted children get `:needs-verification`.
+
+**Implementation:**
+- `proposal.clj` lines 60-63: All claims get `#{:needs-verification}`
+- `proposal.clj` lines 177-183: Promoted children get `:needs-verification`
+
+**Files:** `src/alethfeld/proposal.clj`
+
+---
+
+### 7.3 Reorder Role Priorities
+
+**Problem:** Verifier is priority 3 (low), advisor is 0 (highest).
+
+**Change:**
+```clojure
+;; NEW priority order:
+{:verifier       0  ; Verify FIRST (gatekeeper)
+ :proposer       1  ; Decompose (only after verifier demands)
+ :advisor        2  ; Review proposals
+ :prover         3  ; Refine details
+ :ref-checker    4  ; Check refs
+ :counterexample 5}
+```
+
+**Files:** `src/alethfeld/job.clj`
+
+---
+
+### 7.4 Change Proposal Quorum to 1
+
+**Problem:** Requiring 2 advisor votes is cumbersome with verifier-first workflow.
+
+**Change:** Single advisor vote approves proposals.
+
+**Implementation:**
+- `store.clj` line 183: Default `proposal-quorum` to 1
+- `proposal.clj` line 161: Fallback default to 1
+
+**Files:** `src/alethfeld/store.clj`, `src/alethfeld/proposal.clj`
+
+---
+
+### 7.5 Change Vote Quorum to 1
+
+**Problem:** Requiring 2 verifier votes slows the verifier-first cycle.
+
+**Change:** Single verifier vote to verify motes.
+
+**Implementation:**
+- `store.clj` line 182: Default `vote-quorum` to 1
+- `verify.clj` line 135: Fallback default to 1
+
+**Files:** `src/alethfeld/store.clj`, `src/alethfeld/verify.clj`
+
+---
+
+### 7.6 Update Verifier Prompt for Decomposition Demands
+
+**Problem:** Verifier prompt doesn't show how to demand decomposition.
+
+**Change:** New verifier prompt with three options:
+1. Vote for/against (claim is verifiable)
+2. Demand decomposition (claim needs substeps)
+3. Demand refinement (claim needs assumptions/definitions)
+
+**Implementation:**
+- Rewrite `prompts/verifier.md` with new task structure
+- Add `af taint --add needs-decomposition` command
+
+**Files:** `prompts/verifier.md`
+
+---
+
+### 7.7 Update Verifier CLI Output
+
+**Problem:** CLI only shows vote commands for verifiers.
+
+**Change:** Add taint commands to verifier output:
+```
+If claim NEEDS MORE DETAIL (demand decomposition):
+  af taint <id> --add needs-decomposition --session <session>
+```
+
+**Files:** `src/alethfeld/cmd.clj`
+
+---
+
+### 7.8 Add Verifier `:taint-remove` Permission
+
+**Problem:** Verifiers need to remove `:needs-verification` when demanding decomposition.
+
+**Change:**
+```clojure
+;; BEFORE:
+:verifier #{:vote :taint-add :done}
+
+;; AFTER:
+:verifier #{:vote :taint-add :taint-remove :done}
+```
+
+**Files:** `src/alethfeld/session.clj`
+
+---
+
+### 7.9 Update Proposer Prompt Context
+
+**Problem:** Proposer prompt doesn't reflect responding to verifier demands.
+
+**Change:** Add context:
+```markdown
+A VERIFIER has determined this claim needs more detail before it can be verified.
+Your job is to break it down into verifiable substeps.
+```
+
+**Files:** `prompts/proposer.md`
+
+---
+
+### 7.10 Remove `--atomic` Flag
+
+**Problem:** Atomic flag is redundant - verifiers now decide what needs decomposition.
+
+**Change:** Remove `--atomic` option from propose command.
+
+**Implementation:**
+- Remove atomic handling in `proposal.clj` create-child-mote
+- Remove `--atomic` CLI option from `cli.clj`
+- Update proposer prompt to remove `--atomic` references
+- Remove atomic-specific tests
+
+**Files:** `src/alethfeld/proposal.clj`, `src/alethfeld/cli.clj`, `prompts/proposer.md`, tests
+
+---
+
+### 7.11 Add Refinement Demand to Verifier Prompt
+
+**Problem:** Verifiers should be able to request more detail without full decomposition.
+
+**Change:** Add to verifier commands:
+```markdown
+If claim needs REFINEMENT (missing assumptions/definitions):
+  af taint {{mote-id}} --add needs-refinement --session {{session-id}}
+```
+
+**Files:** `prompts/verifier.md`
+
+---
+
+### 7.12 Update Tests for New Defaults
+
+**Problem:** Many tests assume old defaults (quorum=2, taint=needs-decomposition).
+
+**Implementation:**
+- `test/alethfeld/mote_test.clj` - Default taint assertions
+- `test/alethfeld/proposal_test.clj` - Remove atomic tests, update taint assertions
+- `test/alethfeld/job_test.clj` - Role priority tests
+- `test/alethfeld/verify_test.clj` - Vote quorum tests
+- `test/alethfeld/cmd/vote_all_test.clj` - Quorum expectations
+
+**Files:** Multiple test files
+
+---
+
 ## Implementation Priority
 
-### Batch 1: Stuck Point Fixes (Do First)
-| Step | Description | Effort | Impact |
-|------|-------------|--------|--------|
-| 1.1 | Rename `--agent` to `--name` | 2h | High |
-| 1.2 | Smart role detection hint | 1h | High |
-| 1.3 | Add `--atomic` to proposer prompt | 30m | High |
-| 1.4 | Contextual `--atomic` suggestion | 1h | Medium |
+### Batch 7: Workflow Refactoring (Do First - Critical)
+| Step | Description | Impact |
+|------|-------------|--------|
+| 7.1 | Default taint to :needs-verification | Critical |
+| 7.2 | Proposal taints for verifier-first | Critical |
+| 7.3 | Reorder role priorities | Critical |
+| 7.4 | Proposal quorum to 1 | High |
+| 7.5 | Vote quorum to 1 | High |
+| 7.6 | Verifier prompt for decomposition | High |
+| 7.7 | Verifier CLI output | Medium |
+| 7.8 | Verifier taint-remove permission | Medium |
+| 7.9 | Proposer prompt context | Medium |
+| 7.10 | Remove --atomic flag | Medium |
+| 7.11 | Refinement demand option | Low |
+| 7.12 | Update tests | Critical |
+
+### Batch 1: Naming Fixes
+| Step | Description | Impact |
+|------|-------------|--------|
+| 1.1 | Rename `--agent` to `--name` | High |
+| 1.2 | Smart role detection hint | High |
 
 ### Batch 2: Batch Operations
-| Step | Description | Effort | Impact |
-|------|-------------|--------|--------|
-| 2.1 | Add `approve-all` command | 3h | High |
-| 2.2 | Add `--max` flag to `af ready` | 4h | Medium |
+| Step | Description | Impact |
+|------|-------------|--------|
+| 2.1 | Add `approve-all` command | High |
+| 2.2 | Add `--max` flag to `af ready` | Medium |
 
 ### Batch 3: Session Ergonomics
-| Step | Description | Effort | Impact |
-|------|-------------|--------|--------|
-| 3.1 | Support `@current` session alias | 2h | Medium |
-| 3.2 | Auto-infer session | 2h | Medium |
-| 3.3 | Support `AF_SESSION` env var | 1h | Low |
+| Step | Description | Impact |
+|------|-------------|--------|
+| 3.1 | Support `@current` session alias | Medium |
+| 3.2 | Auto-infer session | Medium |
+| 3.3 | Support `AF_SESSION` env var | Low |
 
 ### Batch 4: Visibility
-| Step | Description | Effort | Impact |
-|------|-------------|--------|--------|
-| 4.1 | Show quorum progress | 1h | Medium |
-| 4.2 | Enhanced status breakdown | 2h | Medium |
-| 4.3 | Explain parent mote status | 1h | Low |
+| Step | Description | Impact |
+|------|-------------|--------|
+| 4.1 | Show quorum progress | Medium |
+| 4.2 | Enhanced status breakdown | Medium |
+| 4.3 | Explain parent mote status | Low |
 
 ### Batch 5: Multi-Agent
-| Step | Description | Effort | Impact |
-|------|-------------|--------|--------|
-| 5.1 | Add `af sessions` command | 2h | Medium |
-| 5.2 | Session auto-expire | 2h | High |
-| 5.3 | Add `af ready --reserve` | 4h | High |
-| 5.4 | Add `af repair` command | 6h | High |
+| Step | Description | Impact |
+|------|-------------|--------|
+| 5.1 | Add `af sessions` command | Medium |
+| 5.2 | Session auto-expire | High |
+| 5.3 | Add `af ready --reserve` | High |
+| 5.4 | Add `af repair` command | High |
 
 ### Batch 6: Documentation
-| Step | Description | Effort | Impact |
-|------|-------------|--------|--------|
-| 6.1 | Make `af help` = `af --help` | 30m | Low |
-| 6.2 | Add `af workflow` command | 2h | Medium |
-| 6.3 | Enhance `af roles` output | 1h | Low |
+| Step | Description | Impact |
+|------|-------------|--------|
+| 6.1 | Make `af help` = `af --help` | Low |
+| 6.2 | Add `af workflow` command | Medium |
+| 6.3 | Enhance `af roles` output | Low |
 
 ---
 
@@ -557,9 +738,10 @@ counterexample  Find flaws and counterexamples
 - Subagent success rate: >95% (was 50% parallel)
 
 ### Qualitative
-- Agent discovers `--atomic` without consulting help
 - Agent never tries `--agent` when meaning `--role`
-- Batch operations reduce advisor sessions from 8 to 2
+- Verifier naturally acts as first gatekeeper
+- Single votes move work forward (no waiting for quorum)
+- Batch operations reduce session overhead
 - Multi-agent workflows don't cause DAG corruption
 
 ---
@@ -575,6 +757,7 @@ After each batch:
 Final validation:
 - Fresh agent completes sqrt(2) proof in <40 commands
 - Orchestrator + 5 subagents complete proof without race conditions
+- Verifier-first workflow feels natural
 
 ---
 
@@ -582,12 +765,18 @@ Final validation:
 
 | File | Batches |
 |------|---------|
-| `src/alethfeld/cli.clj` | 1, 2, 5, 6 |
-| `src/alethfeld/cmd.clj` | 1, 2, 3, 4, 5, 6 |
-| `src/alethfeld/session.clj` | 2, 3, 5 |
+| `src/alethfeld/mote.clj` | 7 |
+| `src/alethfeld/proposal.clj` | 7 |
+| `src/alethfeld/job.clj` | 7 |
+| `src/alethfeld/store.clj` | 7 |
+| `src/alethfeld/verify.clj` | 7 |
+| `src/alethfeld/session.clj` | 2, 3, 5, 7 |
+| `src/alethfeld/cli.clj` | 1, 2, 5, 6, 7 |
+| `src/alethfeld/cmd.clj` | 1, 2, 3, 4, 5, 6, 7 |
 | `src/alethfeld/config.clj` | 5 |
 | `src/alethfeld/repair.clj` | 5 (new) |
-| `prompts/proposer.md` | 1 |
+| `prompts/verifier.md` | 7 |
+| `prompts/proposer.md` | 7 |
 | `prompts/workflow.md` | 6 (new) |
 | `prompts/roles.edn` | 6 |
 
@@ -597,6 +786,11 @@ Final validation:
 
 ### Breaking Changes
 - `--agent` renamed to `--name` (deprecated alias still works)
+- **Workflow paradigm shift**: Verifier is now the first role (was proposer)
+- Default `proposal-quorum` changed from 2 to 1
+- Default `vote-quorum` changed from 2 to 1
+- `--atomic` flag removed from `af propose` (verifiers decide decomposition)
+- Default taint for new motes is `:needs-verification` (was `:needs-decomposition`)
 
 ### New Commands
 - `af approve-all` - Batch approve pending proposals
@@ -610,9 +804,11 @@ Final validation:
 - `--session @current` - Alias for current session
 
 ### Enhancements
-- Quorum progress shown in vote displays (1/2 approve)
+- **Verifier-first workflow**: Verifiers act as gatekeepers, demanding decomposition when needed
+- Verifiers can now demand `:needs-decomposition` or `:needs-refinement`
+- Verifiers have `:taint-remove` permission for workflow control
+- Quorum progress shown in vote displays
 - Enhanced `af status` with progress by stage
-- Contextual hints for `--atomic` flag
 - Smart detection when `--name` matches a role
 - Session auto-inference when unambiguous
 - `AF_SESSION` environment variable support

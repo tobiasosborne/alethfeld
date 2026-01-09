@@ -1,8 +1,59 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** v0.2 Implementation - Batch 3
-**Session status:** COMPLETED SUCCESSFULLY
+**Last session:** v0.2 Workflow Refactoring - Planning Session
+**Session status:** PLANNING COMPLETE - IMPLEMENTATION NOT STARTED
+
+---
+
+## CRITICAL: Drift Between Plan, Issues, and Codebase
+
+This session made significant changes to the v0.2 plan. There is now **drift** between three sources of truth:
+
+| Source | State | Notes |
+|--------|-------|-------|
+| **`docs/V02-REVISION-PLAN.md`** | Updated | Rewritten to be internally consistent. **This is the canonical plan.** |
+| **Beads issues** | Partially updated | 12 new Phase 7 issues created. Old Phase 1-6 issues may be stale. |
+| **Codebase** | Not updated | Still has v0.1 workflow (proposer-first, quorum=2, --atomic flag exists) |
+
+### What Changed in the Plan
+
+The original V02-REVISION-PLAN.md had contradictions:
+- Steps 1.3/1.4 added `--atomic` hints, but Phase 7.10 removes `--atomic`
+- References to quorum=2 throughout, but Phase 7.4/7.5 change to quorum=1
+- Workflow docs showed proposer-first, but Phase 7 implements verifier-first
+
+**Resolution:** Rewrote the document to be consistent:
+- Removed old 1.3/1.4 (atomic hints) - now superseded by 7.10
+- Updated all quorum references to 1
+- Updated all workflow descriptions to verifier-first
+- Moved Batch 7 (workflow refactoring) to be implemented FIRST
+
+### Old Beads Issues That May Be Stale
+
+These issues from the old plan may need review/closure:
+- `alethfeld-19kq` - "Add --atomic hint to proposer prompt" - **CONTRADICTS** 7.10 (remove --atomic)
+- `alethfeld-umt5` - "Contextual --atomic suggestion" - **CONTRADICTS** 7.10 (remove --atomic)
+- Any issues referencing quorum=2 need review
+
+### New Beads Issues Created (Phase 7)
+
+| ID | Priority | Title |
+|----|----------|-------|
+| `alethfeld-j3s7` | P0 | 7.1 Change default taint to :needs-verification |
+| `alethfeld-lpiy` | P0 | 7.2 Update proposal taints for verifier-first |
+| `alethfeld-b3ze` | P0 | 7.3 Reorder role priorities (verifier first) |
+| `alethfeld-wb01` | P1 | 7.4 Change proposal quorum to 1 |
+| `alethfeld-6tg2` | P1 | 7.5 Change vote quorum to 1 |
+| `alethfeld-u8rl` | P1 | 7.6 Update verifier prompt for decomposition demands |
+| `alethfeld-b5wf` | P2 | 7.7 Update verifier CLI output with taint commands |
+| `alethfeld-q02u` | P2 | 7.8 Add verifier :taint-remove permission |
+| `alethfeld-vi0r` | P2 | 7.9 Update proposer prompt context for verifier-first |
+| `alethfeld-o137` | P2 | 7.10 Remove --atomic flag from propose command |
+| `alethfeld-quz8` | P3 | 7.11 Add refinement demand to verifier prompt |
+| `alethfeld-iqsd` | P0 | 7.12 Update tests for new workflow defaults |
+
+**Dependencies:** `alethfeld-iqsd` (tests) depends on 7.1, 7.2, 7.3, 7.4, 7.5, 7.10
 
 ---
 
@@ -10,170 +61,189 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 1098 tests, ~6520 assertions
+clj -M:test                    # Should pass ~1098 tests (will FAIL after Phase 7 code changes until 7.12 done)
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
-bd ready                       # See available work
+bd ready                       # See available work (Phase 7 P0 issues should appear first)
 ```
 
 ---
 
 ## Current State
 
+### What v0.2 Is Now About
+
+The v0.2 revision is now primarily about a **workflow paradigm shift**:
+
+**Old workflow (v0.1):**
+```
+New mote → :needs-decomposition → Proposer → Advisor (2 votes) → Children → Verifier
+```
+
+**New workflow (v0.2):**
+```
+New mote → :needs-verification → Verifier → {
+  Votes for → Verified
+  Votes against → Refuted
+  Demands decomposition → :needs-decomposition → Proposer → Advisor (1 vote) → Children → Verifier...
+}
+```
+
+**Key design decisions:**
+1. **Remove `:atomic` flag** - Verifiers decide what needs decomposition
+2. **Change quorums to 1** - Single vote to verify/approve (was 2)
+3. **Keep prover role** - Verifiers can demand `:needs-refinement`
+
 ### Repository Structure
 - **Branch:** `main` (v2 development)
 - **Default branch on GitHub:** `legacy` (v1, public-facing)
-- **Latest commits:**
-  - `feat(ux): Add smart role detection hint and job reservations`
-  - `feat(ux): Agent UX improvements for v0.2` (--name rename, session timeout, --atomic hint)
-  - `feat(cmd): Add approve-all command for batch proposal approval`
 
-### Project Status
-| Phase | Status | Progress |
-|-------|--------|----------|
-| Phase A | Session & Role Enforcement | **100% COMPLETE** |
-| Phase B | Essential UX Improvements | **100% COMPLETE** |
-| Phase C | Quality/Safety Features | **100% COMPLETE** |
-| **v0.2** | **Agent UX Improvements** | **7/19 steps complete** |
-
-### v0.2 Progress
-
-| Step | ID | Status | Description |
-|------|-----|--------|-------------|
-| 1.1 | `alethfeld-cwe5` | **DONE** | Rename --agent to --name |
-| 1.2 | `alethfeld-pubp` | **DONE** | Smart role detection hint |
-| 1.3 | `alethfeld-19kq` | **DONE** | Add --atomic hint to proposer prompt |
-| 1.4 | `alethfeld-umt5` | Open | Contextual --atomic suggestion |
-| 2.1 | `alethfeld-7pby` | **DONE** | Add approve-all command |
-| 2.2 | `alethfeld-hyzu` | Open | Add --max flag to af ready |
-| 3.x | Various | Open | Session ergonomics (3 issues) |
-| 4.x | Various | Open | Visibility improvements (3 issues) |
-| 5.2 | `alethfeld-lqpn` | **DONE** | Session auto-expire |
-| 5.3 | `alethfeld-zh6d` | **DONE** | Add af ready --reserve |
-| 5.4 | `alethfeld-m1z0` | **DONE** | Add af repair command |
-| 6.x | Various | Open | Documentation (3 issues) |
-
-### Test Health
-- **Total tests:** 1,098
+### Test Health (Before Phase 7 Implementation)
+- **Total tests:** ~1,098
 - **Total assertions:** ~6,520
 - **Status:** ALL PASSING
-- **Known flaky tests:**
-  - 3 concurrency tests (marked `^:flaky`, test isolation issues)
-  - ID uniqueness test (occasionally generates duplicate in 100 rapid calls)
+- **Warning:** Tests will fail during Phase 7 implementation until 7.12 (test updates) is complete
 
 ---
 
-## This Session: v0.2 Implementation - Batch 3
+## This Session: Planning & Issue Creation
 
 ### What Was Done
 
-Implemented 2 v0.2 issues in this session:
+1. **Analyzed the codebase** for workflow refactoring requirements
+   - Explored job.clj, mote.clj, proposal.clj, verify.clj, session.clj
+   - Identified all locations where taints, quorums, and role priorities are set
 
-**1. Smart role detection hint (pubp)**
-- When `--name` matches a role name (e.g., "advisor"), prints helpful hint
-- Suggests correct usage: `af ready --name <your-name> --role advisor`
-- Prevents common confusion between `--name` and `--role`
-- Added helper functions in cmd.clj: `name-looks-like-role?`, `format-role-hint`
+2. **Created detailed implementation plan** at `.claude/plans/snoopy-twirling-hamming.md`
+   - 12 implementation phases (7.1 - 7.12)
+   - File-by-file change specifications
+   - Verification plan with manual test script
 
-**2. Job reservations for parallel subagents (zh6d)**
-- New flag: `af ready --reserve --role <role>`
-  - Creates 60-second reservation, returns token
-  - No session created until claimed
-- New flag: `af ready --name <agent> --claim-reservation <token>`
-  - Claims reservation and creates full session
-- Prevents race conditions when orchestrator spawns parallel subagents
-- Added reservation system in session.clj: create/load/claim/delete/cleanup
+3. **Clarified design decisions with user:**
+   - Remove `--atomic` flag (verifiers decide)
+   - Change vote quorum to 1 (was 2)
+   - Keep prover role (verifiers can demand refinement)
+
+4. **Updated V02-REVISION-PLAN.md** to be internally consistent
+   - Removed contradictory 1.3/1.4 sections
+   - Updated all quorum references
+   - Updated all workflow descriptions
+   - Reordered implementation priority (Batch 7 first)
+
+5. **Created 12 beads issues** for Phase 7 workflow refactoring
+   - Set appropriate priorities (P0 for critical, P1-P3 for others)
+   - Added dependencies (7.12 tests depends on implementation issues)
 
 ### Files Modified
 
 ```
-src/alethfeld/cli.clj          - Added --reserve and --claim-reservation options
-src/alethfeld/cmd.clj          - Role hint in cmd-ready; reservation handling
-src/alethfeld/path.clj         - Added reservations-path, reservation-path
-src/alethfeld/session.clj      - New reservation system (7 functions)
-test/alethfeld/cmd/ready_test.clj    - Tests for role detection hint
-test/alethfeld/session_test.clj      - Tests for reservation system
+docs/V02-REVISION-PLAN.md      - Major rewrite for consistency
+handoff.md                     - This file
+.beads/                        - 12 new issue files (auto-synced)
 ```
 
-### Commits
+### No Code Changes Made
 
-```
-d654682 feat(ux): Add smart role detection hint and job reservations
-```
+This was a **planning session only**. The codebase still has:
+- Default taint: `:needs-decomposition` (needs to be `:needs-verification`)
+- Role priority: advisor=0, verifier=3 (needs verifier=0)
+- Quorums: 2 (needs to be 1)
+- `--atomic` flag exists (needs to be removed)
 
 ---
 
 ## Next Steps
 
-### Recommended Next Issues
+### Immediate Priority: Resolve Drift
 
-**P1 (High Priority):**
-1. `alethfeld-ka8d` - Centralize session enforcement to middleware layer
+Before implementing anything, the next agent should:
 
-**P2 (Medium Priority):**
-- `alethfeld-hyzu` - Add --max flag to af ready
-- `alethfeld-mjlt` - Support @current session alias
-- `alethfeld-0k7m` - Add af sessions command
+1. **Review stale issues:**
+   ```bash
+   bd show alethfeld-19kq   # --atomic hint - should this be closed?
+   bd show alethfeld-umt5   # --atomic suggestion - should this be closed?
+   ```
 
-**Full priority list:**
-```bash
-bd ready  # Shows all ready work
-bd list --status=open | grep v0.2  # All v0.2 issues
-```
+2. **Verify Phase 7 issues are correct:**
+   ```bash
+   bd list --status=open | grep "7\."
+   ```
 
-### Dependencies to Note
-```
-alethfeld-4ntd (3.2 auto-infer) → depends on → alethfeld-mjlt (3.1 @current alias)
-```
+### Implementation Order
+
+The plan specifies **Batch 7 first** (workflow refactoring), then other batches. Within Batch 7:
+
+1. **P0 Critical (do first):**
+   - 7.1 Default taint to :needs-verification (`alethfeld-j3s7`)
+   - 7.2 Proposal taints for verifier-first (`alethfeld-lpiy`)
+   - 7.3 Reorder role priorities (`alethfeld-b3ze`)
+   - 7.12 Update tests (`alethfeld-iqsd`) - **do last in P0, after other P0s**
+
+2. **P1 High:**
+   - 7.4 Proposal quorum to 1 (`alethfeld-wb01`)
+   - 7.5 Vote quorum to 1 (`alethfeld-6tg2`)
+   - 7.6 Verifier prompt for decomposition (`alethfeld-u8rl`)
+
+3. **P2 Medium:**
+   - 7.7 Verifier CLI output (`alethfeld-b5wf`)
+   - 7.8 Verifier taint-remove permission (`alethfeld-q02u`)
+   - 7.9 Proposer prompt context (`alethfeld-vi0r`)
+   - 7.10 Remove --atomic flag (`alethfeld-o137`)
+
+4. **P3 Low:**
+   - 7.11 Refinement demand option (`alethfeld-quz8`)
+
+### Test Strategy
+
+**Warning:** Tests will break during implementation.
+
+Recommended approach:
+1. Implement 7.1, 7.2, 7.3 together (core workflow changes)
+2. Run tests - many will fail
+3. Implement 7.12 (test updates) immediately after
+4. Run tests - should pass
+5. Continue with P1, P2, P3 issues
 
 ---
 
 ## Architecture Reference
 
-### New Namespaces Added
+### Files to Modify (Phase 7)
 
-| Namespace | Purpose |
-|-----------|---------|
-| `alethfeld.repair` | DAG issue detection and repair |
+| File | Changes |
+|------|---------|
+| `src/alethfeld/mote.clj` | Line 136: default taint → `:needs-verification` |
+| `src/alethfeld/proposal.clj` | Lines 60-63, 177-183: remove atomic handling, all claims get `:needs-verification` |
+| `src/alethfeld/job.clj` | Lines 22-30: reorder role priorities (verifier=0) |
+| `src/alethfeld/store.clj` | Lines 182-183: quorums → 1 |
+| `src/alethfeld/verify.clj` | Line 135: vote quorum default → 1 |
+| `src/alethfeld/session.clj` | Line 52: add `:taint-remove` to verifier role |
+| `src/alethfeld/cmd.clj` | Lines 614-620: verifier CLI output with taint commands |
+| `src/alethfeld/cli.clj` | Remove `--atomic` option from propose |
+| `prompts/verifier.md` | New verifier prompt with decomposition/refinement demands |
+| `prompts/proposer.md` | Remove --atomic refs, add verifier context |
 
-### New Commands Added
+### Key Code Locations
 
-| Command | Description |
-|---------|-------------|
-| `af approve-all` | Batch approve pending proposals |
-| `af repair` | Detect and fix DAG inconsistencies |
-
-### Key Patterns Used
-
-**Batch Commands Pattern** (from vote-all):
+**Default taint:**
 ```clojure
-;; 1. Find eligible items
-(defn find-eligible-items [repo-path agent] ...)
-
-;; 2. Dry-run mode shows what would happen
-(if dry-run
-  {:would-do (vec eligible-ids) :dry-run true}
-
-  ;; 3. Execute with error collection
-  (reduce (fn [acc item]
-            (try
-              (do-operation! item)
-              (update acc :done conj item)
-              (catch Exception e
-                (update acc :skipped conj {:id item :reason (ex-message e)}))))
-          {:done [] :skipped []}
-          eligible))
+;; src/alethfeld/mote.clj:136
+:taint (or taint #{:needs-decomposition})  ; Change to #{:needs-verification}
 ```
 
-**Deprecation Warning Pattern**:
+**Role priority:**
 ```clojure
-(def ^:dynamic *deprecation-warnings* (atom []))
+;; src/alethfeld/job.clj:22-30
+(def ^:private role-priority
+  {:advisor 0, :proposer 1, :prover 2, :verifier 3, ...})
+;; Change to {:verifier 0, :proposer 1, :advisor 2, :prover 3, ...}
+```
 
-(defn deprecated-option [...]
-  [...
-   :assoc-fn (fn [m k v]
-               (swap! *deprecation-warnings* conj "Warning: ...")
-               (assoc m :new-key v))])
+**Quorum defaults:**
+```clojure
+;; src/alethfeld/store.clj:182-183
+:vote-quorum 2      ; Change to 1
+:proposal-quorum 2  ; Change to 1
 ```
 
 ---
@@ -182,43 +252,22 @@ alethfeld-4ntd (3.2 auto-infer) → depends on → alethfeld-mjlt (3.1 @current 
 
 | Document | Purpose |
 |----------|---------|
-| **`docs/V02-REVISION-PLAN.md`** | Full v0.2 implementation plan |
+| **`docs/V02-REVISION-PLAN.md`** | **CANONICAL** - Full v0.2 plan (just rewritten) |
+| **`.claude/plans/snoopy-twirling-hamming.md`** | Detailed Phase 7 implementation plan |
 | `docs/IMPLEMENTATION-PLAN.md` | Overall v0.1-v0.2 spec |
-| `review/ux-review/` | Agent testing results |
 | `CLAUDE.md` | Development conventions |
-
----
-
-## Common Workflows
-
-### Starting Work
-```bash
-bd ready                              # Find available work
-bd show <issue-id>                    # Review issue details
-bd update <issue-id> --status=in_progress  # Claim it
-```
-
-### Completing Work
-```bash
-clj -M:test                           # Run all tests
-bd close <issue-id>                   # Close the issue
-git add . && git commit -m "..."      # Commit changes
-git push                              # Push to remote
-```
 
 ---
 
 ## Known Issues
 
-1. **Concurrency tests flaky**
-   - 3 tests in `concurrency_test.clj` marked `^:flaky`
+1. **Drift between plan/issues/code** - See top of this document
 
-2. **ID generation test occasionally flaky**
-   - `generate-id-test` can fail with 99/100 unique (race condition)
+2. **Stale beads issues** - `alethfeld-19kq` and `alethfeld-umt5` contradict Phase 7
 
-3. **Cycles require manual resolution**
-   - `af repair --auto` cannot fix dependency cycles
-   - User must manually break cycle
+3. **Tests will break** - During Phase 7 implementation, tests will fail until 7.12 is complete
+
+4. **Concurrency tests flaky** - 3 tests in `concurrency_test.clj` marked `^:flaky`
 
 ---
 
