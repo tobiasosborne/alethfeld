@@ -77,6 +77,16 @@
       best-cmd)))
 
 ;; -----------------------------------------------------------------------------
+;; Environment Variables
+;; -----------------------------------------------------------------------------
+
+(defn get-default-agent
+  "Get the default agent name from AF_AGENT environment variable.
+   Returns nil if not set."
+  []
+  (System/getenv "AF_AGENT"))
+
+;; -----------------------------------------------------------------------------
 ;; Exit Codes
 ;; -----------------------------------------------------------------------------
 
@@ -423,13 +433,58 @@
              :usage "af status"
              :options []}
 
+   "roles" {:description "Show available roles and their descriptions"
+            :usage "af roles"
+            :options []}
+
    "help" {:description "Show help"
            :usage "af help [command]"
            :options []}})
 
 ;; -----------------------------------------------------------------------------
+;; Command Aliases
+;; -----------------------------------------------------------------------------
+
+(def command-aliases
+  "Map of alias names to their target commands.
+   Some aliases also inject additional arguments.
+
+   Simple aliases just map to another command name.
+   Complex aliases are maps with :command and :inject-args keys."
+  {"list"      {:command "status"}
+   "verify"    {:command "vote" :inject-args ["--for"]}
+   "refute"    {:command "vote" :inject-args ["--against"]}
+   "decompose" {:command "propose"}
+   "jobs"      {:command "ready" :inject-args ["--no-claim"]}})
+
+(defn resolve-alias
+  "Resolve a command alias to its target command and any injected args.
+
+   Arguments:
+   - cmd: The command name (might be an alias)
+   - args: The remaining arguments
+
+   Returns a map with:
+   - :command - The resolved command name
+   - :args - The args with any injected args prepended"
+  [cmd args]
+  (if-let [alias-info (get command-aliases cmd)]
+    {:command (:command alias-info)
+     :args (concat (:inject-args alias-info) args)}
+    {:command cmd
+     :args args}))
+
+;; -----------------------------------------------------------------------------
 ;; Help Generation
 ;; -----------------------------------------------------------------------------
+
+(def alias-descriptions
+  "Human-readable descriptions for command aliases."
+  {"list"      "Show project status"
+   "verify"    "Shortcut for 'vote --for'"
+   "refute"    "Shortcut for 'vote --against'"
+   "decompose" "Alternative for 'propose'"
+   "jobs"      "List available work"})
 
 (defn generate-help
   "Generate help text for a command or global help."
@@ -441,6 +496,13 @@
         (str/join "\n"
                   (for [[name {:keys [description]}] (sort commands)]
                     (format "  %-16s %s" name description)))
+        "\n\nAliases:\n"
+        (str/join "\n"
+                  (for [[alias info] (sort command-aliases)]
+                    (format "  %-16s %s (-> %s)"
+                            alias
+                            (get alias-descriptions alias "")
+                            (:command info))))
         "\n\nGlobal options:\n"
         (str/join "\n"
                   (for [[short long desc] global-options]
@@ -474,11 +536,15 @@
    - :help? - True if help was requested"
   [args]
   (let [;; First, separate command from rest
-        [cmd & rest-args] args
-        cmd (when cmd (str/lower-case cmd))]
+        [raw-cmd & rest-args] args
+        raw-cmd (when raw-cmd (str/lower-case raw-cmd))
+        ;; Resolve alias to target command (may inject additional args)
+        {:keys [command args]} (when raw-cmd (resolve-alias raw-cmd rest-args))
+        cmd command
+        rest-args (or args rest-args)]
     (cond
       ;; No command - bare invocation (not help)
-      (nil? cmd)
+      (nil? raw-cmd)
       {:command nil
        :args []
        :options {}
@@ -495,7 +561,7 @@
        :help? true}
 
       ;; Version flag
-      (or (= cmd "-v") (= cmd "--version"))
+      (or (= raw-cmd "-v") (= raw-cmd "--version"))
       {:command nil
        :args []
        :options {:version true}
@@ -503,24 +569,26 @@
        :help? false}
 
       ;; Help flag
-      (or (= cmd "-h") (= cmd "--help"))
+      (or (= raw-cmd "-h") (= raw-cmd "--help"))
       {:command nil
        :args []
        :options {:help true}
        :errors nil
        :help? true}
 
-      ;; Unknown command - with typo suggestion
-      (not (contains? commands cmd))
-      (let [suggestion (suggest-command cmd (keys commands))
+      ;; Unknown command - with typo suggestion (check both commands and aliases)
+      (and (not (contains? commands cmd))
+           (not (contains? command-aliases raw-cmd)))
+      (let [all-names (concat (keys commands) (keys command-aliases))
+            suggestion (suggest-command raw-cmd all-names)
             error-msg (if suggestion
-                        (str "Unknown command: " cmd "\n\n"
+                        (str "Unknown command: " raw-cmd "\n\n"
                              "Did you mean: " suggestion "?\n"
                              "  af " suggestion
                              (when (seq rest-args)
                                (str " " (str/join " " rest-args))))
-                        (str "Unknown command: " cmd))]
-        {:command cmd
+                        (str "Unknown command: " raw-cmd))]
+        {:command raw-cmd
          :args rest-args
          :options {}
          :errors [error-msg]
@@ -536,7 +604,11 @@
             optional-id (get-in commands [cmd :optional-id])
             has-id-arg (or requires-id optional-id)
             id (when has-id-arg (first arguments))
-            rest-args (if has-id-arg (rest arguments) arguments)]
+            rest-args (if has-id-arg (rest arguments) arguments)
+            ;; Apply AF_AGENT environment variable as default for --agent if not provided
+            options (if (and (nil? (:agent options)) (get-default-agent))
+                      (assoc options :agent (get-default-agent))
+                      options)]
         {:command cmd
          :id id
          :args rest-args
@@ -601,6 +673,34 @@
            "Roles: " (str/join ", " valid-roles)))))
 
 ;; -----------------------------------------------------------------------------
+;; Roles Command
+;; -----------------------------------------------------------------------------
+
+(def role-descriptions
+  "Descriptions of each agent role."
+  {"proposer"      "Break claims into sub-claims (decomposition)"
+   "advisor"       "Review and approve/reject proposals"
+   "prover"        "Add references and refine claim justifications"
+   "verifier"      "Vote on whether claims are valid"
+   "ref-checker"   "Validate external references and citations"
+   "counterexample" "Find flaws, counterexamples, and edge cases"})
+
+(defn- format-roles-output
+  "Generate the roles command output showing all roles and descriptions."
+  []
+  (str "Alethfeld Agent Roles\n"
+       "=====================\n"
+       "\n"
+       (str/join "\n\n"
+                 (for [role valid-roles]
+                   (str "  " role "\n"
+                        "    " (get role-descriptions role "No description"))))
+       "\n\n"
+       "Get assigned work:\n"
+       "  af ready --agent <name>    Claim a job matching your capabilities\n"
+       "  af jobs                    List available work without claiming"))
+
+;; -----------------------------------------------------------------------------
 ;; Command Dispatch
 ;; -----------------------------------------------------------------------------
 
@@ -647,6 +747,11 @@
     {:output (if command
                (generate-help command)
                (generate-help))
+     :exit-code :success}
+
+    ;; Roles command (handled directly in cli.clj)
+    (= command "roles")
+    {:output (format-roles-output)
      :exit-code :success}
 
     ;; No handler registered

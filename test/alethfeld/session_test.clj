@@ -1085,3 +1085,143 @@
   (testing "Invalid contributors fails schema"
     (is (not (m/validate schema/Contributors {})))
     (is (not (m/validate schema/Contributors {:proposed-by "bob"})))))
+
+;; =============================================================================
+;; Session Resolution Tests (Auto-Use Single Session)
+;; =============================================================================
+
+(deftest load-sessions-for-agent-test
+  (testing "Returns empty vector when no sessions"
+    (init-session-dirs)
+    (is (= [] (session/load-sessions-for-agent *temp-dir* "agent-1"))))
+
+  (testing "Returns only sessions for specified agent"
+    (init-session-dirs)
+    (let [s1 (session/create-session! *temp-dir* "1" :proposer "agent-1")
+          _s2 (session/create-session! *temp-dir* "2" :advisor "agent-2")
+          s3 (session/create-session! *temp-dir* "3" :prover "agent-1")
+          agent-1-sessions (session/load-sessions-for-agent *temp-dir* "agent-1")]
+      (is (= 2 (count agent-1-sessions)))
+      (is (= #{(:session-id s1) (:session-id s3)}
+             (set (map :session-id agent-1-sessions))))))
+
+  (testing "Returns empty when agent has no sessions"
+    (init-session-dirs)
+    (let [_s1 (session/create-session! *temp-dir* "1" :proposer "agent-1")]
+      (is (= [] (session/load-sessions-for-agent *temp-dir* "nonexistent-agent"))))))
+
+(deftest resolve-session-explicit-test
+  (testing "Returns provided session-id when explicitly given"
+    (init-session-dirs)
+    (let [result (session/resolve-session *temp-dir*
+                                          {:session-id "explicit-123"
+                                           :agent "agent-1"})]
+      (is (= "explicit-123" (:session-id result)))
+      (is (false? (:auto-resolved? result)))
+      (is (nil? (:message result)))))
+
+  (testing "Explicit session takes precedence over agent lookup"
+    (init-session-dirs)
+    (let [_s1 (session/create-session! *temp-dir* "1" :proposer "agent-1")
+          result (session/resolve-session *temp-dir*
+                                          {:session-id "explicit-456"
+                                           :agent "agent-1"})]
+      (is (= "explicit-456" (:session-id result)))
+      (is (false? (:auto-resolved? result))))))
+
+(deftest resolve-session-no-agent-test
+  (testing "Returns error when no session and no agent provided"
+    (init-session-dirs)
+    (let [result (session/resolve-session *temp-dir* {})]
+      (is (= :no-agent-specified (:error result)))
+      (is (string? (:message result))))))
+
+(deftest resolve-session-no-sessions-test
+  (testing "Returns error when agent has no active sessions"
+    (init-session-dirs)
+    (let [result (session/resolve-session *temp-dir* {:agent "lonely-agent"})]
+      (is (= :no-active-session (:error result)))
+      (is (re-find #"lonely-agent" (:message result)))
+      (is (re-find #"af ready" (:message result)))))
+
+  (testing "Expired sessions are not counted"
+    (init-session-dirs)
+    ;; Create an expired session
+    (let [past (java.util.Date. (- (.getTime (java.util.Date.)) 1000))
+          expired-session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                           :mote-id "1"
+                           :role :proposer
+                           :agent "agent-1"
+                           :started-at past
+                           :expires-at past
+                           :actions []}
+          active-path (str *temp-dir* "/.alethfeld/sessions/active/" (:session-id expired-session) ".edn")]
+      (io/write-edn active-path expired-session)
+      (let [result (session/resolve-session *temp-dir* {:agent "agent-1"})]
+        (is (= :no-active-session (:error result)))))))
+
+(deftest resolve-session-single-session-test
+  (testing "Auto-resolves when agent has exactly one active session"
+    (init-session-dirs)
+    (let [session (session/create-session! *temp-dir* "1" :verifier "single-agent")
+          result (session/resolve-session *temp-dir* {:agent "single-agent"})]
+      (is (= (:session-id session) (:session-id result)))
+      (is (true? (:auto-resolved? result)))
+      (is (string? (:message result)))
+      (is (re-find #"your only active session" (:message result)))))
+
+  (testing "Auto-resolve ignores expired sessions"
+    (init-session-dirs)
+    ;; Create one expired and one valid session for a different agent
+    (let [past (java.util.Date. (- (.getTime (java.util.Date.)) 1000))
+          expired-session {:session-id "11111111-1111-1111-1111-111111111111-11111111-1111-1111-1111-111111111111"
+                           :mote-id "1"
+                           :role :proposer
+                           :agent "expired-test-agent"
+                           :started-at past
+                           :expires-at past
+                           :actions []}
+          active-path (str *temp-dir* "/.alethfeld/sessions/active/" (:session-id expired-session) ".edn")]
+      (io/write-edn active-path expired-session)
+      (let [valid-session (session/create-session! *temp-dir* "2" :advisor "expired-test-agent")
+            result (session/resolve-session *temp-dir* {:agent "expired-test-agent"})]
+        ;; Should auto-resolve to the valid session, ignoring expired one
+        (is (= (:session-id valid-session) (:session-id result)))
+        (is (true? (:auto-resolved? result)))))))
+
+(deftest resolve-session-multiple-sessions-test
+  (testing "Returns error with session list when agent has multiple sessions"
+    (init-session-dirs)
+    (let [s1 (session/create-session! *temp-dir* "1" :verifier "multi-agent")
+          s2 (session/create-session! *temp-dir* "2" :advisor "multi-agent")
+          result (session/resolve-session *temp-dir* {:agent "multi-agent"})]
+      (is (= :multiple-sessions (:error result)))
+      (is (re-find #"Multiple active sessions" (:message result)))
+      (is (= 2 (count (:sessions result))))
+      ;; Check that sessions info is included
+      (let [session-ids (set (map :session-id (:sessions result)))]
+        (is (contains? session-ids (:session-id s1)))
+        (is (contains? session-ids (:session-id s2))))
+      ;; Check that role and mote-id are included
+      (is (every? :role (:sessions result)))
+      (is (every? :mote-id (:sessions result)))))
+
+  (testing "Multiple sessions error includes role info for disambiguation"
+    (init-session-dirs)
+    (let [_s1 (session/create-session! *temp-dir* "1.2" :verifier "disambig-agent")
+          _s2 (session/create-session! *temp-dir* "1.3" :advisor "disambig-agent")
+          result (session/resolve-session *temp-dir* {:agent "disambig-agent"})
+          sessions (:sessions result)]
+      ;; Sessions should include enough info to disambiguate
+      (is (some #(and (= "1.2" (:mote-id %)) (= :verifier (:role %))) sessions))
+      (is (some #(and (= "1.3" (:mote-id %)) (= :advisor (:role %))) sessions)))))
+
+(deftest resolve-session-three-plus-sessions-test
+  (testing "Works with three or more sessions"
+    (init-session-dirs)
+    (let [_s1 (session/create-session! *temp-dir* "1" :verifier "triple-agent")
+          _s2 (session/create-session! *temp-dir* "2" :advisor "triple-agent")
+          _s3 (session/create-session! *temp-dir* "3" :proposer "triple-agent")
+          result (session/resolve-session *temp-dir* {:agent "triple-agent"})]
+      (is (= :multiple-sessions (:error result)))
+      (is (= 3 (count (:sessions result)))))))

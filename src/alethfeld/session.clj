@@ -351,6 +351,19 @@
        (filter #(= (:mote-id %) mote-id))
        vec))
 
+(defn load-sessions-for-agent
+  "Load all active sessions for a specific agent.
+
+   Arguments:
+   - repo-path: Path to the repository root
+   - agent: The agent identifier to filter by
+
+   Returns a vector of session maps."
+  [repo-path agent]
+  (->> (load-all-active-sessions repo-path)
+       (filter #(= (:agent %) agent))
+       vec))
+
 ;; -----------------------------------------------------------------------------
 ;; Session Status
 ;; -----------------------------------------------------------------------------
@@ -697,3 +710,86 @@
       proposed-by (conj proposed-by)
       refined-by (into refined-by)
       refs-checked-by (into refs-checked-by))))
+
+;; -----------------------------------------------------------------------------
+;; Session Resolution (Auto-Use Single Session)
+;; -----------------------------------------------------------------------------
+
+(defn resolve-session
+  "Resolve which session to use, with auto-selection for single-session agents.
+
+   This implements Section 5.1 of the Agent UX Plan: if an agent has exactly
+   one active session and no explicit session was provided, use it automatically.
+
+   Arguments:
+   - repo-path: Path to the repository root
+   - opts: Map containing:
+     - :session-id - Explicitly provided session ID (optional)
+     - :agent - Agent identifier (required if session-id not provided)
+
+   Returns a map with:
+   - :session-id - The resolved session ID
+   - :auto-resolved? - true if session was auto-selected (no explicit --session)
+   - :message - Human-readable message explaining the resolution
+
+   Or returns an error map with:
+   - :error - Error type (:no-active-session, :multiple-sessions, :invalid-session)
+   - :message - Human-readable error message
+   - :sessions - (for :multiple-sessions) List of available sessions
+
+   Examples:
+   - Explicit session provided:
+     {:session-id \"abc-123\" :auto-resolved? false :message nil}
+
+   - Auto-resolved (agent has 1 session):
+     {:session-id \"abc-123\" :auto-resolved? true
+      :message \"Using session: abc-123 (your only active session)\"}
+
+   - No session (agent has 0 sessions):
+     {:error :no-active-session
+      :message \"No active session. Get a task with: af ready --agent <name>\"}
+
+   - Multiple sessions (agent has 2+ sessions):
+     {:error :multiple-sessions
+      :message \"Multiple active sessions found. Please specify --session:\"
+      :sessions [{:session-id \"abc-123\" :role :verifier :mote-id \"1.2\"} ...]}"
+  [repo-path {:keys [session-id agent]}]
+  (cond
+    ;; Case 1: Explicit session provided - use it
+    session-id
+    {:session-id session-id
+     :auto-resolved? false
+     :message nil}
+
+    ;; Case 2: No session and no agent - error
+    (nil? agent)
+    {:error :no-agent-specified
+     :message "No session or agent specified. Provide --session or --agent."}
+
+    ;; Case 3: Look up sessions for agent
+    :else
+    (let [now (Instant/now)
+          sessions (->> (load-sessions-for-agent repo-path agent)
+                        (remove #(session-expired? % :now now)))]
+      (case (count sessions)
+        ;; 0 sessions - error
+        0 {:error :no-active-session
+           :message (str "No active session for agent '" agent "'. "
+                         "Get a task with: af ready --agent " agent)}
+
+        ;; 1 session - auto-resolve
+        1 (let [session (first sessions)
+                session-id (:session-id session)]
+            {:session-id session-id
+             :auto-resolved? true
+             :message (str "Using session: " (subs session-id 0 (min 11 (count session-id)))
+                           "... (your only active session)")})
+
+        ;; 2+ sessions - require explicit choice
+        {:error :multiple-sessions
+         :message "Multiple active sessions found. Please specify --session:"
+         :sessions (mapv (fn [s]
+                           {:session-id (:session-id s)
+                            :role (:role s)
+                            :mote-id (:mote-id s)})
+                         sessions)}))))
