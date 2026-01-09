@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Comprehensive Code Review (4 parallel agents)
+**Last session:** Parallel Bugfixing (4 P0/P1 bugs fixed)
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -10,7 +10,7 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 984 tests, 2690 assertions
+clj -M:test                    # Should pass 988 tests, 2717 assertions
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
 ```
@@ -33,15 +33,41 @@ bd stats                       # Check open/closed counts
 | Phase C | Quality/Safety Features | **100% COMPLETE** (5/5 steps) |
 
 ### Test Health
-- **Total tests:** 984
-- **Total assertions:** 2,690
+- **Total tests:** 988
+- **Total assertions:** 2,717
 - **Status:** ALL PASSING
 - **Known flaky tests:**
   - 3 concurrency tests (marked `^:flaky`, test isolation issues)
 
 ---
 
-## This Session: Comprehensive Code Review
+## This Session: Parallel Bugfixing
+
+### What Was Done
+
+Fixed 4 P0/P1 bugs in parallel using 4 subagents:
+
+| Issue | File | Fix |
+|-------|------|-----|
+| `alethfeld-i5em` (P0) | dag.clj | validate-proposal-atomicity now checks children have expected status based on proposal state |
+| `alethfeld-ou3f` (P0) | proposal.clj | promote-children! and archive-children! now throw on nil children instead of silent skip |
+| `alethfeld-ul71` (P0) | tx.clj | restore-snapshot! now has error handling, atomic writes (temp+rename), and logging |
+| `alethfeld-6f4k` (P1) | session.clj | pid-alive? now cross-platform (Unix/Windows) with tri-state return |
+
+Also fixed: DAG validation was including archived motes, causing ID collision issues when re-proposing after rejection.
+
+### Test Changes
+- Added 4 new tests (27 assertions) across all 4 test files
+- All 988 tests pass
+
+### Commit
+```
+fix: P0/P1 bugs - dag validation, proposal nil checks, tx error handling, session PID
+```
+
+---
+
+## Previous Session: Comprehensive Code Review
 
 ### What Was Done
 
@@ -82,14 +108,14 @@ Created **30 beads issues** from the review findings:
 
 **Key Issues by Category:**
 
-**Critical Bugs (P0):**
-- `alethfeld-ul71` - Fix race condition in snapshot restoration
-- `alethfeld-ou3f` - Fix missing nil check in proposal child promotion
-- `alethfeld-i5em` - Fix proposal atomicity missing child status validation
+**Critical Bugs (P0):** ✅ ALL FIXED
+- ~~`alethfeld-ul71` - Fix race condition in snapshot restoration~~ CLOSED
+- ~~`alethfeld-ou3f` - Fix missing nil check in proposal child promotion~~ CLOSED
+- ~~`alethfeld-i5em` - Fix proposal atomicity missing child status validation~~ CLOSED
 
-**Race Conditions (P1):**
+**Race Conditions (P1):** 1 of 4 FIXED
 - `alethfeld-q6ui` - Fix TOCTOU in session expiration
-- `alethfeld-6f4k` - Fix PID liveness check (Unix-only)
+- ~~`alethfeld-6f4k` - Fix PID liveness check (Unix-only)~~ CLOSED
 - `alethfeld-9vok` - Fix path canonicalization with symlinks
 
 **Architecture (P1-P2):**
@@ -134,12 +160,10 @@ All other 29 issues can be worked on in parallel.
 
 **Recommended priority order:**
 
-1. **P0 Critical Bugs** (3 issues) - Fix race conditions and nil checks
-   - `alethfeld-ul71`, `alethfeld-ou3f`, `alethfeld-i5em`
-   - Can be worked in parallel
+1. ✅ ~~**P0 Critical Bugs** (3 issues)~~ - ALL FIXED
 
-2. **P1 Race Conditions** (4 issues) - Session/concurrency safety
-   - `alethfeld-q6ui`, `alethfeld-6f4k`, `alethfeld-9vok`, `alethfeld-ka8d`
+2. **P1 Race Conditions** (3 remaining) - Session/concurrency safety
+   - `alethfeld-q6ui`, `alethfeld-9vok`, `alethfeld-ka8d`
    - Can be worked in parallel
 
 3. **P2 Test Gaps** (6 issues) - Improve coverage to reduce risk
@@ -151,7 +175,7 @@ All other 29 issues can be worked on in parallel.
 
 5. **P3 Polish** (6 issues) - Style, documentation, minor cleanup
 
-Run `bd ready` to see available work (47 issues ready).
+Run `bd ready` to see available work.
 
 ---
 
@@ -274,19 +298,16 @@ git diff HEAD~1                       # See last commit changes
    - Occasional UUID collision in 100 UUIDs
    - Very rare, statistically expected
 
-3. **Race condition in tx.clj** (`alethfeld-ul71`) - P0
-   - ~100ms window between validation and git commit
-   - Process crash during window leaves files on disk without git record
-   - Manual recovery: `git add . && git commit -m 'recovery'`
+3. ~~**Race condition in tx.clj** (`alethfeld-ul71`) - P0~~ ✅ FIXED
+   - Now uses atomic writes (temp+rename) and proper error handling
 
 4. **Session enforcement push-based** (`alethfeld-ka8d`) - P1
    - Each command handler checks permissions manually
    - Risk: New commands could bypass permission checks
    - Recommended: Centralize to middleware layer
 
-5. **PID liveness check Unix-only** (`alethfeld-6f4k`) - P1
-   - `kill -0` doesn't work on Windows
-   - Session cleanup may fail on Windows
+5. ~~**PID liveness check Unix-only** (`alethfeld-6f4k`) - P1~~ ✅ FIXED
+   - Now cross-platform with tri-state return (true/false/:unknown)
 
 ---
 
