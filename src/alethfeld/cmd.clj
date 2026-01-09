@@ -4,7 +4,10 @@
    Each command function follows the pattern:
    - Takes a context map with :id, :args, :options
    - Returns data to be formatted and output
-   - Throws ExceptionInfo for errors"
+   - Throws ExceptionInfo for errors
+
+   All commands return a :next-actions key with suggested next steps:
+   [{:command \"af ...\" :description \"...\"}]"
   (:require [alethfeld.store :as store]
             [alethfeld.git :as git]
             [alethfeld.tx :as tx]
@@ -19,6 +22,106 @@
             [alethfeld.session :as session]
             [alethfeld.verify :as verify]
             [clojure.string :as str]))
+
+;; -----------------------------------------------------------------------------
+;; Next Actions Helpers
+;; -----------------------------------------------------------------------------
+
+(defn- make-action
+  "Create a next-action map."
+  [command description]
+  {:command command :description description})
+
+(defn- done-action
+  "Create the standard 'af done' action for a session."
+  [session-id]
+  (make-action (str "af done --session " session-id)
+               "End session (work complete)"))
+
+(defn- show-action
+  "Create an 'af show' action for a mote."
+  [mote-id]
+  (make-action (str "af show " mote-id)
+               "View mote details"))
+
+(defn- tree-action
+  "Create an 'af tree' action for a mote."
+  [mote-id]
+  (make-action (str "af tree " mote-id)
+               "View proof structure"))
+
+(defn- status-action
+  "Create an 'af status' action."
+  []
+  (make-action "af status" "View project overview"))
+
+(defn- ready-action
+  "Create an 'af ready' action for starting work."
+  []
+  (make-action "af ready --agent <name>" "Get assigned a task"))
+
+(defn- vote-action
+  "Create a vote action for a mote."
+  [mote-id session-id direction]
+  (let [flag (if (= direction :for) "--for" "--against")]
+    (make-action (str "af vote " mote-id " " flag " --session " session-id " --reason \"...\"")
+                 (if (= direction :for) "Vote claim is valid" "Vote claim is invalid"))))
+
+(defn- approve-action
+  "Create an approve action for a proposal."
+  [mote-id session-id]
+  (make-action (str "af approve " mote-id " --session " session-id)
+               "Approve the proposal"))
+
+(defn- reject-action
+  "Create a reject action for a proposal."
+  [mote-id session-id]
+  (make-action (str "af reject " mote-id " --session " session-id)
+               "Reject the proposal"))
+
+(defn- find-votable-siblings
+  "Find siblings of a mote that need verification and the agent can vote on.
+
+   Returns a vector of mote IDs."
+  [repo-path mote-id agent]
+  (when-let [parent-id (id/parent-id mote-id)]
+    (when-let [parent (store/load-mote repo-path parent-id)]
+      (let [sibling-ids (remove #{mote-id} (:children parent))
+            motes (store/load-all-motes repo-path)]
+        (->> sibling-ids
+             (filter (fn [sib-id]
+                       (when-let [sib (get motes sib-id)]
+                         (and (verify/needs-verification? sib)
+                              (session/can-vote? sib agent)
+                              (not (verify/has-voted? sib agent))))))
+             vec)))))
+
+(defn- generate-vote-next-actions
+  "Generate intelligent next-actions after a vote based on current state.
+
+   Logic from AGENT-UX-PLAN.md Section 3.2:
+   - If quorum not reached: 'Waiting for N more votes'
+   - If quorum reached and more siblings need voting: 'Continue: af vote 1.2'
+   - If all siblings done or no siblings: 'af done'"
+  [repo-path mote-id session-id agent quorum-status]
+  (let [;; Check for votable siblings
+        votable-siblings (find-votable-siblings repo-path mote-id agent)]
+    (cond
+      ;; Quorum not yet reached - suggest waiting or done
+      (= :pending quorum-status)
+      [(make-action "# Waiting for more votes" "Other verifiers need to vote")
+       (done-action session-id)]
+
+      ;; Quorum reached, but there are more siblings to vote on
+      (seq votable-siblings)
+      (let [next-sibling (first votable-siblings)]
+        [(vote-action next-sibling session-id :for)
+         (vote-action next-sibling session-id :against)
+         (done-action session-id)])
+
+      ;; All done - suggest ending session
+      :else
+      [(done-action session-id)])))
 
 ;; -----------------------------------------------------------------------------
 ;; Init Command
@@ -64,7 +167,10 @@
       (git/git-add-all! repo-path)
       (git/git-commit! repo-path (str "Initialize Alethfeld: " project-name))
       {:message (str "Initialized Alethfeld repository: " project-name)
-       :config config})))
+       :config config
+       :next-actions [(make-action "af create --root --claim \"Your main theorem\""
+                                   "Create your first proof goal")
+                      (status-action)]})))
 
 ;; -----------------------------------------------------------------------------
 ;; Show Command
@@ -81,7 +187,9 @@
   (let [repo-path "."
         mote (store/load-mote repo-path id)]
     (if mote
-      mote
+      (assoc mote :next-actions [(tree-action id)
+                                 (ready-action)
+                                 (status-action)])
       (throw (ex-info "Mote not found"
                       {:type :not-found
                        :mote-id id})))))
@@ -161,7 +269,9 @@
             _ (tx/atomic-write! repo-path
                                 (str "Create root mote " new-id)
                                 [new-mote])]
-        new-mote)
+        (assoc new-mote :next-actions [(show-action new-id)
+                                       (ready-action)
+                                       (status-action)]))
 
       ;; Create child mote
       (let [parent (store/load-mote repo-path id)]
@@ -179,7 +289,9 @@
               _ (tx/atomic-write! repo-path
                                   (str "Create child mote " new-id)
                                   [new-mote updated-parent])]
-          new-mote)))))
+          (assoc new-mote :next-actions [(show-action new-id)
+                                         (tree-action id)
+                                         (ready-action)]))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Stale Session Cleanup Helper
@@ -498,7 +610,12 @@
         list-mode?
         {:mode :list
          :jobs jobs-with-prompts
-         :output (format-job-list jobs-with-prompts)}
+         :output (format-job-list jobs-with-prompts)
+         :next-actions (if (empty? jobs-with-prompts)
+                         [(status-action)]
+                         [(make-action "af ready --agent <name>" "Claim highest priority job")
+                          (make-action "af ready --agent <name> --job 1" "Claim specific job")
+                          (status-action)])}
 
         ;; Preview mode: agent provided but --no-claim
         no-claim
@@ -516,7 +633,9 @@
                      (if job
                        (str "Job #" job " not found. Run 'af ready' to see available jobs.")
                        "No jobs available matching your criteria.")
-                     (format-job-list selected-jobs))})
+                     (format-job-list selected-jobs))
+           :next-actions [(make-action (str "af ready --agent " agent) "Claim this job")
+                          (status-action)]})
 
         ;; Claim mode: agent provided, claim the job(s)
         (seq jobs-with-prompts)
@@ -568,10 +687,30 @@
                                   (str/join ", " (map :mote-id claimed-jobs)))]
               (tx/atomic-write! repo-path commit-msg updated-motes :validate false)
 
-              ;; Return with formatted output
-              {:mode :claimed
-               :jobs claimed-jobs
-               :output (str/join "\n\n" (map format-claimed-job-output claimed-jobs))})))
+              ;; Return with formatted output - generate intelligent next-actions
+              (let [first-job (first claimed-jobs)
+                    session-id (:session-id first-job)
+                    mote-id (:mote-id first-job)
+                    job-role (:role first-job)
+                    ;; Generate role-specific next actions
+                    role-actions (case job-role
+                                   :verifier [(vote-action mote-id session-id :for)
+                                              (vote-action mote-id session-id :against)]
+                                   :advisor [(approve-action mote-id session-id)
+                                             (reject-action mote-id session-id)]
+                                   :proposer [(make-action (str "af propose " mote-id " --session " session-id " --claim \"...\"")
+                                                           "Submit decomposition proposal")]
+                                   :prover [(make-action (str "af add-ref " mote-id " --session " session-id " --ref \"...\"")
+                                                         "Add external reference")]
+                                   :ref-checker [(make-action (str "af add-ref " mote-id " --session " session-id " --ref \"...\"")
+                                                              "Add/update references")]
+                                   :counterexample [(vote-action mote-id session-id :for)
+                                                    (vote-action mote-id session-id :against)]
+                                   [])]
+                {:mode :claimed
+                 :jobs claimed-jobs
+                 :output (str/join "\n\n" (map format-claimed-job-output claimed-jobs))
+                 :next-actions (conj (vec role-actions) (done-action session-id))}))))
 
         ;; No jobs available when trying to claim
         :else
@@ -583,7 +722,8 @@
                       "  - In a terminal state (verified, rejected, refuted)\n"
                       "  - Not in need of work (no taints)\n"
                       "\n"
-                      "Run 'af status' to see project overview.")}))))
+                      "Run 'af status' to see project overview.")
+         :next-actions [(status-action)]}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Propose Command
@@ -703,8 +843,13 @@
                                                  (:atomic options)))
             ;; Combine claims (positional first, then options)
             claims (vec (concat parsed-positional parsed-options))
-            result (proposal/create-proposal! repo-path id claims agent)]
-        (:result result)))))
+            result (proposal/create-proposal! repo-path id claims agent)
+            proposal-result (:result result)
+            child-count (count (:children proposal-result))]
+        (assoc proposal-result
+               :next-actions [(done-action session-id)
+                              (show-action id)]
+               :message (str "Created proposal with " child-count " children. Waiting for advisor approval."))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Approve Command
@@ -755,8 +900,19 @@
 
     (let [sess (session/enforce-session! repo-path session-id :approve id)
           agent (or (:agent options) (:agent sess))
-          result (proposal/approve-proposal! repo-path id agent :reason reason)]
-      (:result result))))
+          result (proposal/approve-proposal! repo-path id agent :reason reason)
+          approve-result (:result result)
+          quorum-status (:quorum-status approve-result)]
+      (assoc approve-result
+             :next-actions (if (= :approved quorum-status)
+                             ;; Quorum reached - children promoted
+                             [(done-action session-id)]
+                             ;; Still pending - waiting for more votes
+                             [(done-action session-id)
+                              (show-action id)])
+             :message (if (= :approved quorum-status)
+                        "Proposal approved! Children promoted to fixed status."
+                        "Vote recorded. Waiting for more advisor votes.")))))
 
 ;; -----------------------------------------------------------------------------
 ;; Reject Command
@@ -807,8 +963,19 @@
 
     (let [sess (session/enforce-session! repo-path session-id :reject id)
           agent (or (:agent options) (:agent sess))
-          result (proposal/reject-proposal! repo-path id agent :reason reason)]
-      (:result result))))
+          result (proposal/reject-proposal! repo-path id agent :reason reason)
+          reject-result (:result result)
+          quorum-status (:quorum-status reject-result)]
+      (assoc reject-result
+             :next-actions (if (= :rejected quorum-status)
+                             ;; Quorum reached - children archived
+                             [(done-action session-id)]
+                             ;; Still pending - waiting for more votes
+                             [(done-action session-id)
+                              (show-action id)])
+             :message (if (= :rejected quorum-status)
+                        "Proposal rejected. Children archived."
+                        "Vote recorded. Waiting for more advisor votes.")))))
 
 ;; -----------------------------------------------------------------------------
 ;; Update Command
@@ -891,7 +1058,9 @@
           (tx/atomic-write! repo-path
                             (str "Update mote " id)
                             [updated-mote])
-          updated-mote)))))
+          (assoc updated-mote
+                 :next-actions [(show-action id)
+                                (ready-action)]))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Vote Command
@@ -965,16 +1134,22 @@
           agent (or (:agent options) (:agent sess))
           vote-type (if for :for :against)
           result (verify/cast-vote! repo-path id agent vote-type :reason reason)
-          vote-result (:result result)]
-
-      ;; Handle propagation if requested and vote was for (not against)
-      (if (and propagate
-               for
-               (= :verified (:quorum-status vote-result)))
-        ;; Propagate verification up the tree
-        (let [propagated (verify/propagate-verification! repo-path id agent :reason reason)]
-          (assoc vote-result :propagated propagated))
-        vote-result))))
+          vote-result (:result result)
+          quorum-status (:quorum-status vote-result)
+          ;; Handle propagation if requested and vote was for (not against)
+          final-result (if (and propagate for (= :verified quorum-status))
+                         (let [propagated (verify/propagate-verification! repo-path id agent :reason reason)]
+                           (assoc vote-result :propagated propagated))
+                         vote-result)
+          ;; Generate intelligent next-actions based on state
+          next-acts (generate-vote-next-actions repo-path id session agent quorum-status)]
+      (assoc final-result
+             :next-actions next-acts
+             :message (case quorum-status
+                        :verified "Mote verified! Quorum reached."
+                        :refuted "Mote refuted. Quorum reached."
+                        :contested "Mote contested - votes are mixed."
+                        :pending (str "Vote recorded. Waiting for more votes."))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Batch Vote Command
@@ -1071,7 +1246,10 @@
         {:voted []
          :would-vote (vec eligible-ids)
          :total-would-vote (count eligible-ids)
-         :dry-run true}
+         :dry-run true
+         :next-actions [(make-action (str "af vote-all " (if for "--for" "--against") " --session <session>")
+                                     "Execute batch vote")
+                        (status-action)]}
 
         ;; Actually cast votes
         (let [vote-type (if for :for :against)
@@ -1089,7 +1267,10 @@
           (assoc results
                  :total-voted (count (:voted results))
                  :total-skipped (count (:skipped results))
-                 :dry-run false))))))
+                 :dry-run false
+                 :next-actions [(done-action session)
+                                (status-action)]
+                 :message (str "Voted on " (count (:voted results)) " motes.")))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Taint Command
@@ -1197,7 +1378,9 @@
           (tx/atomic-write! repo-path
                             (str "Update taints on " id)
                             [updated-mote])
-          updated-mote)))))
+          (assoc updated-mote
+                 :next-actions [(done-action session)
+                                (show-action id)]))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Claim Command
@@ -1270,11 +1453,29 @@
 
       ;; Create session
       (let [sess (session/create-session! repo-path id role agent)
+            session-id (:session-id sess)
             updated-mote (mote/set-claimed-by current-mote agent)]
         (tx/atomic-write! repo-path
                           (str "Claim mote " id " for " agent " as " (name role))
                           [updated-mote])
-        (assoc updated-mote :session-id (:session-id sess))))))
+        (assoc updated-mote
+               :session-id session-id
+               :next-actions (conj
+                              (case role
+                                :verifier [(vote-action id session-id :for)
+                                           (vote-action id session-id :against)]
+                                :advisor [(approve-action id session-id)
+                                          (reject-action id session-id)]
+                                :proposer [(make-action (str "af propose " id " --session " session-id " --claim \"...\"")
+                                                        "Submit decomposition proposal")]
+                                :prover [(make-action (str "af add-ref " id " --session " session-id " --ref \"...\"")
+                                                      "Add external reference")]
+                                :ref-checker [(make-action (str "af add-ref " id " --session " session-id " --ref \"...\"")
+                                                           "Add/update references")]
+                                :counterexample [(vote-action id session-id :for)
+                                                 (vote-action id session-id :against)]
+                                [])
+                              (done-action session-id)))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Unclaim Command
@@ -1329,7 +1530,9 @@
         (tx/atomic-write! repo-path
                           (str "Unclaim mote " id)
                           [updated-mote])
-        updated-mote))))
+        (assoc updated-mote
+               :next-actions [(ready-action)
+                              (status-action)])))))
 
 ;; -----------------------------------------------------------------------------
 ;; Done Command
@@ -1399,7 +1602,15 @@
 
           {:session-id session-id
            :mote-id mote-id
-           :action-count (:action-count ended-session)})))))
+           :action-count (:action-count ended-session)
+           ;; CRITICAL: Agent termination message (alethfeld-atkc)
+           :agent-should-terminate true
+           :message "Session ended successfully."
+           :terminate-message (str "\nYour work is complete. This agent should now terminate.\n\n"
+                                   "To start new work, spawn a fresh agent:\n"
+                                   "  af ready --agent <new-name>")
+           :next-actions [(make-action "# Agent should terminate now" "Work complete - end this agent")
+                          (make-action "af ready --agent <new-name>" "Start fresh agent for new work")]})))))
 
 ;; -----------------------------------------------------------------------------
 ;; Withdraw Command
@@ -1462,7 +1673,10 @@
       (let [agent (:agent sess)
             result (proposal/withdraw-proposal! repo-path id agent)]
         (assoc (:result result)
-               :mote-id id)))))
+               :mote-id id
+               :message "Proposal withdrawn. Children archived."
+               :next-actions [(done-action session-id)
+                              (show-action id)])))))
 
 ;; -----------------------------------------------------------------------------
 ;; Add-Ref Command
@@ -1523,7 +1737,12 @@
         (tx/atomic-write! repo-path
                           (str "Add external reference to " id)
                           [updated-mote])
-        updated-mote))))
+        (assoc updated-mote
+               :message "Reference added."
+               :next-actions [(make-action (str "af add-ref " id " --session " session " --ref \"...\"")
+                                           "Add another reference")
+                              (done-action session)
+                              (show-action id)])))))
 
 ;; -----------------------------------------------------------------------------
 ;; Add-Assumption Command
@@ -1590,7 +1809,12 @@
         (tx/atomic-write! repo-path
                           (str "Add internal assumption to " id)
                           [updated-mote])
-        updated-mote))))
+        (assoc updated-mote
+               :message "Assumption added."
+               :next-actions [(make-action (str "af add-assumption " id " --session " session " --ref <mote-id>")
+                                           "Add another assumption")
+                              (done-action session)
+                              (show-action id)])))))
 
 ;; -----------------------------------------------------------------------------
 ;; Add-Definition Command
@@ -1655,7 +1879,12 @@
         (tx/atomic-write! repo-path
                           (str "Add definition to " id)
                           [updated-mote])
-        updated-mote))))
+        (assoc updated-mote
+               :message (str "Definition added: " symbol)
+               :next-actions [(make-action (str "af add-definition " id " --session " session " --symbol \"...\" --meaning \"...\"")
+                                           "Add another definition")
+                              (done-action session)
+                              (show-action id)])))))
 
 ;; -----------------------------------------------------------------------------
 ;; Add-Dependency Command
@@ -1733,7 +1962,12 @@
         (tx/atomic-write! repo-path
                           (str "Add dependency " id " -> " depends-on)
                           [updated-mote])
-        updated-mote))))
+        (assoc updated-mote
+               :message (str "Dependency added: " id " -> " depends-on)
+               :next-actions [(make-action (str "af add-dep " id " --session " session " --depends-on <mote-id>")
+                                           "Add another dependency")
+                              (done-action session)
+                              (show-action id)])))))
 
 ;; -----------------------------------------------------------------------------
 ;; Check Command
@@ -1785,7 +2019,14 @@
       {:valid? all-valid?
        :mote-count (count motes)
        :schema-errors (when (seq schema-errors) schema-errors)
-       :dag-errors (when (seq dag-errors) dag-errors)})))
+       :dag-errors (when (seq dag-errors) dag-errors)
+       :message (if all-valid?
+                  (str "All " (count motes) " motes valid.")
+                  (str "Validation failed - found errors."))
+       :next-actions (if all-valid?
+                       [(status-action)
+                        (ready-action)]
+                       [(status-action)])})))
 
 ;; -----------------------------------------------------------------------------
 ;; Log Command
@@ -1829,7 +2070,11 @@
       ;; Get file path for the mote
       (let [mote-file-path (path/mote-id->path id (:status mote))
             history (git/git-log repo-path :path mote-file-path :max-count limit)]
-        (or history [])))))
+        {:commits (or history [])
+         :mote-id id
+         :next-actions [(show-action id)
+                        (tree-action id)
+                        (status-action)]}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Sync Command
@@ -1915,7 +2160,10 @@
                  (not has-remote) :skipped
                  push-result true
                  :else false)
-       :commit-sha (:sha commit-result)})))
+       :commit-sha (:sha commit-result)
+       :message "Sync complete."
+       :next-actions [(status-action)
+                      (ready-action)]})))
 
 ;; -----------------------------------------------------------------------------
 ;; Config Command
@@ -1987,7 +2235,9 @@
       ("list" nil)
       (let [config (store/load-config repo-path)]
         {:config config
-         :keys (keys config-keys)})
+         :keys (keys config-keys)
+         :next-actions [(make-action "af config set <key> <value>" "Update a config value")
+                        (status-action)]})
 
       ;; Get a specific key
       "get"
@@ -2006,7 +2256,9 @@
                                            ". Valid keys: " (str/join ", " (map name (keys config-keys))))]})))
           {:key key-kw
            :value (get config key-kw (:default spec))
-           :default (:default spec)}))
+           :default (:default spec)
+           :next-actions [(make-action (str "af config set " key-name " <value>") "Change this value")
+                          (make-action "af config list" "View all config")]}))
 
       ;; Set a key
       "set"
@@ -2029,7 +2281,10 @@
                                    new-config)
           {:key key-kw
            :value parsed-value
-           :previous (get config key-kw)}))
+           :previous (get config key-kw)
+           :message (str "Config updated: " key-name " = " parsed-value)
+           :next-actions [(make-action "af config list" "View all config")
+                          (status-action)]}))
 
       ;; Unknown subcommand
       (throw (ex-info "Unknown config subcommand"
@@ -2167,7 +2422,10 @@
             ;; Render the tree
             lines (render-tree mote motes "" true 0 max-depth 60)]
         {:lines (vec lines)
-         :mote-count (count lines)}))))
+         :mote-count (count lines)
+         :next-actions [(show-action id)
+                        (ready-action)
+                        (status-action)]}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Status Command
@@ -2226,7 +2484,11 @@
        :status-counts status-counts
        :taint-counts taint-counts
        :active-sessions (count active-sessions)
-       :ready-for-work workable-count})))
+       :ready-for-work workable-count
+       :next-actions (if (pos? workable-count)
+                       [(ready-action)
+                        (make-action "af tree 1" "View proof structure")]
+                       [(make-action "af check" "Validate DAG integrity")])})))
 
 ;; -----------------------------------------------------------------------------
 ;; Handler Registration
