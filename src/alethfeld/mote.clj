@@ -10,7 +10,7 @@
   "Generate a unique ID suffix for proposals/jobs."
   []
   (let [ts (java.time.LocalDateTime/now)
-        fmt (java.time.format.DateTimeFormatter/ofPattern "yyyyMMdd-HHmmss")
+        fmt (java.time.format.DateTimeFormatter/ofPattern "yyyyMMdd-HHmmssSSS")
         random-suffix (format "%04x" (rand-int 65536))]
     (str (.format ts fmt) "-" random-suffix)))
 

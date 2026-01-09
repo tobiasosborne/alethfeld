@@ -241,7 +241,7 @@
 
   (testing "generate-id format is correct"
     (let [id (m/generate-id)]
-      (is (re-matches #"\d{8}-\d{6}-[0-9a-f]{4}" id)))))
+      (is (re-matches #"\d{8}-\d{9}-[0-9a-f]{4}" id)))))
 
 ;; -----------------------------------------------------------------------------
 ;; Mote Transformation Tests
