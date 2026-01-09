@@ -6,12 +6,18 @@
 ;; ID Generation
 ;; -----------------------------------------------------------------------------
 
+;; Timestamp format for ID generation: YYYYMMDD-HHmmssSSS
+(def ^:private id-timestamp-format "yyyyMMdd-HHmmssSSS")
+
+;; Max value for random suffix (0x10000 = 65536) to produce 4 hex digits (0000-ffff)
+(def ^:private random-suffix-max 0x10000)
+
 (defn generate-id
   "Generate a unique ID suffix for proposals/jobs."
   []
   (let [ts (java.time.LocalDateTime/now)
-        fmt (java.time.format.DateTimeFormatter/ofPattern "yyyyMMdd-HHmmssSSS")
-        random-suffix (format "%04x" (rand-int 65536))]
+        fmt (java.time.format.DateTimeFormatter/ofPattern id-timestamp-format)
+        random-suffix (format "%04x" (rand-int random-suffix-max))]
     (str (.format ts fmt) "-" random-suffix)))
 
 ;; -----------------------------------------------------------------------------

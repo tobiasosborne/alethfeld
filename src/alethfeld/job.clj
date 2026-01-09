@@ -239,13 +239,11 @@
 
    Returns a vector of Job maps."
   [motes & {:keys [role difficulty priority max claim-timeout]
-            :or {max 1}
-            :as options}]
-  (let [filter-opts (select-keys options [:role :difficulty :priority])]
-    (->> (vals motes)
-         (filter #(workable? % :claim-timeout claim-timeout))
-         (filter #(matches-filter? % filter-opts))
-         (sort job-comparator)
-         (take max)
-         (mapv #(build-job % motes :role role))
-         vec)))
+            :or {max 1}}]
+  (->> (vals motes)
+       (filter #(workable? % :claim-timeout claim-timeout))
+       (filter #(matches-filter? % {:role role :difficulty difficulty :priority priority}))
+       (sort job-comparator)
+       (take max)
+       (mapv #(build-job % motes :role role))
+       vec))

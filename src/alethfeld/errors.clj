@@ -94,7 +94,7 @@
    :unverified-dependencies
    (fn [{:keys [mote-id unverified-deps]}]
      (str "Error: Cannot verify mote " mote-id " - it has unverified dependencies.\n\n"
-          "Unverified dependencies: " (clojure.string/join ", " unverified-deps) "\n"
+          "Unverified dependencies: " (str/join ", " unverified-deps) "\n"
           "To fix: Verify the dependencies first, then vote on this mote."))
 
    :quorum-not-reached
