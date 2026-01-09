@@ -124,6 +124,71 @@
       [(done-action session-id)])))
 
 ;; -----------------------------------------------------------------------------
+;; Dry Run Helpers
+;; -----------------------------------------------------------------------------
+
+(defn- format-dry-run-header
+  "Format the dry-run header banner."
+  []
+  "DRY RUN - No changes made\n")
+
+(defn- format-dry-run-footer
+  "Format the dry-run footer with execution hint."
+  []
+  "\nRun without --dry-run to execute.")
+
+(defn- format-would-create
+  "Format a 'would create' section for dry-run output."
+  [items]
+  (when (seq items)
+    (str "\nWould create:\n"
+         (str/join "\n"
+                   (for [item items]
+                     (if (map? item)
+                       (str "  " (:id item) " [" (name (:status item :proposed)) "] " (:claim item))
+                       (str "  " item)))))))
+
+(defn- format-would-update
+  "Format a 'would update' section for dry-run output."
+  [items]
+  (when (seq items)
+    (str "\nWould update:\n"
+         (str/join "\n"
+                   (for [item items]
+                     (if (map? item)
+                       (str "  " (:id item) " -> " (:change item))
+                       (str "  " item)))))))
+
+(defn- format-would-delete
+  "Format a 'would delete' section for dry-run output."
+  [items]
+  (when (seq items)
+    (str "\nWould delete/archive:\n"
+         (str/join "\n"
+                   (for [item items]
+                     (str "  " item))))))
+
+(defn- dry-run-result
+  "Create a standard dry-run result map.
+
+   Arguments:
+   - output: The formatted dry-run output string
+   - would-create: Vector of items that would be created
+   - would-update: Vector of items that would be updated
+   - would-delete: Vector of items that would be deleted
+
+   Returns a map suitable for dry-run command results."
+  [& {:keys [output would-create would-update would-delete next-actions]}]
+  {:dry-run true
+   :output (str (format-dry-run-header)
+                output
+                (format-dry-run-footer))
+   :would-create (vec would-create)
+   :would-update (vec would-update)
+   :would-delete (vec would-delete)
+   :next-actions (or next-actions [(status-action)])})
+
+;; -----------------------------------------------------------------------------
 ;; Init Command
 ;; -----------------------------------------------------------------------------
 
@@ -142,39 +207,109 @@
 
    Options:
    - :name - Project name (default: 'Alethfeld Project')
+   - :dry-run - Show what would be created without executing
 
    Returns the config that was created."
   [{:keys [options]}]
   (let [repo-path "."
-        project-name (:name options "Alethfeld Project")]
+        project-name (:name options "Alethfeld Project")
+        dry-run? (:dry-run options)]
+
     ;; Check if already initialized
     (when (store/repo-exists? repo-path)
       (throw (ex-info "Repository already initialized"
                       {:type :already-initialized
                        :path repo-path})))
-    ;; Initialize git first (so we can commit the init)
-    (git/git-init! repo-path)
-    ;; Configure git user if needed
-    (when-not (git/git-config repo-path "user.name")
-      (git/git-config! repo-path "user.name" "alethfeld"))
-    (when-not (git/git-config repo-path "user.email")
-      (git/git-config! repo-path "user.email" "alethfeld@local"))
-    ;; Initialize repository structure
-    (let [config (store/init-repo! repo-path :project-name project-name)]
-      ;; Initialize session directories
-      (session/ensure-session-dirs! repo-path)
-      ;; Commit the initial structure
-      (git/git-add-all! repo-path)
-      (git/git-commit! repo-path (str "Initialize Alethfeld: " project-name))
-      {:message (str "Initialized Alethfeld repository: " project-name)
-       :config config
-       :next-actions [(make-action "af create --root --claim \"Your main theorem\""
-                                   "Create your first proof goal")
-                      (status-action)]})))
+
+    (if dry-run?
+      ;; Dry run - show what would be created
+      (dry-run-result
+       :output (str "Would initialize Alethfeld repository: " project-name
+                    (format-would-create
+                     [".alethfeld/config.edn"
+                      ".alethfeld/motes/"
+                      ".alethfeld/proposed/"
+                      ".alethfeld/archive/"
+                      ".alethfeld/sessions/active/"
+                      ".alethfeld/sessions/completed/"])
+                    "\n\nWould create git commit: \"Initialize Alethfeld: " project-name "\"")
+       :would-create [".alethfeld/"])
+      ;; Execute
+      (do
+        ;; Initialize git first (so we can commit the init)
+        (git/git-init! repo-path)
+        ;; Configure git user if needed
+        (when-not (git/git-config repo-path "user.name")
+          (git/git-config! repo-path "user.name" "alethfeld"))
+        (when-not (git/git-config repo-path "user.email")
+          (git/git-config! repo-path "user.email" "alethfeld@local"))
+        ;; Initialize repository structure
+        (let [config (store/init-repo! repo-path :project-name project-name)]
+          ;; Initialize session directories
+          (session/ensure-session-dirs! repo-path)
+          ;; Commit the initial structure
+          (git/git-add-all! repo-path)
+          (git/git-commit! repo-path (str "Initialize Alethfeld: " project-name))
+          {:message (str "Initialized Alethfeld repository: " project-name)
+           :config config
+           :next-actions [(make-action "af create --root --claim \"Your main theorem\""
+                                       "Create your first proof goal")
+                          (status-action)]})))))
 
 ;; -----------------------------------------------------------------------------
 ;; Show Command
 ;; -----------------------------------------------------------------------------
+
+(defn- format-show-concise
+  "Format concise mote display (default).
+
+   Returns a human-readable summary string."
+  [mote]
+  (let [status (name (:status mote))
+        taints (when (seq (:taint mote))
+                 (str " (" (str/join ", " (map name (:taint mote))) ")"))
+        claim (:claim mote)]
+    (str (:id mote) " [" status "]" taints "\n"
+         claim)))
+
+(defn- format-show-verbose
+  "Format verbose mote display (with --verbose flag).
+
+   Returns a detailed human-readable string."
+  [mote]
+  (let [sep (apply str (repeat 40 "-"))]
+    (str sep "\n"
+         "Mote: " (:id mote) "\n"
+         sep "\n"
+         "Status: " (name (:status mote)) "\n"
+         "Claim: " (:claim mote) "\n"
+         "Priority: " (name (:priority mote)) "\n"
+         "Difficulty: " (:difficulty mote) "\n"
+         (when (seq (:taint mote))
+           (str "Taints: " (str/join ", " (map name (:taint mote))) "\n"))
+         (when (:claimed-by mote)
+           (str "Claimed by: " (:claimed-by mote) "\n"))
+         (when (seq (:children mote))
+           (str "Children: " (str/join ", " (:children mote)) "\n"))
+         (when (:parent mote)
+           (str "Parent: " (:parent mote) "\n"))
+         (when-let [proposal (:proposal mote)]
+           (str "\nProposal:\n"
+                "  Proposer: " (:proposer proposal) "\n"
+                "  Children: " (str/join ", " (:children proposal)) "\n"
+                (when (seq (:votes proposal))
+                  (str "  Votes: " (count (:votes proposal)) "\n"))))
+         (when (seq (:votes mote))
+           (str "\nVotes: " (count (:votes mote))
+                " (for: " (count (filter #(= :for (:type %)) (:votes mote)))
+                ", against: " (count (filter #(= :against (:type %)) (:votes mote))) ")\n"))
+         (when (seq (:assumptions mote))
+           (str "\nAssumptions: " (count (:assumptions mote)) "\n"))
+         (when (seq (:definitions mote))
+           (str "Definitions: " (count (:definitions mote)) "\n"))
+         (when (seq (:depends-on mote))
+           (str "Dependencies: " (str/join ", " (map :ref (:depends-on mote))) "\n"))
+         "\nCreated: " (:created-at mote) " by " (:created-by mote))))
 
 (defn cmd-show
   "Display a mote's details.
@@ -182,14 +317,24 @@
    Arguments (in context):
    - :id - The mote ID to display
 
+   Options:
+   - :verbose - Show detailed output (default: concise)
+
    Returns the mote map, or throws if not found."
-  [{:keys [id]}]
+  [{:keys [id options]}]
   (let [repo-path "."
+        verbose? (:verbose options)
         mote (store/load-mote repo-path id)]
     (if mote
-      (assoc mote :next-actions [(tree-action id)
-                                 (ready-action)
-                                 (status-action)])
+      (let [output (if verbose?
+                     (format-show-verbose mote)
+                     (format-show-concise mote))]
+        (assoc mote
+               :output output
+               :verbose? verbose?
+               :next-actions [(tree-action id)
+                              (ready-action)
+                              (status-action)]))
       (throw (ex-info "Mote not found"
                       {:type :not-found
                        :mote-id id})))))
@@ -223,6 +368,7 @@
    - :difficulty - Difficulty 1-5 (optional, inherits from parent or defaults to 3)
    - :priority - Priority :p0-:p4 (optional, inherits from parent or defaults to :p2)
    - :agent - Agent name (default: 'cli-user')
+   - :dry-run - Show what would be created without executing
 
    For root motes:
    - Generates next available root ID (1, 2, 3, ...)
@@ -235,7 +381,7 @@
    Returns the created mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [claim root difficulty priority agent]} options
+        {:keys [claim root difficulty priority agent dry-run]} options
         agent (or agent "cli-user")]
 
     ;; Validation
@@ -263,15 +409,25 @@
     (if root
       ;; Create root mote
       (let [new-id (next-root-id repo-path)
-            new-mote (mote/make-root-mote new-id claim agent
-                                          :difficulty (or difficulty 3)
-                                          :priority (or priority :p2))
-            _ (tx/atomic-write! repo-path
-                                (str "Create root mote " new-id)
-                                [new-mote])]
-        (assoc new-mote :next-actions [(show-action new-id)
-                                       (ready-action)
-                                       (status-action)]))
+            eff-difficulty (or difficulty 3)
+            eff-priority (or priority :p2)]
+        (if dry-run
+          ;; Dry run
+          (dry-run-result
+           :output (str (format-would-create
+                         [{:id new-id :status :fixed :claim claim}])
+                        "\n\nPriority: " (name eff-priority) ", Difficulty: " eff-difficulty)
+           :would-create [{:id new-id :claim claim :status :fixed}])
+          ;; Execute
+          (let [new-mote (mote/make-root-mote new-id claim agent
+                                              :difficulty eff-difficulty
+                                              :priority eff-priority)
+                _ (tx/atomic-write! repo-path
+                                    (str "Create root mote " new-id)
+                                    [new-mote])]
+            (assoc new-mote :next-actions [(show-action new-id)
+                                           (ready-action)
+                                           (status-action)]))))
 
       ;; Create child mote
       (let [parent (store/load-mote repo-path id)]
@@ -282,16 +438,29 @@
 
         (let [existing-children (:children parent)
               new-id (id/next-child-id id existing-children)
-              new-mote (mote/make-child-mote new-id claim agent parent
-                                             :difficulty (or difficulty (:difficulty parent))
-                                             :priority (or priority (:priority parent)))
-              updated-parent (mote/add-child parent new-id)
-              _ (tx/atomic-write! repo-path
-                                  (str "Create child mote " new-id)
-                                  [new-mote updated-parent])]
-          (assoc new-mote :next-actions [(show-action new-id)
-                                         (tree-action id)
-                                         (ready-action)]))))))
+              eff-difficulty (or difficulty (:difficulty parent))
+              eff-priority (or priority (:priority parent))]
+          (if dry-run
+            ;; Dry run
+            (dry-run-result
+             :output (str (format-would-create
+                           [{:id new-id :status :fixed :claim claim}])
+                          (format-would-update
+                           [{:id id :change (str "add child " new-id)}])
+                          "\n\nPriority: " (name eff-priority) ", Difficulty: " eff-difficulty)
+             :would-create [{:id new-id :claim claim :status :fixed}]
+             :would-update [{:id id :change (str "add child " new-id)}])
+            ;; Execute
+            (let [new-mote (mote/make-child-mote new-id claim agent parent
+                                                 :difficulty eff-difficulty
+                                                 :priority eff-priority)
+                  updated-parent (mote/add-child parent new-id)
+                  _ (tx/atomic-write! repo-path
+                                      (str "Create child mote " new-id)
+                                      [new-mote updated-parent])]
+              (assoc new-mote :next-actions [(show-action new-id)
+                                             (tree-action id)
+                                             (ready-action)]))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Stale Session Cleanup Helper
@@ -794,6 +963,7 @@
    - :difficulty - Difficulty for claims (repeatable, positional)
    - :atomic - Mark claim as atomic (repeatable, positional)
    - :agent - Agent name (defaults to session agent)
+   - :dry-run - Show what would be created without executing
 
    Creates proposed children with :proposed status and attaches
    a proposal to the parent. Sets parent taint to :needs-proposal-review.
@@ -804,7 +974,8 @@
    - :children - Vector of created child motes"
   [{:keys [id args options]}]
   (let [repo-path "."
-        session-id (:session options)]
+        session-id (:session options)
+        dry-run? (:dry-run options)]
 
     ;; Validation
     (when-not id
@@ -826,30 +997,61 @@
                         {:type :not-initialized
                          :path repo-path})))
 
-      ;; Session enforcement
-      (when-not session-id
+      ;; Session enforcement (skip for dry-run)
+      (when (and (not dry-run?) (not session-id))
         (throw (ex-info "Session token is required"
                         {:type :validation-failed
                          :errors ["Provide --session with session token"]})))
 
-      (let [sess (session/enforce-session! repo-path session-id :propose id)
-            agent (or (:agent options) (:agent sess))
-            ;; Parse positional claims (with @N and ! notation support)
-            parsed-positional (parse-claims positional-claims)
+      ;; Parse positional claims (with @N and ! notation support)
+      (let [parsed-positional (parse-claims positional-claims)
             ;; Parse option-based claims (merge with --difficulty and --atomic)
             parsed-options (when (seq option-claims)
                             (merge-option-claims option-claims
                                                  (:difficulty options)
                                                  (:atomic options)))
             ;; Combine claims (positional first, then options)
-            claims (vec (concat parsed-positional parsed-options))
-            result (proposal/create-proposal! repo-path id claims agent)
-            proposal-result (:result result)
-            child-count (count (:children proposal-result))]
-        (assoc proposal-result
-               :next-actions [(done-action session-id)
-                              (show-action id)]
-               :message (str "Created proposal with " child-count " children. Waiting for advisor approval."))))))
+            claims (vec (concat parsed-positional parsed-options))]
+
+        (if dry-run?
+          ;; Dry run - show what would be created
+          (let [parent (store/load-mote repo-path id)
+                _ (when-not parent
+                    (throw (ex-info "Parent mote not found"
+                                    {:type :not-found
+                                     :mote-id id})))
+                existing-children (:children parent)
+                ;; Calculate what IDs would be assigned
+                child-infos (map-indexed
+                             (fn [idx claim-info]
+                               (let [child-id (id/next-child-id id (concat existing-children
+                                                                            (map :id (take idx []))))]
+                                 {:id (str id "." (+ 1 idx (count existing-children)))
+                                  :status :proposed
+                                  :claim (:claim claim-info)
+                                  :atomic (:atomic claim-info)}))
+                             claims)
+                config (store/load-config repo-path)]
+            (dry-run-result
+             :output (str (format-would-create child-infos)
+                          (format-would-update
+                           [{:id id :change "set taint :needs-proposal-review"}])
+                          "\n\nWould require " (:proposal-quorum config 2) " advisor votes to approve.")
+             :would-create (vec child-infos)
+             :would-update [{:id id :change "set taint :needs-proposal-review"}]
+             :next-actions [(done-action (or session-id "<session>"))
+                            (show-action id)]))
+
+          ;; Execute
+          (let [sess (session/enforce-session! repo-path session-id :propose id)
+                agent (or (:agent options) (:agent sess))
+                result (proposal/create-proposal! repo-path id claims agent)
+                proposal-result (:result result)
+                child-count (count (:children proposal-result))]
+            (assoc proposal-result
+                   :next-actions [(done-action session-id)
+                                  (show-action id)]
+                   :message (str "Created proposal with " child-count " children. Waiting for advisor approval."))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Approve Command
@@ -865,6 +1067,7 @@
    - :session - Session token (required)
    - :agent - Agent name (defaults to session agent)
    - :reason - Reason for approval (optional)
+   - :dry-run - Show what would happen without executing
 
    If quorum is reached:
    - Children move from proposed/ to motes/ with :fixed status
@@ -878,7 +1081,8 @@
   [{:keys [id options]}]
   (let [repo-path "."
         session-id (:session options)
-        reason (:reason options)]
+        reason (:reason options)
+        dry-run? (:dry-run options)]
 
     ;; Validation
     (when-not id
@@ -892,27 +1096,62 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
-    (when-not session-id
+    ;; Session enforcement (skip for dry-run)
+    (when (and (not dry-run?) (not session-id))
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
 
-    (let [sess (session/enforce-session! repo-path session-id :approve id)
-          agent (or (:agent options) (:agent sess))
-          result (proposal/approve-proposal! repo-path id agent :reason reason)
-          approve-result (:result result)
-          quorum-status (:quorum-status approve-result)]
-      (assoc approve-result
-             :next-actions (if (= :approved quorum-status)
-                             ;; Quorum reached - children promoted
-                             [(done-action session-id)]
-                             ;; Still pending - waiting for more votes
-                             [(done-action session-id)
-                              (show-action id)])
-             :message (if (= :approved quorum-status)
-                        "Proposal approved! Children promoted to fixed status."
-                        "Vote recorded. Waiting for more advisor votes.")))))
+    (if dry-run?
+      ;; Dry run - show what would happen
+      (let [mote (store/load-mote repo-path id)
+            _ (when-not mote
+                (throw (ex-info "Mote not found"
+                                {:type :not-found
+                                 :mote-id id})))
+            proposal (:proposal mote)
+            _ (when-not proposal
+                (throw (ex-info "No active proposal on this mote"
+                                {:type :no-proposal
+                                 :mote-id id})))
+            config (store/load-config repo-path)
+            current-approvals (count (filter #(= :approve (:type %)) (:votes proposal)))
+            quorum (:proposal-quorum config 2)
+            would-reach-quorum? (>= (inc current-approvals) quorum)]
+        (dry-run-result
+         :output (str "Would record approval vote on " id
+                      "\n\nCurrent votes: " current-approvals "/" quorum " approvals"
+                      (if would-reach-quorum?
+                        (str "\n\nQuorum would be reached!"
+                             (format-would-update
+                              (mapv (fn [child-id] {:id child-id :change "promote to :fixed status"})
+                                    (:children proposal)))
+                             (format-would-update [{:id id :change "clear proposal, update children list"}]))
+                        (str "\n\nQuorum not yet reached. " (- quorum (inc current-approvals)) " more votes needed.")))
+         :would-update (if would-reach-quorum?
+                         (conj (mapv (fn [child-id] {:id child-id :change "promote"})
+                                     (:children proposal))
+                               {:id id :change "clear proposal"})
+                         [{:id id :change "add approval vote"}])
+         :next-actions [(done-action (or session-id "<session>"))
+                        (show-action id)]))
+
+      ;; Execute
+      (let [sess (session/enforce-session! repo-path session-id :approve id)
+            agent (or (:agent options) (:agent sess))
+            result (proposal/approve-proposal! repo-path id agent :reason reason)
+            approve-result (:result result)
+            quorum-status (:quorum-status approve-result)]
+        (assoc approve-result
+               :next-actions (if (= :approved quorum-status)
+                               ;; Quorum reached - children promoted
+                               [(done-action session-id)]
+                               ;; Still pending - waiting for more votes
+                               [(done-action session-id)
+                                (show-action id)])
+               :message (if (= :approved quorum-status)
+                          "Proposal approved! Children promoted to fixed status."
+                          "Vote recorded. Waiting for more advisor votes."))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Reject Command
@@ -928,6 +1167,7 @@
    - :session - Session token (required)
    - :agent - Agent name (defaults to session agent)
    - :reason - Reason for rejection (optional)
+   - :dry-run - Show what would happen without executing
 
    If quorum is reached:
    - Children move from proposed/ to archive/ with :rejected status
@@ -941,7 +1181,8 @@
   [{:keys [id options]}]
   (let [repo-path "."
         session-id (:session options)
-        reason (:reason options)]
+        reason (:reason options)
+        dry-run? (:dry-run options)]
 
     ;; Validation
     (when-not id
@@ -955,27 +1196,59 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
-    (when-not session-id
+    ;; Session enforcement (skip for dry-run)
+    (when (and (not dry-run?) (not session-id))
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
 
-    (let [sess (session/enforce-session! repo-path session-id :reject id)
-          agent (or (:agent options) (:agent sess))
-          result (proposal/reject-proposal! repo-path id agent :reason reason)
-          reject-result (:result result)
-          quorum-status (:quorum-status reject-result)]
-      (assoc reject-result
-             :next-actions (if (= :rejected quorum-status)
-                             ;; Quorum reached - children archived
-                             [(done-action session-id)]
-                             ;; Still pending - waiting for more votes
-                             [(done-action session-id)
-                              (show-action id)])
-             :message (if (= :rejected quorum-status)
-                        "Proposal rejected. Children archived."
-                        "Vote recorded. Waiting for more advisor votes.")))))
+    (if dry-run?
+      ;; Dry run - show what would happen
+      (let [mote (store/load-mote repo-path id)
+            _ (when-not mote
+                (throw (ex-info "Mote not found"
+                                {:type :not-found
+                                 :mote-id id})))
+            proposal (:proposal mote)
+            _ (when-not proposal
+                (throw (ex-info "No active proposal on this mote"
+                                {:type :no-proposal
+                                 :mote-id id})))
+            config (store/load-config repo-path)
+            current-rejections (count (filter #(= :reject (:type %)) (:votes proposal)))
+            quorum (:proposal-quorum config 2)
+            would-reach-quorum? (>= (inc current-rejections) quorum)]
+        (dry-run-result
+         :output (str "Would record rejection vote on " id
+                      "\n\nCurrent votes: " current-rejections "/" quorum " rejections"
+                      (if would-reach-quorum?
+                        (str "\n\nQuorum would be reached!"
+                             (format-would-delete (:children proposal))
+                             (format-would-update [{:id id :change "clear proposal, add :needs-decomposition taint"}]))
+                        (str "\n\nQuorum not yet reached. " (- quorum (inc current-rejections)) " more votes needed.")))
+         :would-delete (when would-reach-quorum? (:children proposal))
+         :would-update [{:id id :change (if would-reach-quorum?
+                                          "clear proposal, add :needs-decomposition"
+                                          "add rejection vote")}]
+         :next-actions [(done-action (or session-id "<session>"))
+                        (show-action id)]))
+
+      ;; Execute
+      (let [sess (session/enforce-session! repo-path session-id :reject id)
+            agent (or (:agent options) (:agent sess))
+            result (proposal/reject-proposal! repo-path id agent :reason reason)
+            reject-result (:result result)
+            quorum-status (:quorum-status reject-result)]
+        (assoc reject-result
+               :next-actions (if (= :rejected quorum-status)
+                               ;; Quorum reached - children archived
+                               [(done-action session-id)]
+                               ;; Still pending - waiting for more votes
+                               [(done-action session-id)
+                                (show-action id)])
+               :message (if (= :rejected quorum-status)
+                          "Proposal rejected. Children archived."
+                          "Vote recorded. Waiting for more advisor votes."))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Update Command
@@ -1004,13 +1277,14 @@
    - :priority - New priority (p0-p4)
    - :difficulty - New difficulty (1-5)
    - :agent - Agent name (default: 'cli-user')
+   - :dry-run - Show what would change without executing
 
    At least one of claim/priority/difficulty must be provided.
 
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [claim priority difficulty agent]} options
+        {:keys [claim priority difficulty agent dry-run]} options
         agent (or agent "cli-user")]
 
     ;; Validation
@@ -1050,17 +1324,29 @@
                           {:type :validation-failed
                            :errors [(str "Difficulty must be 1-5, got: " difficulty)]})))
 
-        ;; Apply updates
-        (let [updated-mote (cond-> current-mote
-                            claim (mote/set-claim claim)
-                            parsed-priority (mote/set-priority parsed-priority)
-                            difficulty (mote/set-difficulty difficulty))]
-          (tx/atomic-write! repo-path
-                            (str "Update mote " id)
-                            [updated-mote])
-          (assoc updated-mote
-                 :next-actions [(show-action id)
-                                (ready-action)]))))))
+        (if dry-run
+          ;; Dry run - show what would change
+          (let [changes (cond-> []
+                          claim (conj (str "claim: \"" (:claim current-mote) "\" -> \"" claim "\""))
+                          parsed-priority (conj (str "priority: " (name (:priority current-mote)) " -> " (name parsed-priority)))
+                          difficulty (conj (str "difficulty: " (:difficulty current-mote) " -> " difficulty)))]
+            (dry-run-result
+             :output (str (format-would-update
+                           [{:id id :change (str/join ", " changes)}]))
+             :would-update [{:id id :change (str/join ", " changes)}]
+             :next-actions [(show-action id)
+                            (ready-action)]))
+          ;; Execute
+          (let [updated-mote (cond-> current-mote
+                              claim (mote/set-claim claim)
+                              parsed-priority (mote/set-priority parsed-priority)
+                              difficulty (mote/set-difficulty difficulty))]
+            (tx/atomic-write! repo-path
+                              (str "Update mote " id)
+                              [updated-mote])
+            (assoc updated-mote
+                   :next-actions [(show-action id)
+                                  (ready-action)])))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Vote Command
@@ -1079,6 +1365,7 @@
    - :reason - Reason for vote (optional)
    - :agent - Agent name (defaults to session agent)
    - :propagate - Auto-vote on parents when all children verified
+   - :dry-run - Show what would happen without executing
 
    Exactly one of --for or --against must be provided.
 
@@ -1100,7 +1387,7 @@
    - :propagated - Vector of parent IDs that were auto-voted (if --propagate)"
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [for against reason session propagate]} options]
+        {:keys [for against reason session propagate dry-run]} options]
 
     ;; Validation
     (when-not id
@@ -1124,32 +1411,68 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
-    (when-not session
+    ;; Session enforcement (skip for dry-run)
+    (when (and (not dry-run) (not session))
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
 
-    (let [sess (session/enforce-session! repo-path session :vote id)
-          agent (or (:agent options) (:agent sess))
-          vote-type (if for :for :against)
-          result (verify/cast-vote! repo-path id agent vote-type :reason reason)
-          vote-result (:result result)
-          quorum-status (:quorum-status vote-result)
-          ;; Handle propagation if requested and vote was for (not against)
-          final-result (if (and propagate for (= :verified quorum-status))
-                         (let [propagated (verify/propagate-verification! repo-path id agent :reason reason)]
-                           (assoc vote-result :propagated propagated))
-                         vote-result)
-          ;; Generate intelligent next-actions based on state
-          next-acts (generate-vote-next-actions repo-path id session agent quorum-status)]
-      (assoc final-result
-             :next-actions next-acts
-             :message (case quorum-status
-                        :verified "Mote verified! Quorum reached."
-                        :refuted "Mote refuted. Quorum reached."
-                        :contested "Mote contested - votes are mixed."
-                        :pending (str "Vote recorded. Waiting for more votes."))))))
+    (if dry-run
+      ;; Dry run - show what would happen
+      (let [mote (store/load-mote repo-path id)
+            _ (when-not mote
+                (throw (ex-info "Mote not found"
+                                {:type :not-found
+                                 :mote-id id})))
+            config (store/load-config repo-path)
+            vote-type (if for "FOR" "AGAINST")
+            current-votes (:votes mote)
+            for-votes (count (filter #(= :for (:type %)) current-votes))
+            against-votes (count (filter #(= :against (:type %)) current-votes))
+            quorum (:vote-quorum config 2)
+            new-for (if for (inc for-votes) for-votes)
+            new-against (if against (inc against-votes) against-votes)
+            total-votes (+ new-for new-against)
+            would-reach-quorum? (>= total-votes quorum)
+            predicted-status (when would-reach-quorum?
+                               (cond
+                                 (and (pos? new-for) (zero? new-against)) :verified
+                                 (and (zero? new-for) (pos? new-against)) :refuted
+                                 :else :contested))]
+        (dry-run-result
+         :output (str "Would vote " vote-type " on " id
+                      "\n\nCurrent votes: " for-votes " for, " against-votes " against (quorum: " quorum ")"
+                      "\nAfter vote: " new-for " for, " new-against " against"
+                      (if would-reach-quorum?
+                        (str "\n\nQuorum would be reached! Status would change to: " (name predicted-status))
+                        (str "\n\nQuorum not yet reached. Need " (- quorum total-votes) " more votes.")))
+         :would-update [{:id id :change (str "add " vote-type " vote"
+                                             (when would-reach-quorum?
+                                               (str ", change status to " (name predicted-status))))}]
+         :next-actions [(done-action (or session "<session>"))
+                        (show-action id)]))
+
+      ;; Execute
+      (let [sess (session/enforce-session! repo-path session :vote id)
+            agent (or (:agent options) (:agent sess))
+            vote-type (if for :for :against)
+            result (verify/cast-vote! repo-path id agent vote-type :reason reason)
+            vote-result (:result result)
+            quorum-status (:quorum-status vote-result)
+            ;; Handle propagation if requested and vote was for (not against)
+            final-result (if (and propagate for (= :verified quorum-status))
+                           (let [propagated (verify/propagate-verification! repo-path id agent :reason reason)]
+                             (assoc vote-result :propagated propagated))
+                           vote-result)
+            ;; Generate intelligent next-actions based on state
+            next-acts (generate-vote-next-actions repo-path id session agent quorum-status)]
+        (assoc final-result
+               :next-actions next-acts
+               :message (case quorum-status
+                          :verified "Mote verified! Quorum reached."
+                          :refuted "Mote refuted. Quorum reached."
+                          :contested "Mote contested - votes are mixed."
+                          :pending (str "Vote recorded. Waiting for more votes.")))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Batch Vote Command
@@ -1299,6 +1622,7 @@
    - :session - Session token (required)
    - :add - Taint to add (can be specified multiple times)
    - :remove - Taint to remove (can be specified multiple times)
+   - :dry-run - Show what would change without executing
 
    Valid taints:
    - needs-decomposition
@@ -1316,7 +1640,7 @@
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [add remove session]} options
+        {:keys [add remove session dry-run]} options
         ;; Support both single value and vector for add/remove
         adds (if (sequential? add) add (when add [add]))
         removes (if (sequential? remove) remove (when remove [remove]))]
@@ -1338,17 +1662,11 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
-    (when-not session
+    ;; Session enforcement (skip for dry-run)
+    (when (and (not dry-run) (not session))
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
-
-    ;; Enforce session - check both actions if both operations requested
-    (when (seq adds)
-      (session/enforce-session! repo-path session :taint-add id))
-    (when (seq removes)
-      (session/enforce-session! repo-path session :taint-remove id))
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -1371,16 +1689,43 @@
                              :errors [(str "Invalid taint: " (first invalid-values)
                                            ". Valid taints: " (str/join ", " (map name valid-taints)))]}))))
 
-        ;; Apply taint changes
-        (let [updated-mote (as-> current-mote m
-                            (reduce mote/add-taint m (filter some? parsed-adds))
-                            (reduce mote/remove-taint m (filter some? parsed-removes)))]
-          (tx/atomic-write! repo-path
-                            (str "Update taints on " id)
-                            [updated-mote])
-          (assoc updated-mote
-                 :next-actions [(done-action session)
-                                (show-action id)]))))))
+        (if dry-run
+          ;; Dry run - show what would change
+          (let [current-taints (set (:taint current-mote))
+                new-taints (-> current-taints
+                               (into (filter some? parsed-adds))
+                               (disj (filter some? parsed-removes)))
+                changes (cond-> []
+                          (seq adds) (conj (str "add: " (str/join ", " (map name (filter some? parsed-adds)))))
+                          (seq removes) (conj (str "remove: " (str/join ", " (map name (filter some? parsed-removes))))))]
+            (dry-run-result
+             :output (str "Current taints: " (if (seq current-taints)
+                                               (str/join ", " (map name current-taints))
+                                               "(none)")
+                          (format-would-update
+                           [{:id id :change (str/join "; " changes)}]))
+             :would-update [{:id id :change (str/join "; " changes)}]
+             :next-actions [(done-action (or session "<session>"))
+                            (show-action id)]))
+
+          ;; Execute
+          (do
+            ;; Enforce session - check both actions if both operations requested
+            (when (seq adds)
+              (session/enforce-session! repo-path session :taint-add id))
+            (when (seq removes)
+              (session/enforce-session! repo-path session :taint-remove id))
+
+            ;; Apply taint changes
+            (let [updated-mote (as-> current-mote m
+                                (reduce mote/add-taint m (filter some? parsed-adds))
+                                (reduce mote/remove-taint m (filter some? parsed-removes)))]
+              (tx/atomic-write! repo-path
+                                (str "Update taints on " id)
+                                [updated-mote])
+              (assoc updated-mote
+                     :next-actions [(done-action session)
+                                    (show-action id)]))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Claim Command
@@ -1396,13 +1741,14 @@
    - :agent - Agent name (required)
    - :role - Role for this session (required)
            One of: proposer, advisor, prover, verifier, ref-checker, counterexample
+   - :dry-run - Show what would happen without executing
 
    Errors if mote is already claimed by another agent.
 
    Returns the updated mote with :session-id."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [agent role]} options]
+        {:keys [agent role dry-run]} options]
 
     ;; Validation
     (when-not id
@@ -1441,41 +1787,56 @@
                          :mote-id id})))
 
       ;; Check if already claimed by another agent
-      (let [current-claimer (:claimed-by current-mote)]
-        (when (and current-claimer (not= current-claimer agent))
+      (when-let [current-claimer (:claimed-by current-mote)]
+        (when (not= current-claimer agent)
           (throw (ex-info "Mote already claimed"
                           {:type :already-claimed
                            :mote-id id
                            :claimed-by current-claimer}))))
 
-      ;; Ensure session directories exist
-      (session/ensure-session-dirs! repo-path)
+      (if dry-run
+        ;; Dry run - show what would happen
+        (dry-run-result
+         :output (str "Would claim mote " id " for agent \"" agent "\" as " (name role)
+                      (format-would-create
+                       [(str "session for " agent " on " id " as " (name role))])
+                      (format-would-update
+                       [{:id id :change (str "set claimed-by to \"" agent "\"")}]))
+         :would-create [{:type :session :agent agent :mote-id id :role role}]
+         :would-update [{:id id :change (str "claimed-by: " agent)}]
+         :next-actions [(show-action id)
+                        (ready-action)])
 
-      ;; Create session
-      (let [sess (session/create-session! repo-path id role agent)
-            session-id (:session-id sess)
-            updated-mote (mote/set-claimed-by current-mote agent)]
-        (tx/atomic-write! repo-path
-                          (str "Claim mote " id " for " agent " as " (name role))
-                          [updated-mote])
-        (assoc updated-mote
-               :session-id session-id
-               :next-actions (conj
-                              (case role
-                                :verifier [(vote-action id session-id :for)
-                                           (vote-action id session-id :against)]
-                                :advisor [(approve-action id session-id)
-                                          (reject-action id session-id)]
-                                :proposer [(make-action (str "af propose " id " --session " session-id " --claim \"...\"")
-                                                        "Submit decomposition proposal")]
-                                :prover [(make-action (str "af add-ref " id " --session " session-id " --ref \"...\"")
-                                                      "Add external reference")]
-                                :ref-checker [(make-action (str "af add-ref " id " --session " session-id " --ref \"...\"")
-                                                           "Add/update references")]
-                                :counterexample [(vote-action id session-id :for)
-                                                 (vote-action id session-id :against)]
-                                [])
-                              (done-action session-id)))))))
+        ;; Execute
+        (do
+          ;; Ensure session directories exist
+          (session/ensure-session-dirs! repo-path)
+
+          ;; Create session
+          (let [sess (session/create-session! repo-path id role agent)
+                session-id (:session-id sess)
+                updated-mote (mote/set-claimed-by current-mote agent)]
+            (tx/atomic-write! repo-path
+                              (str "Claim mote " id " for " agent " as " (name role))
+                              [updated-mote])
+            (assoc updated-mote
+                   :session-id session-id
+                   :next-actions (conj
+                                  (case role
+                                    :verifier [(vote-action id session-id :for)
+                                               (vote-action id session-id :against)]
+                                    :advisor [(approve-action id session-id)
+                                              (reject-action id session-id)]
+                                    :proposer [(make-action (str "af propose " id " --session " session-id " --claim \"...\"")
+                                                            "Submit decomposition proposal")]
+                                    :prover [(make-action (str "af add-ref " id " --session " session-id " --ref \"...\"")
+                                                          "Add external reference")]
+                                    :ref-checker [(make-action (str "af add-ref " id " --session " session-id " --ref \"...\"")
+                                                               "Add/update references")]
+                                    :counterexample [(vote-action id session-id :for)
+                                                     (vote-action id session-id :against)]
+                                    [])
+                                  (done-action session-id)))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Unclaim Command
@@ -1489,6 +1850,7 @@
 
    Options:
    - :session - Session token (required)
+   - :dry-run - Show what would happen without executing
 
    Note: Prefer using 'af done' which properly ends the session.
    This command releases the claim but does not end the session.
@@ -1496,7 +1858,8 @@
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        session-id (:session options)]
+        session-id (:session options)
+        dry-run? (:dry-run options)]
 
     ;; Validation
     (when-not id
@@ -1510,13 +1873,11 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement (lighter validation - any session holder can unclaim)
-    (when-not session-id
+    ;; Session enforcement (lighter validation - any session holder can unclaim, skip for dry-run)
+    (when (and (not dry-run?) (not session-id))
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
-
-    (session/validate-session! repo-path session-id id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -1525,14 +1886,30 @@
                         {:type :not-found
                          :mote-id id})))
 
-      ;; Clear claim
-      (let [updated-mote (mote/clear-claim current-mote)]
-        (tx/atomic-write! repo-path
-                          (str "Unclaim mote " id)
-                          [updated-mote])
-        (assoc updated-mote
-               :next-actions [(ready-action)
-                              (status-action)])))))
+      (if dry-run?
+        ;; Dry run - show what would happen
+        (dry-run-result
+         :output (str "Would release claim on mote " id
+                      (when (:claimed-by current-mote)
+                        (str " (currently claimed by \"" (:claimed-by current-mote) "\")"))
+                      (format-would-update
+                       [{:id id :change "clear claimed-by"}]))
+         :would-update [{:id id :change "clear claimed-by"}]
+         :next-actions [(ready-action)
+                        (status-action)])
+
+        ;; Execute
+        (do
+          (session/validate-session! repo-path session-id id)
+
+          ;; Clear claim
+          (let [updated-mote (mote/clear-claim current-mote)]
+            (tx/atomic-write! repo-path
+                              (str "Unclaim mote " id)
+                              [updated-mote])
+            (assoc updated-mote
+                   :next-actions [(ready-action)
+                                  (status-action)])))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Done Command
@@ -1543,6 +1920,7 @@
 
    Options:
    - :session - Session token (required)
+   - :dry-run - Show what would happen without executing
 
    Ends the active session and releases the mote for other agents.
    The session is moved to the completed directory with stats recorded.
@@ -1553,7 +1931,8 @@
    - :action-count - Number of actions performed in the session"
   [{:keys [options]}]
   (let [repo-path "."
-        session-id (:session options)]
+        session-id (:session options)
+        dry-run? (:dry-run options)]
 
     ;; Validation
     (when-not session-id
@@ -1591,26 +1970,44 @@
                            :session-id session-id
                            :mote-id mote-id})))
 
-        ;; End session with stats and clear mote claim
-        (let [ended-session (session/end-session! repo-path session-id :record-stats true)
-              updated-mote (mote/clear-claim mote)]
+        (if dry-run?
+          ;; Dry run - show what would happen
+          (dry-run-result
+           :output (str "Would end session " session-id
+                        "\n\nSession info:"
+                        "\n  Agent: " (:agent sess)
+                        "\n  Mote: " mote-id
+                        "\n  Role: " (name (:role sess))
+                        "\n  Actions: " (:action-count sess 0)
+                        (format-would-delete
+                         [(str "session " session-id)])
+                        (format-would-update
+                         [{:id mote-id :change "clear claimed-by"}]))
+           :would-delete [(str "session " session-id)]
+           :would-update [{:id mote-id :change "clear claimed-by"}]
+           :next-actions [(ready-action)
+                          (status-action)])
 
-          ;; Commit the changes
-          (tx/atomic-write! repo-path
-                            (str "Done: end session for " mote-id)
-                            [updated-mote])
+          ;; Execute
+          (let [ended-session (session/end-session! repo-path session-id :record-stats true)
+                updated-mote (mote/clear-claim mote)]
 
-          {:session-id session-id
-           :mote-id mote-id
-           :action-count (:action-count ended-session)
-           ;; CRITICAL: Agent termination message (alethfeld-atkc)
-           :agent-should-terminate true
-           :message "Session ended successfully."
-           :terminate-message (str "\nYour work is complete. This agent should now terminate.\n\n"
-                                   "To start new work, spawn a fresh agent:\n"
-                                   "  af ready --agent <new-name>")
-           :next-actions [(make-action "# Agent should terminate now" "Work complete - end this agent")
-                          (make-action "af ready --agent <new-name>" "Start fresh agent for new work")]})))))
+            ;; Commit the changes
+            (tx/atomic-write! repo-path
+                              (str "Done: end session for " mote-id)
+                              [updated-mote])
+
+            {:session-id session-id
+             :mote-id mote-id
+             :action-count (:action-count ended-session)
+             ;; CRITICAL: Agent termination message (alethfeld-atkc)
+             :agent-should-terminate true
+             :message "Session ended successfully."
+             :terminate-message (str "\nYour work is complete. This agent should now terminate.\n\n"
+                                     "To start new work, spawn a fresh agent:\n"
+                                     "  af ready --agent <new-name>")
+             :next-actions [(make-action "# Agent should terminate now" "Work complete - end this agent")
+                            (make-action "af ready --agent <new-name>" "Start fresh agent for new work")]}))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Withdraw Command
@@ -1624,6 +2021,7 @@
 
    Options:
    - :session - Session token (required)
+   - :dry-run - Show what would happen without executing
 
    Only the original proposer can withdraw their own proposal.
    The proposal must be pending (not yet approved or rejected).
@@ -1638,7 +2036,8 @@
    - :mote-id - The parent mote ID"
   [{:keys [id options]}]
   (let [repo-path "."
-        session-id (:session options)]
+        session-id (:session options)
+        dry-run? (:dry-run options)]
 
     ;; Validation
     (when-not id
@@ -1652,31 +2051,53 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
-    (when-not session-id
+    ;; Session enforcement (skip for dry-run)
+    (when (and (not dry-run?) (not session-id))
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
 
-    ;; Validate session (but we don't use enforce-session! since withdraw
-    ;; is a special action that depends on being the proposer, not on role)
-    (let [sess (session/load-active-session repo-path session-id)]
-      (when-not sess
-        (throw (ex-info "Session not found or expired"
-                        {:type :invalid-session
-                         :session-id session-id})))
-      (when (session/session-expired? sess)
-        (throw (ex-info "Session has expired"
-                        {:type :session-expired
-                         :session-id session-id})))
+    (if dry-run?
+      ;; Dry run - show what would happen
+      (let [mote (store/load-mote repo-path id)
+            _ (when-not mote
+                (throw (ex-info "Mote not found"
+                                {:type :not-found
+                                 :mote-id id})))
+            proposal (:proposal mote)
+            _ (when-not proposal
+                (throw (ex-info "No active proposal on this mote"
+                                {:type :no-proposal
+                                 :mote-id id})))
+            children (:children proposal)]
+        (dry-run-result
+         :output (str "Would withdraw proposal on " id
+                      (format-would-delete children)
+                      (format-would-update
+                       [{:id id :change "clear proposal, add :needs-decomposition taint"}]))
+         :would-delete children
+         :would-update [{:id id :change "clear proposal"}]
+         :next-actions [(done-action (or session-id "<session>"))
+                        (show-action id)]))
 
-      (let [agent (:agent sess)
-            result (proposal/withdraw-proposal! repo-path id agent)]
-        (assoc (:result result)
-               :mote-id id
-               :message "Proposal withdrawn. Children archived."
-               :next-actions [(done-action session-id)
-                              (show-action id)])))))
+      ;; Execute
+      (let [sess (session/load-active-session repo-path session-id)]
+        (when-not sess
+          (throw (ex-info "Session not found or expired"
+                          {:type :invalid-session
+                           :session-id session-id})))
+        (when (session/session-expired? sess)
+          (throw (ex-info "Session has expired"
+                          {:type :session-expired
+                           :session-id session-id})))
+
+        (let [agent (:agent sess)
+              result (proposal/withdraw-proposal! repo-path id agent)]
+          (assoc (:result result)
+                 :mote-id id
+                 :message "Proposal withdrawn. Children archived."
+                 :next-actions [(done-action session-id)
+                                (show-action id)]))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Add-Ref Command
@@ -1973,6 +2394,41 @@
 ;; Check Command
 ;; -----------------------------------------------------------------------------
 
+(defn- format-check-concise
+  "Format concise check output (default).
+
+   Returns a human-readable summary string."
+  [valid? mote-count schema-error-count dag-error-count]
+  (if valid?
+    (str "OK - " mote-count " motes validated")
+    (str "FAILED - " (+ schema-error-count dag-error-count) " errors found"
+         (when (pos? schema-error-count)
+           (str " (" schema-error-count " schema)"))
+         (when (pos? dag-error-count)
+           (str " (" dag-error-count " DAG)")))))
+
+(defn- format-check-verbose
+  "Format verbose check output (with --verbose flag).
+
+   Returns a detailed human-readable string."
+  [valid? mote-count schema-errors dag-errors]
+  (str "DAG Integrity Check\n"
+       "==================\n"
+       "Motes checked: " mote-count "\n"
+       "Result: " (if valid? "VALID" "INVALID") "\n"
+       (when (seq schema-errors)
+         (str "\nSchema Errors (" (count schema-errors) "):\n"
+              (str/join "\n"
+                        (for [{:keys [mote-id error]} schema-errors]
+                          (str "  " mote-id ": " error)))))
+       (when (seq dag-errors)
+         (str "\nDAG Errors (" (count dag-errors) "):\n"
+              (str/join "\n"
+                        (for [error dag-errors]
+                          (str "  " (if (map? error)
+                                      (str (:type error) ": " (:message error))
+                                      error))))))))
+
 (defn cmd-check
   "Validate entire DAG integrity.
 
@@ -1983,13 +2439,18 @@
    4. All internal assumption refs exist
    5. Schema validation on all motes
 
+   Options:
+   - :verbose - Show detailed error information
+
    Returns a result map:
    - :valid? - true if all validations passed
    - :mote-count - number of motes checked
    - :schema-errors - vector of schema validation errors (if any)
-   - :dag-errors - vector of DAG validation errors (if any)"
-  [_ctx]
-  (let [repo-path "."]
+   - :dag-errors - vector of DAG validation errors (if any)
+   - :output - Formatted check result string"
+  [{:keys [options]}]
+  (let [repo-path "."
+        verbose? (:verbose options)]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
@@ -2014,12 +2475,19 @@
 
           ;; Combine results
           all-valid? (and (empty? schema-errors)
-                          (:valid? dag-result))]
+                          (:valid? dag-result))
+
+          ;; Format output
+          output (if verbose?
+                   (format-check-verbose all-valid? (count motes) schema-errors dag-errors)
+                   (format-check-concise all-valid? (count motes) (count schema-errors) (count dag-errors)))]
 
       {:valid? all-valid?
        :mote-count (count motes)
        :schema-errors (when (seq schema-errors) schema-errors)
        :dag-errors (when (seq dag-errors) dag-errors)
+       :output output
+       :verbose? verbose?
        :message (if all-valid?
                   (str "All " (count motes) " motes valid.")
                   (str "Validation failed - found errors."))
@@ -2032,6 +2500,35 @@
 ;; Log Command
 ;; -----------------------------------------------------------------------------
 
+(defn- format-log-concise
+  "Format concise log output (default).
+
+   Returns a human-readable summary string."
+  [commits mote-id]
+  (if (empty? commits)
+    (str "No history for mote " mote-id)
+    (str "History for " mote-id " (" (count commits) " commits):\n"
+         (str/join "\n"
+                   (for [commit commits]
+                     (str "  " (:sha commit) " " (:message commit)))))))
+
+(defn- format-log-verbose
+  "Format verbose log output (with --verbose flag).
+
+   Returns a detailed human-readable string."
+  [commits mote-id]
+  (if (empty? commits)
+    (str "No history for mote " mote-id)
+    (str "History for " mote-id " (" (count commits) " commits):\n"
+         (str/join "\n\n"
+                   (for [commit commits]
+                     (str "  " (:sha commit) "\n"
+                          "    " (:message commit)
+                          (when (:author commit)
+                            (str "\n    Author: " (:author commit)))
+                          (when (:date commit)
+                            (str "\n    Date: " (:date commit)))))))))
+
 (defn cmd-log
   "Show git history for a mote.
 
@@ -2040,13 +2537,16 @@
 
    Options:
    - :limit - Maximum number of commits to show (default: 50)
+   - :verbose - Show detailed commit info (author, date)
 
-   Returns a vector of commit maps:
-   - :sha - Commit SHA (short)
-   - :message - Commit message"
+   Returns a map with:
+   - :commits - Vector of commit maps
+   - :mote-id - The mote ID
+   - :output - Formatted history string"
   [{:keys [id options]}]
   (let [repo-path "."
-        limit (or (:limit options) 50)]
+        limit (or (:limit options) 50)
+        verbose? (:verbose options)]
 
     ;; Validation
     (when-not id
@@ -2069,9 +2569,15 @@
 
       ;; Get file path for the mote
       (let [mote-file-path (path/mote-id->path id (:status mote))
-            history (git/git-log repo-path :path mote-file-path :max-count limit)]
-        {:commits (or history [])
+            history (git/git-log repo-path :path mote-file-path :max-count limit)
+            commits (or history [])
+            output (if verbose?
+                     (format-log-verbose commits id)
+                     (format-log-concise commits id))]
+        {:commits commits
          :mote-id id
+         :output output
+         :verbose? verbose?
          :next-actions [(show-action id)
                         (tree-action id)
                         (status-action)]}))))
@@ -2097,6 +2603,7 @@
 
    Options:
    - :no-push - Skip the push step (useful for offline work)
+   - :dry-run - Show what would happen without executing
 
    Returns a result map:
    - :pulled - true if pull succeeded (or :skipped if no remote)
@@ -2107,7 +2614,8 @@
    Note: If no remote is configured, pull and push are skipped gracefully."
   [{:keys [options]}]
   (let [repo-path "."
-        no-push (:no-push options)]
+        no-push (:no-push options)
+        dry-run? (:dry-run options)]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
@@ -2121,49 +2629,78 @@
                       {:type :not-git-repo
                        :path repo-path})))
 
-    (let [has-remote (git/git-has-remote? repo-path)
+    (if dry-run?
+      ;; Dry run - show what would happen
+      (let [has-remote (git/git-has-remote? repo-path)
+            status (git/git-status repo-path)
+            staged-files (:staged status)
+            unstaged-files (:unstaged status)
+            untracked-files (:untracked status)]
+        (dry-run-result
+         :output (str "Would sync with git:"
+                      (if has-remote
+                        "\n  1. git pull --rebase"
+                        "\n  1. [skip] git pull (no remote configured)")
+                      "\n  2. git add .alethfeld/"
+                      "\n  3. git commit -m 'af sync <timestamp>'"
+                      (cond
+                        no-push "\n  4. [skip] git push (--no-push)"
+                        has-remote "\n  4. git push"
+                        :else "\n  4. [skip] git push (no remote configured)")
+                      "\n\nFiles that would be staged:"
+                      (if (or (seq staged-files) (seq unstaged-files) (seq untracked-files))
+                        (str "\n  " (str/join "\n  "
+                                              (concat staged-files unstaged-files
+                                                      (map #(str "(new) " %) untracked-files))))
+                        "\n  (no changes detected)"))
+         :would-update [{:id "git" :change "sync with remote"}]
+         :next-actions [(status-action)
+                        (ready-action)]))
 
-          ;; Step 1: Pull (if remote exists)
-          pull-result (when has-remote
-                        (try
-                          (git/git-pull! repo-path)
-                          (catch Exception e
-                            (let [data (ex-data e)]
-                              ;; Re-throw if it's not just "no remote"
-                              (when-not (= :no-remote (:type data))
-                                (throw e))
-                              nil))))
+      ;; Execute
+      (let [has-remote (git/git-has-remote? repo-path)
 
-          ;; Step 2: Stage all .alethfeld/ changes
-          _ (git/git-add-all! repo-path)
+            ;; Step 1: Pull (if remote exists)
+            pull-result (when has-remote
+                          (try
+                            (git/git-pull! repo-path)
+                            (catch Exception e
+                              (let [data (ex-data e)]
+                                ;; Re-throw if it's not just "no remote"
+                                (when-not (= :no-remote (:type data))
+                                  (throw e))
+                                nil))))
 
-          ;; Step 3: Commit with timestamp
-          timestamp (iso-timestamp)
-          commit-msg (str "af sync " timestamp)
-          commit-result (git/git-commit! repo-path commit-msg :allow-empty true)
+            ;; Step 2: Stage all .alethfeld/ changes
+            _ (git/git-add-all! repo-path)
 
-          ;; Step 4: Push (if remote exists and not --no-push)
-          push-result (when (and has-remote (not no-push))
-                        (try
-                          (git/git-push! repo-path)
-                          (catch Exception e
-                            (let [data (ex-data e)]
-                              ;; Re-throw if it's not just "no remote"
-                              (when-not (= :no-remote (:type data))
-                                (throw e))
-                              nil))))]
+            ;; Step 3: Commit with timestamp
+            timestamp (iso-timestamp)
+            commit-msg (str "af sync " timestamp)
+            commit-result (git/git-commit! repo-path commit-msg :allow-empty true)
 
-      {:pulled (if pull-result true :skipped)
-       :committed true
-       :pushed (cond
-                 no-push :skipped
-                 (not has-remote) :skipped
-                 push-result true
-                 :else false)
-       :commit-sha (:sha commit-result)
-       :message "Sync complete."
-       :next-actions [(status-action)
-                      (ready-action)]})))
+            ;; Step 4: Push (if remote exists and not --no-push)
+            push-result (when (and has-remote (not no-push))
+                          (try
+                            (git/git-push! repo-path)
+                            (catch Exception e
+                              (let [data (ex-data e)]
+                                ;; Re-throw if it's not just "no remote"
+                                (when-not (= :no-remote (:type data))
+                                  (throw e))
+                                nil))))]
+
+        {:pulled (if pull-result true :skipped)
+         :committed true
+         :pushed (cond
+                   no-push :skipped
+                   (not has-remote) :skipped
+                   push-result true
+                   :else false)
+         :commit-sha (:sha commit-result)
+         :message "Sync complete."
+         :next-actions [(status-action)
+                        (ready-action)]}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Config Command
@@ -2322,14 +2859,22 @@
    - prefix: The prefix string for indentation
    - connector: The connector string ('+--', '\\--', or empty)
    - max-claim-len: Maximum length for claim text
+   - verbose?: Whether to include extra details
 
    Returns a string representing this node."
-  [mote prefix connector max-claim-len]
+  [mote prefix connector max-claim-len verbose?]
   (let [mote-id (:id mote)
         status (format-status (:status mote))
         taints (format-taints (:taint mote))
-        claim (truncate-claim (:claim mote) max-claim-len)]
-    (str prefix connector mote-id " " status " " claim taints)))
+        claim (truncate-claim (:claim mote) max-claim-len)
+        extra (when verbose?
+                (str " [p:" (name (:priority mote)) " d:" (:difficulty mote) "]"
+                     (when (:claimed-by mote) (str " *" (:claimed-by mote)))
+                     (when (seq (:votes mote))
+                       (let [for-count (count (filter #(= :for (:type %)) (:votes mote)))
+                             against-count (count (filter #(= :against (:type %)) (:votes mote)))]
+                         (str " votes:" for-count "/" against-count)))))]
+    (str prefix connector mote-id " " status " " claim taints extra)))
 
 (defn- render-tree
   "Recursively render a tree of motes.
@@ -2342,18 +2887,24 @@
    - current-depth: Current depth in the tree
    - max-depth: Maximum depth to render (nil for unlimited)
    - max-claim-len: Maximum length for claim text
+   - verbose?: Whether to show extra details (optional, default false)
    - is-root: Whether this is the root node (no connector)
 
    Returns a vector of strings (one per line)."
+  ;; Backward-compatible 7-arg entry point (for tests)
   ([mote motes prefix is-last current-depth max-depth max-claim-len]
-   ;; Entry point - root node
-   (render-tree mote motes prefix is-last current-depth max-depth max-claim-len true))
+   (render-tree mote motes prefix is-last current-depth max-depth max-claim-len false true))
 
-  ([mote motes prefix is-last current-depth max-depth max-claim-len is-root]
+  ;; 8-arg entry point with verbose flag
+  ([mote motes prefix is-last current-depth max-depth max-claim-len verbose?]
+   (render-tree mote motes prefix is-last current-depth max-depth max-claim-len verbose? true))
+
+  ;; Full 9-arg implementation
+  ([mote motes prefix is-last current-depth max-depth max-claim-len verbose? is-root]
    (let [;; Determine connector for this node
          connector (if is-root "" (if is-last "\\-- " "+-- "))
          ;; Render this node
-         node-line (render-tree-node mote prefix connector max-claim-len)
+         node-line (render-tree-node mote prefix connector max-claim-len verbose?)
          ;; Get children
          children (:children mote)
          ;; Check if we should render children
@@ -2375,6 +2926,7 @@
                                           (inc current-depth)
                                           max-depth
                                           max-claim-len
+                                          verbose?
                                           false))
                            (range)
                            child-motes)]
@@ -2390,13 +2942,16 @@
 
    Options:
    - :depth - Maximum depth to display (default: unlimited)
+   - :verbose - Show extra details (priority, difficulty, votes)
 
    Returns a map with:
    - :lines - Vector of rendered tree lines
-   - :mote-count - Number of motes displayed"
+   - :mote-count - Number of motes displayed
+   - :output - Formatted tree string"
   [{:keys [id options]}]
   (let [repo-path "."
-        max-depth (:depth options)]
+        max-depth (:depth options)
+        verbose? (:verbose options)]
 
     ;; Validation
     (when-not id
@@ -2419,10 +2974,14 @@
 
       ;; Load all motes for child lookup
       (let [motes (store/load-all-motes repo-path)
-            ;; Render the tree
-            lines (render-tree mote motes "" true 0 max-depth 60)]
+            ;; Render the tree (use longer claim length in verbose mode)
+            max-claim-len (if verbose? 100 60)
+            lines (render-tree mote motes "" true 0 max-depth max-claim-len verbose?)
+            output (str/join "\n" lines)]
         {:lines (vec lines)
          :mote-count (count lines)
+         :output output
+         :verbose? verbose?
          :next-actions [(show-action id)
                         (ready-action)
                         (status-action)]}))))
@@ -2431,8 +2990,72 @@
 ;; Status Command
 ;; -----------------------------------------------------------------------------
 
+(defn- count-motes-by-role-needed
+  "Count how many motes need each type of role.
+
+   Returns a map of role -> count."
+  [motes config]
+  (let [mote-list (vals motes)
+        claim-timeout (:claim-timeout-minutes config)
+        workable (filter #(job/workable? % :claim-timeout claim-timeout) mote-list)
+        roles (mapcat #(job/mote->roles %) workable)]
+    (frequencies roles)))
+
+(defn- format-status-concise
+  "Format concise status output (default).
+
+   Returns a human-readable summary string."
+  [{:keys [project-name total-motes verified-count ready-for-work role-counts]}]
+  (let [percent (if (pos? total-motes)
+                  (int (* 100 (/ verified-count total-motes)))
+                  0)
+        role-summary (when (pos? ready-for-work)
+                       (str/join ", "
+                                 (for [[role cnt] (sort-by (comp - val) role-counts)
+                                       :when (pos? cnt)]
+                                   (str cnt " " (name role)))))]
+    (str project-name " - " percent "% verified (" verified-count "/" total-motes ")\n"
+         (if (pos? ready-for-work)
+           (str "Ready work: " ready-for-work " motes (" role-summary ")")
+           "No work available"))))
+
+(defn- format-status-verbose
+  "Format verbose status output (with --verbose flag).
+
+   Returns a detailed human-readable summary string."
+  [{:keys [project-name total-motes verified-count status-counts taint-counts
+           active-sessions role-counts recent-activity]}]
+  (let [percent (if (pos? total-motes)
+                  (int (* 100 (/ verified-count total-motes)))
+                  0)]
+    (str project-name " - " percent "% verified\n"
+         "\n"
+         "By status:\n"
+         (str/join "\n"
+                   (for [[status cnt] (sort-by first status-counts)]
+                     (str "  " (name status) ": " cnt)))
+         "\n"
+         (when (seq taint-counts)
+           (str "\nBy taint:\n"
+                (str/join "\n"
+                          (for [[taint cnt] (sort-by first taint-counts)]
+                            (str "  " (name taint) ": " cnt)))
+                "\n"))
+         "\nBy role needed:\n"
+         (str/join "\n"
+                   (for [role [:advisor :verifier :proposer :prover :ref-checker :counterexample]]
+                     (let [cnt (get role-counts role 0)]
+                       (str "  " (name role) ": " cnt " mote" (when (not= cnt 1) "s")))))
+         "\n"
+         "\nActive sessions: " active-sessions
+         (when recent-activity
+           (str "\nRecent: " recent-activity)))))
+
 (defn cmd-status
   "Display project status summary.
+
+   Options:
+   - :verbose - Show detailed output (default: concise)
 
    Returns a map with:
    - :project-name - Name of the project
@@ -2441,9 +3064,11 @@
    - :status-counts - Map of status -> count
    - :taint-counts - Map of taint -> count
    - :active-sessions - Number of active sessions
-   - :ready-for-work - Number of workable motes"
-  [_ctx]
-  (let [repo-path "."]
+   - :ready-for-work - Number of workable motes
+   - :output - Formatted human-readable output"
+  [{:keys [options]}]
+  (let [repo-path "."
+        verbose? (:verbose options)]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
@@ -2465,6 +3090,7 @@
 
           ;; Count by status
           status-counts (frequencies (map :status mote-list))
+          verified-count (get status-counts :verified 0)
 
           ;; Count by taint
           taint-counts (->> mote-list
@@ -2476,19 +3102,34 @@
 
           ;; Count workable motes (using job/workable?)
           claim-timeout (:claim-timeout-minutes config)
-          workable-count (count (filter #(job/workable? % :claim-timeout claim-timeout) mote-list))]
+          workable-count (count (filter #(job/workable? % :claim-timeout claim-timeout) mote-list))
 
-      {:project-name project-name
-       :root-motes root-motes
-       :total-motes total-motes
-       :status-counts status-counts
-       :taint-counts taint-counts
-       :active-sessions (count active-sessions)
-       :ready-for-work workable-count
-       :next-actions (if (pos? workable-count)
-                       [(ready-action)
-                        (make-action "af tree 1" "View proof structure")]
-                       [(make-action "af check" "Validate DAG integrity")])})))
+          ;; Count by role needed
+          role-counts (count-motes-by-role-needed motes config)
+
+          ;; Build status data
+          status-data {:project-name project-name
+                       :root-motes root-motes
+                       :total-motes total-motes
+                       :verified-count verified-count
+                       :status-counts status-counts
+                       :taint-counts taint-counts
+                       :active-sessions (count active-sessions)
+                       :ready-for-work workable-count
+                       :role-counts role-counts}
+
+          ;; Format output based on verbose flag
+          output (if verbose?
+                   (format-status-verbose status-data)
+                   (format-status-concise status-data))]
+
+      (assoc status-data
+             :output output
+             :verbose? verbose?
+             :next-actions (if (pos? workable-count)
+                             [(ready-action)
+                              (make-action "af tree 1" "View proof structure")]
+                             [(make-action "af check" "Validate DAG integrity")])))))
 
 ;; -----------------------------------------------------------------------------
 ;; Handler Registration
