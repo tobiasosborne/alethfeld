@@ -561,3 +561,366 @@
             (is (= :unverified-dependencies (:type data)))
             (is (= "12" (:mote-id data)))
             (is (= 2 (count (:unverified-deps data))))))))))
+
+;; -----------------------------------------------------------------------------
+;; Full Verification Workflow Tests
+;; -----------------------------------------------------------------------------
+
+(deftest full-workflow-single-mote-test
+  (testing "complete workflow: fixed -> verified with two verifiers"
+    ;; Create a fixed mote needing verification
+    (create-test-mote! "1" "Claim to verify"
+                       :status :fixed
+                       :taint #{:needs-verification})
+    ;; Initial state
+    (let [m0 (store/load-mote *test-repo* "1")]
+      (is (= :fixed (:status m0)))
+      (is (contains? (:taint m0) :needs-verification))
+      (is (empty? (:votes m0))))
+    ;; First verifier casts vote
+    (verify/cast-vote! *test-repo* "1" "alice" :for :reason "Looks correct")
+    (let [m1 (store/load-mote *test-repo* "1")]
+      (is (= :fixed (:status m1)) "Status should still be fixed")
+      (is (= 1 (count (:votes m1))))
+      (is (contains? (:taint m1) :needs-votes) "Should have needs-votes taint"))
+    ;; Second verifier casts vote - reaches quorum
+    (verify/cast-vote! *test-repo* "1" "bob" :for :reason "Verified independently")
+    (let [m2 (store/load-mote *test-repo* "1")]
+      (is (= :verified (:status m2)) "Status should now be verified")
+      (is (= 2 (count (:votes m2))))
+      (is (not (contains? (:taint m2) :needs-verification)))
+      (is (not (contains? (:taint m2) :needs-votes))))))
+
+(deftest full-workflow-refutation-test
+  (testing "complete workflow: fixed -> refuted with two verifiers"
+    (create-test-mote! "1" "Flawed claim"
+                       :status :fixed
+                       :taint #{:needs-verification})
+    ;; Two against votes reach refutation
+    (verify/cast-vote! *test-repo* "1" "alice" :against :reason "Found error in line 3")
+    (verify/cast-vote! *test-repo* "1" "bob" :against :reason "Same issue confirmed")
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :refuted (:status m)))
+      (is (not (contains? (:taint m) :needs-verification))))))
+
+(deftest full-workflow-contested-resolution-test
+  (testing "workflow: fixed -> contested (mixed votes at quorum)"
+    (create-test-mote! "1" "Controversial claim"
+                       :status :fixed
+                       :taint #{:needs-verification})
+    (verify/cast-vote! *test-repo* "1" "alice" :for :reason "Valid")
+    (verify/cast-vote! *test-repo* "1" "bob" :against :reason "Invalid")
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :contested (:status m)) "Mixed votes should lead to contested")
+      (is (contains? (:taint m) :needs-votes) "Contested needs more votes"))))
+
+;; -----------------------------------------------------------------------------
+;; Extended Quorum Tests
+;; -----------------------------------------------------------------------------
+
+(deftest quorum-three-verifiers-test
+  (testing "quorum of 3 requires three matching votes"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 3})
+    (create-test-mote! "1" "High stakes claim")
+    ;; Two votes not enough
+    (verify/cast-vote! *test-repo* "1" "alice" :for)
+    (verify/cast-vote! *test-repo* "1" "bob" :for)
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :fixed (:status m)) "Still pending with 2/3 votes"))
+    ;; Third vote reaches quorum
+    (verify/cast-vote! *test-repo* "1" "charlie" :for)
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :verified (:status m)) "Verified with 3/3 votes"))))
+
+(deftest quorum-three-mixed-test
+  (testing "quorum of 3 with mixed votes goes contested"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 3})
+    (create-test-mote! "1" "Debatable claim")
+    (verify/cast-vote! *test-repo* "1" "alice" :for)
+    (verify/cast-vote! *test-repo* "1" "bob" :for)
+    (verify/cast-vote! *test-repo* "1" "charlie" :against)
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :contested (:status m)) "Mixed 2-1 vote at quorum is contested"))))
+
+(deftest quorum-three-refuted-test
+  (testing "quorum of 3 unanimous against"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 3})
+    (create-test-mote! "1" "Bad claim")
+    (verify/cast-vote! *test-repo* "1" "alice" :against)
+    (verify/cast-vote! *test-repo* "1" "bob" :against)
+    (verify/cast-vote! *test-repo* "1" "charlie" :against)
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :refuted (:status m)) "Unanimous against is refuted"))))
+
+(deftest quorum-exact-boundary-test
+  (testing "quorum status changes exactly at boundary"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 2})
+    (create-test-mote! "1" "Test claim")
+    ;; Before quorum
+    (let [status (verify/verification-status *test-repo* "1")]
+      (is (= :pending (:quorum-status status)))
+      (is (= 2 (:votes-needed status))))
+    ;; One vote
+    (verify/cast-vote! *test-repo* "1" "alice" :for)
+    (let [status (verify/verification-status *test-repo* "1")]
+      (is (= :pending (:quorum-status status)))
+      (is (= 1 (:votes-needed status))))
+    ;; At quorum
+    (verify/cast-vote! *test-repo* "1" "bob" :for)
+    (let [status (verify/verification-status *test-repo* "1")]
+      (is (= :verified (:quorum-status status)))
+      (is (= 0 (:votes-needed status))))))
+
+;; -----------------------------------------------------------------------------
+;; Transitive Dependency Tests
+;; -----------------------------------------------------------------------------
+
+(deftest transitive-dependencies-test
+  (testing "transitive dependency chain must all be verified"
+    ;; 100 -> 101 -> 102 (102 depends on 101, 101 depends on 100)
+    (create-test-mote! "100" "Base claim" :status :fixed)
+    (let [mote-b (mote/make-mote "101" "Builds on 100" "test-agent"
+                                 :status :fixed
+                                 :taint #{:needs-verification}
+                                 :depends-on [{:ref "100"}])]
+      (store/save-mote! *test-repo* mote-b))
+    (let [mote-c (mote/make-mote "102" "Builds on 101" "test-agent"
+                                 :status :fixed
+                                 :taint #{:needs-verification}
+                                 :depends-on [{:ref "101"}])]
+      (store/save-mote! *test-repo* mote-c))
+    ;; Cannot vote on 102 because 101 is not verified
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"unverified dependencies"
+         (verify/cast-vote! *test-repo* "102" "verifier-1" :for)))
+    ;; Cannot vote on 101 because 100 is not verified
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"unverified dependencies"
+         (verify/cast-vote! *test-repo* "101" "verifier-1" :for)))))
+
+(deftest dependency-chain-verification-order-test
+  (testing "verify dependency chain in correct order"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    ;; 100 -> 101 -> 102 (102 depends on 101, 101 depends on 100)
+    (create-test-mote! "100" "Base claim" :status :fixed :taint #{:needs-verification})
+    (let [mote-b (mote/make-mote "101" "Builds on 100" "test-agent"
+                                 :status :fixed
+                                 :taint #{:needs-verification}
+                                 :depends-on [{:ref "100"}])]
+      (store/save-mote! *test-repo* mote-b))
+    (let [mote-c (mote/make-mote "102" "Builds on 101" "test-agent"
+                                 :status :fixed
+                                 :taint #{:needs-verification}
+                                 :depends-on [{:ref "101"}])]
+      (store/save-mote! *test-repo* mote-c))
+    ;; Verify 100 first
+    (verify/cast-vote! *test-repo* "100" "verifier-1" :for)
+    (is (= :verified (:status (store/load-mote *test-repo* "100"))))
+    ;; Now 101 can be verified
+    (verify/cast-vote! *test-repo* "101" "verifier-1" :for)
+    (is (= :verified (:status (store/load-mote *test-repo* "101"))))
+    ;; Now 102 can be verified
+    (verify/cast-vote! *test-repo* "102" "verifier-1" :for)
+    (is (= :verified (:status (store/load-mote *test-repo* "102"))))))
+
+(deftest multiple-dependencies-all-must-verify-test
+  (testing "mote with multiple dependencies requires all verified"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    ;; Create two independent dependencies (using numeric IDs)
+    (create-test-mote! "200" "First dependency" :status :verified)
+    (create-test-mote! "201" "Second dependency" :status :fixed)
+    (let [m (mote/make-mote "202" "Depends on both" "test-agent"
+                            :status :fixed
+                            :taint #{:needs-verification}
+                            :depends-on [{:ref "200"} {:ref "201"}])]
+      (store/save-mote! *test-repo* m))
+    ;; Cannot vote because 201 not verified
+    (let [unverified (verify/unverified-dependencies *test-repo*
+                                                     (store/load-mote *test-repo* "202"))]
+      (is (= ["201"] unverified)))
+    ;; Verify 201
+    (verify/cast-vote! *test-repo* "201" "verifier-1" :for)
+    ;; Now 202 can be verified
+    (let [unverified (verify/unverified-dependencies *test-repo*
+                                                     (store/load-mote *test-repo* "202"))]
+      (is (empty? unverified)))
+    (verify/cast-vote! *test-repo* "202" "verifier-1" :for)
+    (is (= :verified (:status (store/load-mote *test-repo* "202"))))))
+
+;; -----------------------------------------------------------------------------
+;; Verification Status Propagation Tests (Pure Functions)
+;; -----------------------------------------------------------------------------
+
+(deftest all-siblings-verified-pure-test
+  (testing "all-siblings-verified? with no siblings (pure function)"
+    ;; Create in-memory motes map
+    (let [motes {"1" {:id "1" :status :fixed :children ["1.1"]}
+                 "1.1" {:id "1.1" :status :verified}}]
+      (is (verify/all-siblings-verified? motes "1.1") "Single child has no unverified siblings")))
+
+  (testing "all-siblings-verified? with verified siblings (pure function)"
+    (let [motes {"1" {:id "1" :status :fixed :children ["1.1" "1.2" "1.3"]}
+                 "1.1" {:id "1.1" :status :verified}
+                 "1.2" {:id "1.2" :status :verified}
+                 "1.3" {:id "1.3" :status :verified}}]
+      (is (verify/all-siblings-verified? motes "1.1"))
+      (is (verify/all-siblings-verified? motes "1.2"))
+      (is (verify/all-siblings-verified? motes "1.3"))))
+
+  (testing "all-siblings-verified? with unverified sibling (pure function)"
+    (let [motes {"1" {:id "1" :status :fixed :children ["1.1" "1.2"]}
+                 "1.1" {:id "1.1" :status :verified}
+                 "1.2" {:id "1.2" :status :fixed}}]
+      ;; When checking "1.1", its sibling "1.2" is NOT verified -> false
+      (is (not (verify/all-siblings-verified? motes "1.1")) "Sibling 1.2 is not verified")
+      ;; When checking "1.2", its sibling "1.1" IS verified -> true
+      ;; The function checks OTHER siblings, not the current mote
+      (is (verify/all-siblings-verified? motes "1.2") "Sibling 1.1 is verified")))
+
+  (testing "all-siblings-verified? returns nil for root mote (pure function)"
+    (let [motes {"1" {:id "1" :status :verified}}]
+      (is (nil? (verify/all-siblings-verified? motes "1")) "Root has no parent")))
+
+  (testing "all-siblings-verified? with missing parent (pure function)"
+    (let [motes {"1.1" {:id "1.1" :status :verified}}]
+      ;; Parent "1" doesn't exist in motes
+      (is (nil? (verify/all-siblings-verified? motes "1.1")) "Parent not found"))))
+
+(deftest can-propagate-to-parent-pure-test
+  (testing "can propagate when parent is fixed and all children verified (pure function)"
+    (let [motes {"1" {:id "1" :status :fixed :children ["1.1"] :created-by "other-agent"}
+                 "1.1" {:id "1.1" :status :verified}}]
+      (is (verify/can-propagate-to-parent? motes "1" "verifier-1"))))
+
+  (testing "cannot propagate when parent not fixed (pure function)"
+    (let [motes {"1" {:id "1" :status :proposed :children ["1.1"] :created-by "other-agent"}
+                 "1.1" {:id "1.1" :status :verified}}]
+      (is (not (verify/can-propagate-to-parent? motes "1" "verifier-1")))))
+
+  (testing "cannot propagate when children not all verified (pure function)"
+    (let [motes {"1" {:id "1" :status :fixed :children ["1.1" "1.2"] :created-by "other-agent"}
+                 "1.1" {:id "1.1" :status :verified}
+                 "1.2" {:id "1.2" :status :fixed}}]
+      (is (not (verify/can-propagate-to-parent? motes "1" "verifier-1")))))
+
+  (testing "cannot propagate when agent already voted on parent (pure function)"
+    (let [motes {"1" {:id "1" :status :fixed :children ["1.1"] :created-by "other-agent"
+                      :votes [{:agent "verifier-1" :vote :for}]}
+                 "1.1" {:id "1.1" :status :verified}}]
+      (is (not (verify/can-propagate-to-parent? motes "1" "verifier-1")))))
+
+  (testing "cannot propagate when parent doesn't exist (pure function)"
+    (let [motes {"1.1" {:id "1.1" :status :verified}}]
+      (is (not (verify/can-propagate-to-parent? motes "1" "verifier-1"))))))
+
+(deftest propagate-verification-root-test
+  (testing "propagation stops at root mote"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    ;; Just a root mote, no parent
+    (create-test-mote! "1" "Root" :status :fixed)
+    (verify/cast-vote! *test-repo* "1" "verifier-1" :for)
+    (let [propagated (verify/propagate-verification! *test-repo* "1" "verifier-1")]
+      (is (empty? propagated) "Nothing to propagate to from root"))))
+
+(deftest propagate-verification-no-parent-test
+  (testing "propagation returns empty when parent doesn't exist"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    ;; Child mote without parent in store
+    (create-test-mote! "99.1" "Orphan child" :status :fixed)
+    (verify/cast-vote! *test-repo* "99.1" "verifier-1" :for)
+    (let [propagated (verify/propagate-verification! *test-repo* "99.1" "verifier-1")]
+      (is (empty? propagated) "No parent to propagate to"))))
+
+;; -----------------------------------------------------------------------------
+;; Vote Reason Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest vote-reasons-preserved-test
+  (testing "vote reasons are preserved in mote"
+    (create-test-mote! "1" "Test claim")
+    (verify/cast-vote! *test-repo* "1" "alice" :for :reason "Clear and correct")
+    (verify/cast-vote! *test-repo* "1" "bob" :for :reason "Double-checked the math")
+    (let [m (store/load-mote *test-repo* "1")
+          votes (:votes m)]
+      (is (= 2 (count votes)))
+      (is (= "Clear and correct" (:reason (first votes))))
+      (is (= "Double-checked the math" (:reason (second votes)))))))
+
+(deftest vote-empty-reason-test
+  (testing "empty string reason is allowed"
+    (create-test-mote! "1" "Test claim")
+    (verify/cast-vote! *test-repo* "1" "alice" :for :reason "")
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= "" (:reason (first (:votes m))))))))
+
+;; -----------------------------------------------------------------------------
+;; Status Query Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest verification-status-contested-test
+  (testing "verification status for contested mote"
+    (create-test-mote! "1" "Controversial claim")
+    (verify/cast-vote! *test-repo* "1" "alice" :for)
+    (verify/cast-vote! *test-repo* "1" "bob" :against)
+    (let [status (verify/verification-status *test-repo* "1")]
+      (is (= :contested (:status status)))
+      (is (= :contested (:quorum-status status)))
+      (is (= 1 (:votes-for status)))
+      (is (= 1 (:votes-against status)))
+      (is (= 0 (:votes-needed status)) "Quorum reached, even if contested"))))
+
+(deftest verification-status-refuted-test
+  (testing "verification status for refuted mote"
+    (create-test-mote! "1" "Flawed claim")
+    (verify/cast-vote! *test-repo* "1" "alice" :against)
+    (verify/cast-vote! *test-repo* "1" "bob" :against)
+    (let [status (verify/verification-status *test-repo* "1")]
+      (is (= :refuted (:status status)))
+      (is (= :refuted (:quorum-status status)))
+      (is (= 0 (:votes-for status)))
+      (is (= 2 (:votes-against status))))))
+
+;; -----------------------------------------------------------------------------
+;; needs-verification? Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest needs-verification-edge-cases-test
+  (testing "contested mote does not need verification (already resolved)"
+    (let [m {:id "1" :status :contested :taint #{:needs-verification}}]
+      (is (not (verify/needs-verification? m)))))
+
+  (testing "refuted mote does not need verification"
+    (let [m {:id "1" :status :refuted :taint #{:needs-verification}}]
+      (is (not (verify/needs-verification? m)))))
+
+  (testing "fixed mote without taint does not need verification"
+    (let [m {:id "1" :status :fixed :taint #{}}]
+      (is (not (verify/needs-verification? m)))))
+
+  (testing "fixed mote with only needs-votes does not need verification"
+    (let [m {:id "1" :status :fixed :taint #{:needs-votes}}]
+      (is (not (verify/needs-verification? m)))))
+
+  (testing "fixed mote with needs-verification needs verification"
+    (let [m {:id "1" :status :fixed :taint #{:needs-verification}}]
+      (is (verify/needs-verification? m)))))
+
+;; -----------------------------------------------------------------------------
+;; Concurrent Verification Scenarios
+;; -----------------------------------------------------------------------------
+
+(deftest multiple-motes-independent-verification-test
+  (testing "multiple motes can be verified independently"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    (create-test-mote! "1" "First claim" :taint #{:needs-verification})
+    (create-test-mote! "2" "Second claim" :taint #{:needs-verification})
+    (create-test-mote! "3" "Third claim" :taint #{:needs-verification})
+    ;; Verify in any order
+    (verify/cast-vote! *test-repo* "2" "verifier" :for)
+    (verify/cast-vote! *test-repo* "1" "verifier" :for)
+    (verify/cast-vote! *test-repo* "3" "verifier" :for)
+    (is (= :verified (:status (store/load-mote *test-repo* "1"))))
+    (is (= :verified (:status (store/load-mote *test-repo* "2"))))
+    (is (= :verified (:status (store/load-mote *test-repo* "3"))))))

@@ -55,6 +55,15 @@ clj -M:test
 - Malli for schema validation
 - Git commit per CLI operation (ACID)
 
+### Let Binding Style Guide
+
+- Prefer `some->` or `some->>` over deeply nested `when-let` chains
+- Use `as->` when threading needs intermediate bindings
+- Destructure maps with `{:keys [a b c]}` when accessing multiple keys
+- Use threading macros (`->`, `->>`) for sequential transformations
+- Keep `let` bindings flat; avoid nesting lets inside lets
+- Extract complex bindings into named helper functions
+
 ## Test Conventions
 
 - Test files live in `test/` mirroring `src/` structure
