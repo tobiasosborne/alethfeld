@@ -24,10 +24,14 @@
 ;; Timestamp Helpers
 ;; -----------------------------------------------------------------------------
 
+(def ^:dynamic *clock*
+  "Clock function for getting current time. Rebindable for testing."
+  #(java.util.Date.))
+
 (defn now
-  "Get current instant."
+  "Returns current time. Uses *clock* which can be rebound in tests."
   []
-  (java.util.Date.))
+  (*clock*))
 
 ;; -----------------------------------------------------------------------------
 ;; Vote Constructors

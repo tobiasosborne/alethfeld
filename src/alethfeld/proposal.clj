@@ -53,6 +53,25 @@
 ;; Proposal Creation
 ;; -----------------------------------------------------------------------------
 
+(defn- create-child-mote
+  "Create a single proposed child mote from a claim specification.
+   Returns the child mote with :proposed status."
+  [parent agent claim-spec child-id]
+  (let [atomic? (:atomic claim-spec)
+        taint (if atomic?
+                #{:needs-verification}
+                #{:needs-decomposition})]
+    (cond-> (mote/make-child-mote
+             child-id
+             (:claim claim-spec)
+             agent
+             parent
+             :status :proposed
+             :taint taint
+             :difficulty (or (:difficulty claim-spec)
+                             (:difficulty parent)))
+      atomic? (assoc :atomic true))))
+
 (defn- create-child-motes
   "Create proposed child motes from claim specifications.
 
@@ -67,31 +86,17 @@
   (let [parent-id (:id parent)
         existing-children (:children parent [])
         existing-proposed (when-let [prop (:proposal parent)]
-                           (:children prop))]
-    (loop [remaining claims
-           all-children (vec (concat existing-children existing-proposed))
-           result []]
-      (if (empty? remaining)
-        result
-        (let [claim-spec (first remaining)
-              child-id (id/next-child-id parent-id all-children)
-              atomic? (:atomic claim-spec)
-              taint (if atomic?
-                      #{:needs-verification}
-                      #{:needs-decomposition})
-              child (cond-> (mote/make-child-mote
-                             child-id
-                             (:claim claim-spec)
-                             agent
-                             parent
-                             :status :proposed
-                             :taint taint
-                             :difficulty (or (:difficulty claim-spec)
-                                            (:difficulty parent)))
-                      atomic? (assoc :atomic true))]
-          (recur (rest remaining)
-                 (conj all-children child-id)
-                 (conj result child)))))))
+                           (:children prop))
+        initial-children (vec (concat existing-children existing-proposed))]
+    (:result
+     (reduce (fn [{:keys [all-children result]} claim-spec]
+               (let [child-id (id/next-child-id parent-id all-children)
+                     child (create-child-mote parent agent claim-spec child-id)]
+                 {:all-children (conj all-children child-id)
+                  :result (conj result child)}))
+             {:all-children initial-children
+              :result []}
+             claims))))
 
 (defn create-proposal!
   "Create a proposal to decompose a parent mote into children.

@@ -17,7 +17,19 @@
 
 (def ^:private repo-locks
   "Map of canonical repo paths to their ReentrantLocks.
-   Used to serialize transactions per repository."
+   Used to serialize transactions per repository.
+
+   LOCK LIFECYCLE:
+   Lock entries accumulate in this map and are never removed. This is acceptable
+   for typical CLI usage where each process operates on a single repository.
+   The memory overhead per entry is minimal (~1KB: path string + ReentrantLock).
+
+   For long-running processes that operate on many different repositories over
+   time (e.g., a daemon managing thousands of repos), entries will accumulate.
+   This is a known limitation. If this becomes an issue, consider:
+   - Restarting the process periodically
+   - Implementing LRU eviction (would require careful locking semantics)
+   - Using weak references (but could cause lock loss during active transactions)"
   (ConcurrentHashMap.))
 
 (defn- normalize-repo-path

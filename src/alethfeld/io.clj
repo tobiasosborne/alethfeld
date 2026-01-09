@@ -2,7 +2,13 @@
   "EDN file I/O operations.
 
    All functions are designed to be testable with temp directories.
-   File operations are isolated here to keep other namespaces pure."
+   File operations are isolated here to keep other namespaces pure.
+
+   Resource Management: This namespace uses Clojure's `slurp` and `spit`
+   for file I/O. Both functions properly manage file handles internally:
+   - `slurp` uses `with-open` to ensure Readers are closed after reading
+   - `spit` uses `with-open` to ensure Writers are closed after writing
+   File handles are automatically released even if exceptions occur."
   (:require [babashka.fs :as fs]
             [clojure.edn :as edn]
             [clojure.java.io :as io]))
