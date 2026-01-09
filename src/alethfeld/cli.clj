@@ -379,6 +379,14 @@
                          [nil "--dry-run" "Show what would be voted on without voting"]
                          (deprecated-agent-option "Agent name")]}
 
+   "approve-all" {:description "Approve all pending proposals in session scope"
+                  :usage "af approve-all --session TOKEN [--reason TEXT]"
+                  :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                            ["-n" "--name NAME" "Agent name (defaults to session agent)"]
+                            ["-R" "--reason TEXT" "Reason for all approvals"]
+                            [nil "--dry-run" "Show what would be approved without approving"]
+                            (deprecated-agent-option "Agent name")]}
+
    "update" {:description "Update mote fields"
              :usage "af update <id> --session TOKEN [OPTIONS]"
              :options [["-S" "--session TOKEN" "Session token (required for mutations)"]

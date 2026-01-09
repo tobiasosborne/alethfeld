@@ -1158,6 +1158,105 @@
                           "Vote recorded. Waiting for more advisor votes."))))))
 
 ;; -----------------------------------------------------------------------------
+;; Approve-All Command
+;; -----------------------------------------------------------------------------
+
+(defn- find-motes-with-proposals
+  "Find all motes that have pending proposals the agent can vote on."
+  [repo-path agent]
+  (let [all-motes (store/load-all-motes repo-path)]
+    (->> all-motes
+         (filter (fn [[_id mote]]
+                   (when-let [prop (:proposal mote)]
+                     (and (= :pending (:status prop))
+                          (not (proposal/has-voted? prop agent))))))
+         (sort-by first))))
+
+(defn cmd-approve-all!
+  "Approve all pending proposals in session scope.
+
+   Options:
+   - :session - Session token (required)
+   - :name - Agent name (defaults to session agent)
+   - :reason - Reason for all approvals (optional)
+   - :dry-run - Show what would be approved without approving
+
+   Finds all motes that have pending proposals that the agent can vote on
+   (excluding those already voted on), then casts an approval vote on each.
+
+   Returns map with:
+   - :approved - Vector of mote IDs that were approved
+   - :skipped - Vector of maps with :mote-id and :reason for skipped motes
+   - :total-approved - Count of approvals cast
+   - :total-skipped - Count of motes skipped
+   - :dry-run - True if this was a dry run"
+  [{:keys [options]}]
+  (let [repo-path "."
+        {:keys [session reason dry-run]} options]
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Session enforcement (but allow viewing dry-run without session)
+    (when (and (not dry-run) (not session))
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (let [;; Get agent from session or options
+          sess (when session
+                 (session/load-session repo-path session))
+          agent (or (:name options)
+                    (:agent sess)
+                    (when dry-run "dry-run-agent"))
+
+          _ (when (and (not dry-run) (not agent))
+              (throw (ex-info "Agent name is required"
+                              {:type :validation-failed
+                               :errors ["Provide --name or use a valid session"]})))
+
+          ;; Find motes with pending proposals
+          eligible (find-motes-with-proposals repo-path agent)
+          eligible-ids (map first eligible)]
+
+      (if dry-run
+        ;; Dry run - just report what would be approved
+        {:approved []
+         :would-approve (vec eligible-ids)
+         :total-would-approve (count eligible-ids)
+         :dry-run true
+         :output (str "Would approve " (count eligible-ids) " proposals: "
+                      (str/join ", " eligible-ids))
+         :next-actions [(make-action "af approve-all --session <session> --reason \"...\""
+                                     "Execute batch approval")
+                        (status-action)]}
+
+        ;; Actually cast approvals
+        (let [results (reduce
+                       (fn [acc [mote-id _mote]]
+                         (try
+                           (proposal/approve-proposal! repo-path mote-id agent :reason reason)
+                           (update acc :approved conj mote-id)
+                           (catch Exception e
+                             (update acc :skipped conj
+                                     {:mote-id mote-id
+                                      :reason (ex-message e)}))))
+                       {:approved [] :skipped []}
+                       eligible)]
+          (assoc results
+                 :total-approved (count (:approved results))
+                 :total-skipped (count (:skipped results))
+                 :dry-run false
+                 :output (str "Approved " (count (:approved results)) " proposals: "
+                              (str/join ", " (:approved results)))
+                 :next-actions [(done-action session)
+                                (status-action)]
+                 :message (str "Approved " (count (:approved results)) " proposals.")))))))
+
+;; -----------------------------------------------------------------------------
 ;; Reject Command
 ;; -----------------------------------------------------------------------------
 
@@ -3156,6 +3255,7 @@
   (cli/register-handler! "update" cmd-update!)
   (cli/register-handler! "vote" cmd-vote!)
   (cli/register-handler! "vote-all" cmd-vote-all!)
+  (cli/register-handler! "approve-all" cmd-approve-all!)
   (cli/register-handler! "taint" cmd-taint!)
   (cli/register-handler! "claim" cmd-claim!)
   (cli/register-handler! "unclaim" cmd-unclaim!)
