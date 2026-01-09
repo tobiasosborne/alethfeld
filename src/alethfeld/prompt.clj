@@ -79,13 +79,18 @@
 (defn- format-proposed-children
   "Format proposed children with numbering.
 
-   Expects a vector of mote maps.
+   Expects a vector of mote maps (or strings as fallback for IDs).
    Returns formatted numbered list."
   [children]
   (if (seq children)
     (->> children
-         (map-indexed (fn [i {:keys [id claim difficulty]}]
-                        (str (inc i) ". " id ": " claim " (difficulty " difficulty ")")))
+         (map-indexed (fn [i child]
+                        (if (map? child)
+                          ;; Full mote map - show all details
+                          (let [{:keys [id claim difficulty]} child]
+                            (str (inc i) ". " id ": " claim " (difficulty " difficulty ")"))
+                          ;; String ID only - show degraded format
+                          (str (inc i) ". " child " (details not loaded)"))))
          (clojure.string/join "\n"))
     "(none)"))
 
@@ -378,12 +383,19 @@ When done: af unclaim {{mote-id}}"}})
    - :parent - parent mote (or nil)
    - :siblings - sibling motes (vec)
 
-   Also accepts optional resolved-children for proposal children."
+   Also accepts optional resolved-children for proposal children.
+   When resolved-children is not provided but the mote has a proposal,
+   falls back to showing proposal child IDs (degraded format)."
   [job & {:keys [resolved-children]}]
   (let [mote (:mote job)
         parent (:parent job)
         proposal (:proposal mote)
-        children (or resolved-children [])]
+        ;; For children (verifier view), use resolved or empty
+        children (or resolved-children [])
+        ;; For proposed-children (advisor view), prefer resolved but fall back to IDs
+        proposed-children (if (seq resolved-children)
+                            resolved-children
+                            (when proposal (:children proposal)))]
     {:mote-id (:id mote)
      :claim (:claim mote)
      :priority (name (:priority mote))
@@ -393,7 +405,7 @@ When done: af unclaim {{mote-id}}"}})
                     (str (:id parent) " — " (:claim parent))
                     "(root)")
      :children (format-children children)
-     :proposed-children (format-proposed-children children)
+     :proposed-children (format-proposed-children proposed-children)
      :assumptions (format-assumptions (:assumptions mote))
      :definitions (format-definitions (:definitions mote))
      :vote-summary (format-vote-summary (:votes mote))

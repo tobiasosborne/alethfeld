@@ -281,6 +281,10 @@
    - mote: The mote to check
    - timeout-minutes: Number of minutes after which a claim expires
 
+   Options:
+   - now: Optional java.time.Instant for the current time (defaults to Instant/now).
+          Useful for testing and ensuring consistent time comparisons.
+
    Returns true if:
    - The mote has a claimed-at timestamp
    - The claim is older than timeout-minutes
@@ -289,12 +293,13 @@
    - The mote is not claimed
    - The claim has no timestamp
    - The claim is within the timeout window"
-  [mote timeout-minutes]
+  [mote timeout-minutes & {:keys [now]}]
   (if-let [claimed-at (:claimed-at mote)]
-    (let [now-ms (.getTime (now))
-          claimed-ms (.getTime claimed-at)
-          timeout-ms (* timeout-minutes 60 1000)]
-      (> (- now-ms claimed-ms) timeout-ms))
+    (let [current-instant (or now (java.time.Instant/now))
+          claimed-instant (java.time.Instant/ofEpochMilli (.getTime claimed-at))
+          timeout (java.time.Duration/ofMinutes timeout-minutes)
+          expiration-instant (.plus claimed-instant timeout)]
+      (.isAfter current-instant expiration-instant))
     false))
 
 (defn set-proposal

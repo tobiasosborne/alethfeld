@@ -390,6 +390,117 @@
 ;; Dependency Tests
 ;; -----------------------------------------------------------------------------
 
+;; -----------------------------------------------------------------------------
+;; Cycle Detection Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest find-cycles-edge-cases-test
+  (testing "cycle path starts from the cycle entry point"
+    ;; Graph: 1 -> 2 -> 3 -> 2 (cycle is 2 -> 3 -> 2)
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :assumptions [{:type :internal :ref "2"}])
+                  (make-test-mote "2"
+                    :assumptions [{:type :internal :ref "3"}])
+                  (make-test-mote "3"
+                    :assumptions [{:type :internal :ref "2"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        ;; The cycle should include 2 and 3, and 2 should appear at start and end
+        (is (= "2" (first result)) "Cycle should start with the cycle entry point")
+        (is (= "2" (last result)) "Cycle should end with the cycle entry point"))))
+
+  (testing "self-cycle returns correct path"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :assumptions [{:type :internal :ref "1"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (= ["1" "1"] result) "Self-cycle should be [node node]"))))
+
+  (testing "two-node cycle returns correct path"
+    (let [motes (motes->map
+                 [(make-test-mote "A"
+                    :assumptions [{:type :internal :ref "B"}])
+                  (make-test-mote "B"
+                    :assumptions [{:type :internal :ref "A"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        ;; Depending on DFS order, either [A B A] or [B A B]
+        (is (or (= ["A" "B" "A"] result)
+                (= ["B" "A" "B"] result))
+            "Two-node cycle should show the complete cycle path"))))
+
+  (testing "cycle detection with string IDs containing special characters"
+    (let [motes (motes->map
+                 [(make-test-mote "node.1.a"
+                    :assumptions [{:type :internal :ref "node.2.b"}])
+                  (make-test-mote "node.2.b"
+                    :assumptions [{:type :internal :ref "node.1.a"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (some #{"node.1.a"} result))
+        (is (some #{"node.2.b"} result)))))
+
+  (testing "cycle detection with numeric-like string IDs"
+    ;; Tests that we use value equality not reference equality
+    (let [motes (motes->map
+                 [(make-test-mote "123"
+                    :assumptions [{:type :internal :ref "456"}])
+                  (make-test-mote "456"
+                    :assumptions [{:type :internal :ref "123"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (some #{"123"} result))
+        (is (some #{"456"} result)))))
+
+  (testing "no cycle when graph has long chain"
+    (let [motes (motes->map
+                 [(make-test-mote "1" :assumptions [{:type :internal :ref "2"}])
+                  (make-test-mote "2" :assumptions [{:type :internal :ref "3"}])
+                  (make-test-mote "3" :assumptions [{:type :internal :ref "4"}])
+                  (make-test-mote "4" :assumptions [{:type :internal :ref "5"}])
+                  (make-test-mote "5")])]
+      (is (nil? (dag/find-cycles motes)))))
+
+  (testing "cycle at end of long chain"
+    (let [motes (motes->map
+                 [(make-test-mote "1" :assumptions [{:type :internal :ref "2"}])
+                  (make-test-mote "2" :assumptions [{:type :internal :ref "3"}])
+                  (make-test-mote "3" :assumptions [{:type :internal :ref "4"}])
+                  (make-test-mote "4" :assumptions [{:type :internal :ref "5"}])
+                  (make-test-mote "5" :assumptions [{:type :internal :ref "3"}])])]  ; Cycle: 3->4->5->3
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (= "3" (first result)) "Cycle should start at cycle entry point")
+        (is (= "3" (last result)) "Cycle should end at cycle entry point")
+        (is (= 4 (count result)) "Cycle 3->4->5->3 should have 4 elements"))))
+
+  (testing "multiple disconnected components - one with cycle"
+    (let [motes (motes->map
+                 [(make-test-mote "1" :assumptions [{:type :internal :ref "2"}])
+                  (make-test-mote "2")  ; Component 1: no cycle
+                  (make-test-mote "A" :assumptions [{:type :internal :ref "B"}])
+                  (make-test-mote "B" :assumptions [{:type :internal :ref "A"}])])]  ; Component 2: cycle
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        ;; Should find the cycle in component 2
+        (is (or (some #{"A"} result) (some #{"B"} result))))))
+
+  (testing "diamond graph without cycle"
+    ;; Graph:    1
+    ;;          / \
+    ;;         2   3
+    ;;          \ /
+    ;;           4
+    (let [motes (motes->map
+                 [(make-test-mote "1" :assumptions [{:type :internal :ref "2"}
+                                                    {:type :internal :ref "3"}])
+                  (make-test-mote "2" :assumptions [{:type :internal :ref "4"}])
+                  (make-test-mote "3" :assumptions [{:type :internal :ref "4"}])
+                  (make-test-mote "4")])]
+      (is (nil? (dag/find-cycles motes)) "Diamond graph is acyclic"))))
+
 (deftest find-cycles-with-dependencies-test
   (testing "dependencies do not create cycle when acyclic"
     (let [motes (motes->map

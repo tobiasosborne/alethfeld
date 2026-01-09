@@ -626,3 +626,92 @@
             (is (str/includes? prompt-str (str "ROLE: " (name role))))
             (is (str/includes? prompt-str "ALLOWED COMMANDS:"))
             (is (str/includes? prompt-str "FORBIDDEN (your role cannot):"))))))))
+
+;; =============================================================================
+;; Bug Fix Tests - Proposed Children Resolution (alethfeld-sek2)
+;; =============================================================================
+
+(deftest format-proposed-children-with-mote-maps-test
+  (testing "Full mote maps format correctly"
+    (let [children [{:id "1.1" :claim "First claim" :difficulty 2}
+                    {:id "1.2" :claim "Second claim" :difficulty 3}]]
+      (is (= (str "1. 1.1: First claim (difficulty 2)\n"
+                  "2. 1.2: Second claim (difficulty 3)")
+             (#'prompt/format-proposed-children children))))))
+
+(deftest format-proposed-children-with-string-ids-test
+  (testing "String IDs format with degraded message"
+    (let [children ["1.1" "1.2" "1.3"]]
+      (is (= (str "1. 1.1 (details not loaded)\n"
+                  "2. 1.2 (details not loaded)\n"
+                  "3. 1.3 (details not loaded)")
+             (#'prompt/format-proposed-children children))))))
+
+(deftest format-proposed-children-empty-test
+  (testing "Empty children returns (none)"
+    (is (= "(none)" (#'prompt/format-proposed-children [])))
+    (is (= "(none)" (#'prompt/format-proposed-children nil)))))
+
+(deftest format-proposed-children-mixed-test
+  (testing "Mixed motes and IDs format correctly"
+    (let [children [{:id "1.1" :claim "Resolved claim" :difficulty 2}
+                    "1.2"]]
+      (is (= (str "1. 1.1: Resolved claim (difficulty 2)\n"
+                  "2. 1.2 (details not loaded)")
+             (#'prompt/format-proposed-children children))))))
+
+(deftest render-prompt-advisor-without-resolved-children-test
+  (testing "Advisor prompt shows degraded child IDs when resolved-children not passed"
+    (let [mote (test-mote :id "2.1"
+                          :taint #{:needs-proposal-review}
+                          :proposal {:id "prop-123"
+                                     :proposed-by "proposer-1"
+                                     :proposed-at #inst "2026-01-07"
+                                     :children ["2.1.1" "2.1.2" "2.1.3"]
+                                     :votes []
+                                     :status :pending})
+          job (test-job :role :advisor :mote mote)
+          ;; Call WITHOUT :resolved-children
+          prompt-str (prompt/render-prompt job)]
+      ;; Should show degraded format, not "(none)"
+      (is (str/includes? prompt-str "1. 2.1.1 (details not loaded)"))
+      (is (str/includes? prompt-str "2. 2.1.2 (details not loaded)"))
+      (is (str/includes? prompt-str "3. 2.1.3 (details not loaded)"))
+      ;; Should NOT show "(none)" for proposed children
+      (is (not (str/includes? prompt-str "PROPOSED CHILDREN:\n(none)"))))))
+
+(deftest render-prompt-advisor-with-resolved-children-test
+  (testing "Advisor prompt shows full details when resolved-children passed"
+    (let [child1 (test-mote :id "2.1.1" :claim "First substep" :difficulty 2)
+          child2 (test-mote :id "2.1.2" :claim "Second substep" :difficulty 3)
+          mote (test-mote :id "2.1"
+                          :taint #{:needs-proposal-review}
+                          :proposal {:id "prop-123"
+                                     :proposed-by "proposer-1"
+                                     :proposed-at #inst "2026-01-07"
+                                     :children ["2.1.1" "2.1.2"]
+                                     :votes []
+                                     :status :pending})
+          job (test-job :role :advisor :mote mote)
+          ;; Call WITH :resolved-children
+          prompt-str (prompt/render-prompt job :resolved-children [child1 child2])]
+      ;; Should show full details
+      (is (str/includes? prompt-str "1. 2.1.1: First substep (difficulty 2)"))
+      (is (str/includes? prompt-str "2. 2.1.2: Second substep (difficulty 3)"))
+      ;; Should NOT show degraded format
+      (is (not (str/includes? prompt-str "(details not loaded)"))))))
+
+(deftest render-prompt-advisor-no-proposal-children-test
+  (testing "Advisor prompt shows (none) when proposal has no children"
+    (let [mote (test-mote :id "2.1"
+                          :taint #{:needs-proposal-review}
+                          :proposal {:id "prop-123"
+                                     :proposed-by "proposer-1"
+                                     :proposed-at #inst "2026-01-07"
+                                     :children []
+                                     :votes []
+                                     :status :pending})
+          job (test-job :role :advisor :mote mote)
+          prompt-str (prompt/render-prompt job)]
+      ;; Should show "(none)" when proposal has empty children
+      (is (str/includes? prompt-str "PROPOSED CHILDREN:\n(none)")))))

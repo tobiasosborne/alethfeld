@@ -450,4 +450,50 @@
       ;; Not expired with 30-minute timeout
       (is (false? (m/claim-expired? mote 30)))
       ;; Expired with 15-minute timeout
-      (is (true? (m/claim-expired? mote 15))))))
+      (is (true? (m/claim-expired? mote 15)))))
+
+  (testing "claim-expired? with explicit now parameter for consistent comparisons"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          mote (-> (base-mote)
+                   (assoc :claimed-by "agent-1")
+                   (assoc :claimed-at claimed-time))
+          ;; 29 minutes later - not expired with 30 min timeout
+          now-29min (.plus base-instant (java.time.Duration/ofMinutes 29))
+          ;; 31 minutes later - expired with 30 min timeout
+          now-31min (.plus base-instant (java.time.Duration/ofMinutes 31))]
+      (is (false? (m/claim-expired? mote 30 :now now-29min)))
+      (is (true? (m/claim-expired? mote 30 :now now-31min)))))
+
+  (testing "claim-expired? boundary condition: exactly at expiration time"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          mote (-> (base-mote)
+                   (assoc :claimed-by "agent-1")
+                   (assoc :claimed-at claimed-time))
+          ;; Exactly 30 minutes later - NOT expired (boundary is exclusive)
+          now-exactly-30min (.plus base-instant (java.time.Duration/ofMinutes 30))]
+      ;; At exactly the boundary, isAfter returns false (not strictly after)
+      (is (false? (m/claim-expired? mote 30 :now now-exactly-30min)))))
+
+  (testing "claim-expired? boundary condition: one millisecond after expiration"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          mote (-> (base-mote)
+                   (assoc :claimed-by "agent-1")
+                   (assoc :claimed-at claimed-time))
+          ;; 30 minutes + 1 millisecond - now expired
+          now-just-after (.plus base-instant (java.time.Duration/ofMinutes 30))
+          now-just-after (.plusMillis now-just-after 1)]
+      (is (true? (m/claim-expired? mote 30 :now now-just-after)))))
+
+  (testing "claim-expired? boundary condition: one millisecond before expiration"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          mote (-> (base-mote)
+                   (assoc :claimed-by "agent-1")
+                   (assoc :claimed-at claimed-time))
+          ;; 30 minutes - 1 millisecond - not expired
+          now-just-before (.plus base-instant (java.time.Duration/ofMinutes 30))
+          now-just-before (.minusMillis now-just-before 1)]
+      (is (false? (m/claim-expired? mote 30 :now now-just-before))))))

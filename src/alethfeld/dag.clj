@@ -101,6 +101,10 @@
 
           ;; DFS visit function - returns cycle path if found, nil otherwise
           ;; path includes the current node at the end
+          ;; Helper to find index of element in vector using Clojure idioms
+          find-index (fn [coll item]
+                       (first (keep-indexed (fn [idx x] (when (= x item) idx)) coll)))
+
           dfs-visit
           (fn dfs-visit [node path]
             (swap! color assoc node :gray)
@@ -113,12 +117,17 @@
                   (case (get @color neighbor :white)
                     :gray  ; Found back edge - cycle!
                     (let [;; Find where the cycle starts in the path
-                          cycle-start-idx (.indexOf current-path neighbor)]
-                      (if (>= cycle-start-idx 0)
+                          cycle-start-idx (find-index current-path neighbor)]
+                      (if (some? cycle-start-idx)
                         ;; Return the cycle portion plus back to the start
                         (conj (vec (drop cycle-start-idx current-path)) neighbor)
-                        ;; Fallback: neighbor is gray but not in path (shouldn't happen)
-                        [node neighbor node]))
+                        ;; This should never happen: neighbor is gray but not in path
+                        ;; indicates a bug in the algorithm
+                        (throw (ex-info "Cycle detection logic error: gray node not found in path"
+                                       {:node node
+                                        :neighbor neighbor
+                                        :path current-path
+                                        :color-state @color}))))
 
                     :white ; Unvisited - recurse
                     (dfs-visit neighbor current-path)

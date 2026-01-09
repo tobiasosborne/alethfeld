@@ -155,11 +155,16 @@
 ;; Job Sorting
 ;; -----------------------------------------------------------------------------
 
+(def ^:private unknown-priority-rank
+  "Rank assigned to nil or invalid priorities. High value sorts them last."
+  999)
+
 (defn priority->rank
   "Convert priority keyword to numeric rank for sorting.
-   Lower rank = higher urgency (p0 → 0, p4 → 4)."
+   Lower rank = higher urgency (p0 → 0, p4 → 4).
+   Returns 999 for nil or invalid priorities (sorts them last)."
   [priority]
-  (priority-rank priority))
+  (get priority-rank priority unknown-priority-rank))
 
 (defn job-comparator
   "Comparator for sorting motes by priority (p0 first), then difficulty (lower first).

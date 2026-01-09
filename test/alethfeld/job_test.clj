@@ -346,6 +346,18 @@
     (is (< (job/priority->rank :p2) (job/priority->rank :p3)))
     (is (< (job/priority->rank :p3) (job/priority->rank :p4)))))
 
+(deftest priority->rank-nil-test
+  (testing "nil priority returns high rank (sorts last)"
+    (is (= 999 (job/priority->rank nil)))
+    (is (> (job/priority->rank nil) (job/priority->rank :p4)))))
+
+(deftest priority->rank-invalid-test
+  (testing "Invalid priority keyword returns high rank (sorts last)"
+    (is (= 999 (job/priority->rank :invalid)))
+    (is (= 999 (job/priority->rank :p5)))
+    (is (= 999 (job/priority->rank :high)))
+    (is (> (job/priority->rank :invalid) (job/priority->rank :p4)))))
+
 ;; =============================================================================
 ;; job-comparator Tests
 ;; =============================================================================
@@ -394,6 +406,51 @@
           sorted (sort job/job-comparator [m1 m2 m3 m4])]
       ;; Expected order: p0/d5, p1/d2, p2/d1, p2/d3
       (is (= ["2" "4" "3" "1"] (mapv :id sorted))))))
+
+(deftest job-comparator-nil-priority-test
+  (testing "nil priority does not cause NPE"
+    (let [m-nil (assoc (test-mote :id "1" :difficulty 3) :priority nil)
+          m-p2 (test-mote :id "2" :priority :p2 :difficulty 3)]
+      ;; Should not throw NPE
+      (is (integer? (job/job-comparator m-nil m-p2)))
+      (is (integer? (job/job-comparator m-p2 m-nil)))))
+
+  (testing "nil priority sorts after valid priorities"
+    (let [m-nil (assoc (test-mote :id "1" :difficulty 3) :priority nil)
+          m-p4 (test-mote :id "2" :priority :p4 :difficulty 3)]
+      ;; nil should come after p4 (lowest valid priority)
+      (is (pos? (job/job-comparator m-nil m-p4)))
+      (is (neg? (job/job-comparator m-p4 m-nil)))))
+
+  (testing "Two nil priorities compare by difficulty"
+    (let [m-nil-d1 (assoc (test-mote :id "1" :difficulty 1) :priority nil)
+          m-nil-d5 (assoc (test-mote :id "2" :difficulty 5) :priority nil)]
+      (is (neg? (job/job-comparator m-nil-d1 m-nil-d5)))
+      (is (pos? (job/job-comparator m-nil-d5 m-nil-d1))))))
+
+(deftest job-comparator-invalid-priority-test
+  (testing "Invalid priority does not cause NPE"
+    (let [m-invalid (assoc (test-mote :id "1" :difficulty 3) :priority :invalid)
+          m-p2 (test-mote :id "2" :priority :p2 :difficulty 3)]
+      ;; Should not throw NPE
+      (is (integer? (job/job-comparator m-invalid m-p2)))
+      (is (integer? (job/job-comparator m-p2 m-invalid)))))
+
+  (testing "Invalid priority sorts after valid priorities"
+    (let [m-invalid (assoc (test-mote :id "1" :difficulty 3) :priority :p99)
+          m-p4 (test-mote :id "2" :priority :p4 :difficulty 3)]
+      ;; Invalid should come after p4
+      (is (pos? (job/job-comparator m-invalid m-p4)))
+      (is (neg? (job/job-comparator m-p4 m-invalid)))))
+
+  (testing "Sorting collection with nil/invalid priorities"
+    (let [m1 (test-mote :id "1" :priority :p2 :difficulty 3)
+          m2 (assoc (test-mote :id "2" :difficulty 2) :priority nil)
+          m3 (assoc (test-mote :id "3" :difficulty 1) :priority :invalid)
+          m4 (test-mote :id "4" :priority :p0 :difficulty 5)
+          sorted (sort job/job-comparator [m1 m2 m3 m4])]
+      ;; Expected: p0/d5, p2/d3, then nil/invalid by difficulty (d1, d2)
+      (is (= ["4" "1" "3" "2"] (mapv :id sorted))))))
 
 ;; =============================================================================
 ;; build-job Tests
