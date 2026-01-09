@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Parallel Bugfixing #2 (4 P2 bugs fixed)
+**Last session:** Parallel Bugfixing #3 (4 P1/P2 bugs fixed)
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -10,7 +10,7 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 1000 tests, 2773 assertions
+clj -M:test                    # Should pass 1009 tests, 2804 assertions
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
 ```
@@ -33,15 +33,39 @@ bd stats                       # Check open/closed counts
 | Phase C | Quality/Safety Features | **100% COMPLETE** (5/5 steps) |
 
 ### Test Health
-- **Total tests:** 1,000
-- **Total assertions:** 2,773
+- **Total tests:** 1,009
+- **Total assertions:** 2,804
 - **Status:** ALL PASSING
 - **Known flaky tests:**
   - 3 concurrency tests (marked `^:flaky`, test isolation issues)
 
 ---
 
-## This Session: Parallel Bugfixing #2
+## This Session: Parallel Bugfixing #3
+
+### What Was Done
+
+Fixed 4 P1/P2 issues in parallel using 4 subagents:
+
+| Issue | File(s) | Fix |
+|-------|---------|-----|
+| `alethfeld-9vok` (P1) | tx.clj | Defensive path canonicalization with fallback to absolutize |
+| `alethfeld-q6ui` (P1) | session.clj | Add `:now` param to session-expired? to avoid TOCTOU races |
+| `alethfeld-ozha` (P2) | verify.clj, proposal.clj | Unify vote counting with generic count-votes-by-type |
+| `alethfeld-9b04` (P2) | dag.clj | Add explanatory comment for three-color DFS cycle detection |
+
+### Test Changes
+- Added 9 new tests (31 assertions) across test files
+- All 1009 tests pass with 2804 assertions
+
+### Commit
+```
+fix: P1/P2 bugs - path canonicalization, TOCTOU, vote counting, DFS docs
+```
+
+---
+
+## Previous Session: Parallel Bugfixing #2
 
 ### What Was Done
 
@@ -53,15 +77,6 @@ Fixed 4 P2 bugs in parallel using 4 subagents:
 | `alethfeld-f6i4` (P2) | dag.clj | Fix cycle detection with Clojure-idiomatic find-index, proper error handling |
 | `alethfeld-sjc7` (P2) | mote.clj | Use java.time.Instant/Duration for claim expiry, add `:now` option for testing |
 | `alethfeld-sek2` (P2) | prompt.clj | Fall back to proposal child IDs when resolved-children missing |
-
-### Test Changes
-- Added 12 new tests (56 assertions) across all 4 test files
-- All 1000 tests pass
-
-### Commit
-```
-fix: P2 bugs - job NPE, cycle detection, claim expiry, prompt children
-```
 
 ---
 
