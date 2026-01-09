@@ -24,6 +24,14 @@
 (def ^:const default-session-duration-minutes 30)
 
 ;; -----------------------------------------------------------------------------
+;; Platform Detection
+;; -----------------------------------------------------------------------------
+
+(def ^:private windows?
+  "True if running on Windows platform."
+  (.startsWith (System/getProperty "os.name") "Windows"))
+
+;; -----------------------------------------------------------------------------
 ;; Role-Action Matrix
 ;; -----------------------------------------------------------------------------
 
@@ -458,39 +466,87 @@
 ;; Cleanup Operations
 ;; -----------------------------------------------------------------------------
 
+(defn- pid-alive-unix?
+  "Check if a process is still running on Unix/Linux/macOS.
+
+   Uses `kill -0` to check process existence without sending a signal.
+   Returns:
+   - true if process is alive
+   - false if process is dead
+   - :unknown if check failed (e.g., permission denied)"
+  [pid]
+  (try
+    (let [result (proc/sh ["kill" "-0" (str pid)])]
+      (zero? (:exit result)))
+    (catch Exception _
+      :unknown)))
+
+(defn- pid-alive-windows?
+  "Check if a process is still running on Windows.
+
+   Uses `tasklist /FI \"PID eq <pid>\" /NH` to check process existence.
+   Returns:
+   - true if process is alive
+   - false if process is dead
+   - :unknown if check failed"
+  [pid]
+  (try
+    (let [result (proc/sh ["tasklist" "/FI" (str "PID eq " pid) "/NH"])]
+      (if (zero? (:exit result))
+        ;; tasklist returns success but output contains "INFO: No tasks" if PID not found
+        (not (re-find #"(?i)no tasks" (:out result)))
+        :unknown))
+    (catch Exception _
+      :unknown)))
+
 (defn pid-alive?
-  "Check if a process is still running.
+  "Check if a process is still running. Cross-platform.
 
    Arguments:
-   - pid: Process ID (integer or string)
+   - pid: Process ID (integer or string), or nil
 
-   Uses kill -0 to check process existence without sending a signal.
-   Returns true if the process exists, false otherwise.
+   Returns a tri-state result:
+   - true: Process is definitely alive
+   - false: Process is definitely dead
+   - :unknown: Unable to determine (e.g., permission denied, command failed)
+   - nil: If pid argument was nil
 
-   Note: This is platform-dependent (Unix/Linux/macOS)."
+   Platform behavior:
+   - Unix/Linux/macOS: Uses `kill -0 <pid>` (doesn't send signal, just checks)
+   - Windows: Uses `tasklist /FI \"PID eq <pid>\" /NH`
+
+   The :unknown case happens when:
+   - The check command itself fails to execute
+   - Permission is denied to query the process
+   - Platform-specific tools are unavailable
+
+   Callers should handle :unknown conservatively - typically treating it
+   as 'not confirmed dead' to avoid incorrectly cleaning up sessions."
   [pid]
   (when pid
-    (try
-      (let [result (proc/sh ["kill" "-0" (str pid)])]
-        (zero? (:exit result)))
-      (catch Exception _
-        false))))
+    (if windows?
+      (pid-alive-windows? pid)
+      (pid-alive-unix? pid))))
 
 (defn session-stale?
   "Check if a session is stale (expired OR owning process died).
 
    A session is stale if:
    1. It has expired (past expires-at time), OR
-   2. It has a PID recorded and that process is no longer alive
+   2. It has a PID recorded and that process is DEFINITELY dead (false from pid-alive?)
 
    Arguments:
    - session: Session map
 
-   Returns true if session should be cleaned up."
+   Returns true if session should be cleaned up.
+
+   Note: If pid-alive? returns :unknown, we conservatively treat the session
+   as NOT stale to avoid incorrectly cleaning up sessions when we can't
+   determine process status (e.g., on platforms where the check fails)."
   [session]
   (or (session-expired? session)
       (when-let [pid (:pid session)]
-        (not (pid-alive? pid)))))
+        (false? (pid-alive? pid)))))
 
 (defn cleanup-expired-sessions!
   "Archive all expired active sessions.
@@ -512,7 +568,7 @@
 
    A session is stale if:
    1. It has expired (past expires-at time), OR
-   2. It has a PID recorded and that process is no longer alive
+   2. It has a PID recorded and that process is DEFINITELY dead (false from pid-alive?)
 
    Arguments:
    - repo-path: Path to the repository root
@@ -523,14 +579,18 @@
    - :reason - :expired or :crashed
 
    Note: The caller is responsible for clearing mote claims.
-   This separation avoids circular dependencies between session and store."
+   This separation avoids circular dependencies between session and store.
+
+   Note: If pid-alive? returns :unknown, we conservatively treat the session
+   as NOT crashed to avoid incorrectly cleaning up sessions when we can't
+   determine process status."
   [repo-path]
   (let [active-sessions (load-all-active-sessions repo-path)]
     (->> active-sessions
          (keep (fn [session]
                  (let [expired? (session-expired? session)
                        crashed? (when-let [pid (:pid session)]
-                                  (not (pid-alive? pid)))]
+                                  (false? (pid-alive? pid)))]
                    (when (or expired? crashed?)
                      (archive-session! repo-path (:session-id session))
                      {:session-id (:session-id session)

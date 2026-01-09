@@ -64,17 +64,58 @@
 
 (defn- restore-snapshot!
   "Restore files from a snapshot.
-   Removes any new files not in the snapshot."
+   Removes any new files not in the snapshot.
+
+   Error handling:
+   - Logs and continues on delete failures (best effort cleanup)
+   - Uses atomic writes (temp file + rename) for safer restoration
+   - Throws on write failures to signal incomplete restoration
+
+   Returns true if all operations succeeded, false if any deletions failed
+   (writes that fail throw exceptions)."
   [repo-path snapshot]
   (let [base (alethfeld-dir repo-path)
         current-files (set (io/list-edn-files base :recursive true))
-        snapshot-files (set (keys snapshot))]
-    ;; Delete files that weren't in the snapshot
-    (doseq [path (clojure.set/difference current-files snapshot-files)]
-      (io/delete-file path))
-    ;; Restore original content
+        snapshot-files (set (keys snapshot))
+        files-to-delete (clojure.set/difference current-files snapshot-files)
+        delete-errors (atom [])]
+    ;; Phase 1: Delete files that weren't in the snapshot (best-effort)
+    (doseq [path files-to-delete]
+      (try
+        (let [deleted? (io/delete-file path)]
+          (when-not deleted?
+            (swap! delete-errors conj {:path path :error "File did not exist or could not be deleted"})))
+        (catch Exception e
+          (swap! delete-errors conj {:path path :error (.getMessage e)}))))
+
+    ;; Log any delete errors (but continue with restoration)
+    (when (seq @delete-errors)
+      (binding [*out* *err*]
+        (println "Warning: Some files could not be deleted during rollback:")
+        (doseq [{:keys [path error]} @delete-errors]
+          (println (str "  " path ": " error)))))
+
+    ;; Phase 2: Restore original content using atomic writes
+    ;; Write to temp file first, then rename for atomicity
     (doseq [[path content] snapshot]
-      (io/write-edn path content))))
+      (let [temp-path (str path ".tmp." (System/currentTimeMillis))]
+        (try
+          ;; Write to temp file
+          (io/write-edn temp-path content)
+          ;; Atomic rename (overwrites existing file)
+          (fs/move temp-path path {:replace-existing true})
+          (catch Exception e
+            ;; Clean up temp file if it exists
+            (try (fs/delete-if-exists temp-path) (catch Exception _))
+            ;; Re-throw with context - restoration is incomplete
+            (throw (ex-info "Failed to restore file during rollback"
+                            {:type :restore-failed
+                             :path path
+                             :cause (.getMessage e)}
+                            e))))))
+
+    ;; Return success indicator
+    (empty? @delete-errors)))
 
 (defn- ensure-git-config!
   "Ensure git has user config for commits (uses defaults if not set)."
@@ -187,8 +228,8 @@
                        (catch Exception e
                          (restore-snapshot! repo-path snapshot)
                          (throw e)))
-              ;; Validate the graph
-              motes (store/load-all-motes repo-path :include-archived true)
+              ;; Validate the graph (exclude archived - they're historical data)
+              motes (store/load-all-motes repo-path)
               validation (dag/validate-mote-graph motes)]
           (if (:valid? validation)
             ;; Valid - commit (no rollback after this point, changes are validated)

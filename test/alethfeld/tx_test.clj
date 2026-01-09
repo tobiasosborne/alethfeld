@@ -5,7 +5,8 @@
             [alethfeld.store :as store]
             [alethfeld.mote :as mote]
             [alethfeld.git :as git]
-            [alethfeld.io :as io]))
+            [alethfeld.io :as io]
+            [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
 ;; Test Fixtures
@@ -489,3 +490,97 @@
     (let [mote (store/load-mote *temp-dir* "2")]
       (is (= "Original" (:claim mote))
           "Changes must be rolled back when function throws"))))
+
+;; =============================================================================
+;; Snapshot Restoration Error Handling Tests
+;; =============================================================================
+
+(deftest restore-snapshot-delete-failure-test
+  (testing "Rollback continues when delete fails (best effort)"
+    (init-test-repo)
+
+    ;; Create initial state
+    (tx/transact! *temp-dir* "Initial"
+                  (fn [repo]
+                    (store/save-mote! repo (test-mote :id "1" :claim "Original"))))
+
+    ;; Simulate delete-file failing
+    (with-redefs [io/delete-file (fn [path]
+                                   (throw (Exception. "Permission denied")))]
+      ;; Transaction should still attempt restoration of original files
+      ;; even if deletes fail - capture stderr to verify warning is logged
+      (let [err-output (java.io.StringWriter.)]
+        (binding [*err* err-output]
+          (try
+            (tx/with-validation *temp-dir* "Add invalid child"
+              (fn [repo]
+                ;; Add a file that will need to be deleted on rollback
+                (store/save-mote! repo (test-mote :id "2" :claim "New file"))
+                ;; Create orphan to trigger validation failure
+                (store/save-mote! repo (test-mote :id "1.1" :parent "1"))))
+            (catch clojure.lang.ExceptionInfo _)))
+        ;; Warning should be logged about delete failures
+        (is (str/includes? (str err-output) "Warning")
+            "Should log warning about delete failures"))))
+
+  (testing "Original files are restored even when some deletes fail"
+    (init-test-repo)
+
+    ;; Create initial state with specific content
+    (tx/transact! *temp-dir* "Initial"
+                  (fn [repo]
+                    (store/save-mote! repo (test-mote :id "1" :claim "Original content"))))
+
+    ;; Mock delete to fail but allow writes
+    (let [original-delete io/delete-file]
+      (with-redefs [io/delete-file (fn [path]
+                                     ;; Fail for new files only
+                                     (if (str/includes? path "/2.edn")
+                                       (throw (Exception. "Simulated permission error"))
+                                       (original-delete path)))]
+        (try
+          (tx/with-validation *temp-dir* "Modify and add"
+            (fn [repo]
+              ;; Modify existing file
+              (store/save-mote! repo (test-mote :id "1" :claim "Modified!"))
+              ;; Add new file
+              (store/save-mote! repo (test-mote :id "2" :claim "New"))
+              ;; Create validation failure
+              (store/save-mote! repo (test-mote :id "1.1" :parent "1"))))
+          (catch clojure.lang.ExceptionInfo _))))
+
+    ;; Original content should be restored
+    (let [mote (store/load-mote *temp-dir* "1")]
+      (is (= "Original content" (:claim mote))
+          "Original content must be restored on rollback"))))
+
+(deftest restore-snapshot-write-failure-test
+  (testing "Write failure during restoration throws with context"
+    (init-test-repo)
+
+    ;; Create initial state
+    (tx/transact! *temp-dir* "Initial"
+                  (fn [repo]
+                    (store/save-mote! repo (test-mote :id "1" :claim "Original"))))
+
+    ;; Simulate write-edn failing during restoration
+    (let [write-count (atom 0)]
+      (with-redefs [io/write-edn (fn [path data]
+                                   (swap! write-count inc)
+                                   ;; Fail on restoration attempt (after initial writes)
+                                   (when (> @write-count 2)
+                                     (throw (Exception. "Disk full")))
+                                   ;; Normal write for transaction phase
+                                   (let [f (babashka.fs/file path)
+                                         parent (babashka.fs/parent f)]
+                                     (when (and parent (not (babashka.fs/exists? parent)))
+                                       (babashka.fs/create-dirs parent))
+                                     (spit f (pr-str data))
+                                     (str path)))]
+        ;; This should throw from the restoration phase
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"(Failed to restore|Disk full)"
+                              (tx/with-validation *temp-dir* "Bad change"
+                                (fn [repo]
+                                  ;; Make changes that will fail validation
+                                  (store/save-mote! repo (test-mote :id "1.1" :parent "1"))))))))))

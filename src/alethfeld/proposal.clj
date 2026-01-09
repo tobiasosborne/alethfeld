@@ -155,10 +155,16 @@
 (defn- promote-children!
   "Promote proposed children to fixed status.
    Moves files from proposed/ to motes/.
-   Atomic children get :needs-verification taint, others get :needs-decomposition."
+   Atomic children get :needs-verification taint, others get :needs-decomposition.
+   Throws if any child cannot be loaded - this indicates data corruption."
   [repo-path parent child-ids]
   (doseq [child-id child-ids]
-    (when-let [child (store/load-mote repo-path child-id)]
+    (let [child (store/load-mote repo-path child-id)]
+      (when-not child
+        (throw (ex-info "Child mote not found during promotion"
+                        {:type :child-not-found
+                         :parent-id (:id parent)
+                         :child-id child-id})))
       (let [atomic? (:atomic child)
             taint-to-add (if atomic?
                            :needs-verification
@@ -173,10 +179,15 @@
 
 (defn- archive-children!
   "Archive rejected children.
-   Moves files from proposed/ to archive/."
+   Moves files from proposed/ to archive/.
+   Throws if any child cannot be loaded - this indicates data corruption."
   [repo-path child-ids]
   (doseq [child-id child-ids]
-    (when-let [child (store/load-mote repo-path child-id)]
+    (let [child (store/load-mote repo-path child-id)]
+      (when-not child
+        (throw (ex-info "Child mote not found during archival"
+                        {:type :child-not-found
+                         :child-id child-id})))
       (let [rejected (mote/set-status child :rejected)]
         ;; Delete from proposed/
         (store/delete-mote! repo-path child-id)

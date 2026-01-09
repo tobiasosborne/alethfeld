@@ -288,7 +288,47 @@
       ;; Missing 1.2 - this should be caught
       (let [result (dag/validate-proposal-atomicity motes)]
         (is (some? result))
-        (is (= :missing-proposal-child (:type result)))))))
+        (is (= :missing-proposal-child (:type result))))))
+
+  (testing "pending proposal with non-proposed children fails"
+    (let [proposal (m/make-proposal "proposer" ["1.1" "1.2"])
+          motes (motes->map
+                 [(make-test-mote "1" :children ["1.1" "1.2"]
+                                  :proposal proposal)
+                  (make-test-mote "1.1" :parent "1" :status :fixed)
+                  (make-test-mote "1.2" :parent "1" :status :fixed)])]
+      (let [result (dag/validate-proposal-atomicity motes)]
+        (is (some? result))
+        (is (= :non-proposed-children (:type result)))
+        (is (= "1" (:parent-id result)))
+        (is (= :proposed (:expected-status result)))
+        (is (some? (:children-statuses result))))))
+
+  (testing "approved proposal with proposed children fails"
+    (let [proposal (assoc (m/make-proposal "proposer" ["1.1" "1.2"])
+                          :status :approved)
+          motes (motes->map
+                 [(make-test-mote "1" :children ["1.1" "1.2"]
+                                  :proposal proposal)
+                  (make-test-mote "1.1" :parent "1" :status :proposed)
+                  (make-test-mote "1.2" :parent "1" :status :proposed)])]
+      (let [result (dag/validate-proposal-atomicity motes)]
+        (is (some? result))
+        (is (= :non-proposed-children (:type result)))
+        (is (= :fixed (:expected-status result))))))
+
+  (testing "rejected proposal with fixed children fails"
+    (let [proposal (assoc (m/make-proposal "proposer" ["1.1" "1.2"])
+                          :status :rejected)
+          motes (motes->map
+                 [(make-test-mote "1" :children ["1.1" "1.2"]
+                                  :proposal proposal)
+                  (make-test-mote "1.1" :parent "1" :status :fixed)
+                  (make-test-mote "1.2" :parent "1" :status :fixed)])]
+      (let [result (dag/validate-proposal-atomicity motes)]
+        (is (some? result))
+        (is (= :non-proposed-children (:type result)))
+        (is (= :rejected (:expected-status result)))))))
 
 ;; -----------------------------------------------------------------------------
 ;; validate-mote-graph Tests

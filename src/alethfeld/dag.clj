@@ -174,16 +174,31 @@
 ;; Proposal Atomicity Validation
 ;; -----------------------------------------------------------------------------
 
+(defn- expected-child-status
+  "Return the expected child status based on proposal status."
+  [proposal-status]
+  (case proposal-status
+    :pending :proposed
+    :approved :fixed
+    :rejected :rejected
+    ;; Default for unknown status
+    nil))
+
 (defn validate-proposal-atomicity
   "Validate that all children in a proposal share the same fate (atomicity).
 
    Checks:
    - All proposal children must exist
    - All proposal children must have the same status
+   - All proposal children must have the expected status based on proposal state:
+     - :pending proposal → children should have :proposed status
+     - :approved proposal → children should have :fixed status
+     - :rejected proposal → children should have :rejected status
 
    Returns nil if valid, or an error map:
    - {:type :missing-proposal-child :parent-id ... :missing-child ...}
-   - {:type :atomicity-violation :parent-id ... :children-statuses {...}}"
+   - {:type :atomicity-violation :parent-id ... :children-statuses {...}}
+   - {:type :non-proposed-children :parent-id ... :expected-status ... :children-statuses {...}}"
   [motes]
   (some
    (fn [[parent-id parent-mote]]
@@ -198,13 +213,26 @@
               :parent-id parent-id
               :missing-child missing})
 
-           ;; Check status consistency
+           ;; Check status consistency (all children same status)
            :else
            (let [statuses (map :status child-motes)
-                 status-set (set statuses)]
-             (when (> (count status-set) 1)
+                 status-set (set statuses)
+                 proposal-status (:status proposal)
+                 expected (expected-child-status proposal-status)]
+             (cond
+               ;; Check for mixed statuses among children
+               (> (count status-set) 1)
                {:type :atomicity-violation
                 :parent-id parent-id
+                :children-statuses (zipmap proposal-children statuses)}
+
+               ;; Check for wrong expected status
+               (and expected
+                    (seq status-set)
+                    (not= (first status-set) expected))
+               {:type :non-proposed-children
+                :parent-id parent-id
+                :expected-status expected
                 :children-statuses (zipmap proposal-children statuses)}))))))
    motes))
 

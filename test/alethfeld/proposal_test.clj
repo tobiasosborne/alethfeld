@@ -733,3 +733,50 @@
       (is (= :fixed (:status child2)))
       (is (contains? (:taint child2) :needs-verification))
       (is (not (contains? (:taint child2) :needs-decomposition))))))
+
+;; -----------------------------------------------------------------------------
+;; Child Validation Tests (Bug fix: alethfeld-ou3f)
+;; -----------------------------------------------------------------------------
+
+(deftest promote-children-throws-on-missing-child-test
+  (testing "promote-children! throws when child file is missing"
+    (store/save-config! *test-repo* {:project-name "Test"
+                                     :proposal-quorum 1})
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step"}]
+     "proposer-1")
+    ;; Manually delete the proposed child file to simulate data corruption
+    (let [child-path (str *test-repo* "/.alethfeld/proposed/1.1.edn")]
+      (io/delete-file child-path))
+    ;; Approval should now throw because child is missing
+    (let [ex (try
+               (proposal/approve-proposal! *test-repo* "1" "advisor-1")
+               nil
+               (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? ex) "Expected exception to be thrown")
+      (is (= :child-not-found (:type (ex-data ex))))
+      (is (= "1" (:parent-id (ex-data ex))))
+      (is (= "1.1" (:child-id (ex-data ex)))))))
+
+(deftest archive-children-throws-on-missing-child-test
+  (testing "archive-children! throws when child file is missing"
+    (store/save-config! *test-repo* {:project-name "Test"
+                                     :proposal-quorum 1})
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step"}]
+     "proposer-1")
+    ;; Manually delete the proposed child file to simulate data corruption
+    (let [child-path (str *test-repo* "/.alethfeld/proposed/1.1.edn")]
+      (io/delete-file child-path))
+    ;; Rejection should now throw because child is missing
+    (let [ex (try
+               (proposal/reject-proposal! *test-repo* "1" "advisor-1")
+               nil
+               (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? ex) "Expected exception to be thrown")
+      (is (= :child-not-found (:type (ex-data ex))))
+      (is (= "1.1" (:child-id (ex-data ex)))))))
