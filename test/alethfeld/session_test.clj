@@ -1087,6 +1087,38 @@
     (is (not (m/validate schema/Contributors {:proposed-by "bob"})))))
 
 ;; =============================================================================
+;; Config Schema Tests (Session Timeout)
+;; =============================================================================
+
+(deftest config-schema-session-timeout-test
+  (testing "Config with session-timeout-minutes passes schema"
+    (let [config {:project-name "Test"
+                  :version "1.0"
+                  :default-difficulty 3
+                  :session-timeout-minutes 60}]
+      (is (m/validate schema/Config config))))
+
+  (testing "Config without session-timeout-minutes passes schema (optional)"
+    (let [config {:project-name "Test"
+                  :version "1.0"
+                  :default-difficulty 3}]
+      (is (m/validate schema/Config config))))
+
+  (testing "Config with invalid session-timeout-minutes fails schema"
+    ;; Must be at least 1
+    (let [config {:project-name "Test"
+                  :version "1.0"
+                  :default-difficulty 3
+                  :session-timeout-minutes 0}]
+      (is (not (m/validate schema/Config config))))
+    ;; Must be an integer
+    (let [config {:project-name "Test"
+                  :version "1.0"
+                  :default-difficulty 3
+                  :session-timeout-minutes "30"}]
+      (is (not (m/validate schema/Config config))))))
+
+;; =============================================================================
 ;; Session Resolution Tests (Auto-Use Single Session)
 ;; =============================================================================
 

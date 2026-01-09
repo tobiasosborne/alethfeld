@@ -381,8 +381,8 @@
    Returns the created mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [claim root difficulty priority agent dry-run]} options
-        agent (or agent "cli-user")]
+        {:keys [claim root difficulty priority name dry-run]} options
+        agent (or name "cli-user")]
 
     ;; Validation
     (when-not claim
@@ -734,7 +734,8 @@
    before selecting jobs."
   [{:keys [options]}]
   (let [repo-path "."
-        {:keys [agent role difficulty priority max no-claim job]} options
+        {:keys [name role difficulty priority max no-claim job]} options
+        agent name  ;; Renamed from --agent to --name, but keep 'agent' var for session compat
         ;; Default max depends on mode: list mode shows more, claim mode shows 1
         list-mode? (nil? agent)
         max-jobs (or max (if list-mode? 10 1))]
@@ -827,6 +828,8 @@
             ;; Proceed with claiming
             (let [;; Ensure session directories exist
                   _ (session/ensure-session-dirs! repo-path)
+                  ;; Get session timeout from config (default: 30 minutes)
+                  session-timeout (or (:session-timeout-minutes config) 30)
                   ;; Update motes with claims and create sessions
                   claimed-jobs (mapv (fn [j]
                                        (let [;; Create session for this job
@@ -834,7 +837,8 @@
                                              sess (session/create-session! repo-path
                                                                            (:mote-id j)
                                                                            job-role
-                                                                           agent)
+                                                                           agent
+                                                                           :duration-minutes session-timeout)
                                              ;; Update mote with claim
                                              updated-mote (mote/set-claimed-by (:mote j) agent)
                                              ;; Re-render prompt with session context
@@ -1044,7 +1048,7 @@
 
           ;; Execute
           (let [sess (session/enforce-session! repo-path session-id :propose id)
-                agent (or (:agent options) (:agent sess))
+                agent (or (:name options) (:agent sess))
                 result (proposal/create-proposal! repo-path id claims agent)
                 proposal-result (:result result)
                 child-count (count (:children proposal-result))]
@@ -1138,7 +1142,7 @@
 
       ;; Execute
       (let [sess (session/enforce-session! repo-path session-id :approve id)
-            agent (or (:agent options) (:agent sess))
+            agent (or (:name options) (:agent sess))
             result (proposal/approve-proposal! repo-path id agent :reason reason)
             approve-result (:result result)
             quorum-status (:quorum-status approve-result)]
@@ -1235,7 +1239,7 @@
 
       ;; Execute
       (let [sess (session/enforce-session! repo-path session-id :reject id)
-            agent (or (:agent options) (:agent sess))
+            agent (or (:name options) (:agent sess))
             result (proposal/reject-proposal! repo-path id agent :reason reason)
             reject-result (:result result)
             quorum-status (:quorum-status reject-result)]
@@ -1284,8 +1288,8 @@
    Returns the updated mote."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [claim priority difficulty agent dry-run]} options
-        agent (or agent "cli-user")]
+        {:keys [claim priority difficulty name dry-run]} options
+        agent (or name "cli-user")]
 
     ;; Validation
     (when-not id
@@ -1454,7 +1458,7 @@
 
       ;; Execute
       (let [sess (session/enforce-session! repo-path session :vote id)
-            agent (or (:agent options) (:agent sess))
+            agent (or (:name options) (:agent sess))
             vote-type (if for :for :against)
             result (verify/cast-vote! repo-path id agent vote-type :reason reason)
             vote-result (:result result)
@@ -1551,14 +1555,14 @@
     (let [;; Get agent from session or options
           sess (when session
                  (session/load-session repo-path session))
-          agent (or (:agent options)
+          agent (or (:name options)
                     (:agent sess)
                     (when dry-run "dry-run-agent"))
 
           _ (when (and (not dry-run) (not agent))
               (throw (ex-info "Agent name is required"
                               {:type :validation-failed
-                               :errors ["Provide --agent or use a valid session"]})))
+                               :errors ["Provide --name or use a valid session"]})))
 
           ;; Find eligible motes
           eligible (find-eligible-motes-for-voting repo-path agent)
@@ -1748,7 +1752,8 @@
    Returns the updated mote with :session-id."
   [{:keys [id options]}]
   (let [repo-path "."
-        {:keys [agent role dry-run]} options]
+        {:keys [name role dry-run]} options
+        agent name]
 
     ;; Validation
     (when-not id
@@ -1759,7 +1764,7 @@
     (when-not agent
       (throw (ex-info "Agent name is required"
                       {:type :validation-failed
-                       :errors ["Provide --agent to claim the mote"]})))
+                       :errors ["Provide --name to claim the mote"]})))
 
     (when-not role
       (throw (ex-info "Role is required"
@@ -1812,8 +1817,11 @@
           ;; Ensure session directories exist
           (session/ensure-session-dirs! repo-path)
 
-          ;; Create session
-          (let [sess (session/create-session! repo-path id role agent)
+          ;; Create session with configurable timeout
+          (let [config (store/load-config repo-path)
+                session-timeout (or (:session-timeout-minutes config) 30)
+                sess (session/create-session! repo-path id role agent
+                                              :duration-minutes session-timeout)
                 session-id (:session-id sess)
                 updated-mote (mote/set-claimed-by current-mote agent)]
             (tx/atomic-write! repo-path

@@ -296,10 +296,10 @@
   (testing "create with options"
     (let [result (cli/parse-args ["create" "--root" "--claim" "Test"
                                   "--difficulty" "4" "--priority" "p1"
-                                  "--agent" "bot"])]
+                                  "--name" "bot"])]
       (is (= 4 (:difficulty (:options result))))
       (is (= :p1 (:priority (:options result))))
-      (is (= "bot" (:agent (:options result)))))))
+      (is (= "bot" (:name (:options result)))))))
 
 (deftest parse-args-format-option-test
   (testing "format defaults to text (human-readable)"
@@ -320,17 +320,28 @@
 
 (deftest parse-args-vote-command-test
   (testing "vote for"
-    (let [result (cli/parse-args ["vote" "1" "--for" "--agent" "bob"])]
+    (let [result (cli/parse-args ["vote" "1" "--for" "--name" "bob"])]
       (is (= "vote" (:command result)))
       (is (= "1" (:id result)))
       (is (:for (:options result)))
-      (is (= "bob" (:agent (:options result))))))
+      (is (= "bob" (:name (:options result))))))
 
   (testing "vote against with reason"
-    (let [result (cli/parse-args ["vote" "1" "--against" "--agent" "bob"
+    (let [result (cli/parse-args ["vote" "1" "--against" "--name" "bob"
                                   "--reason" "Found a flaw"])]
       (is (:against (:options result)))
       (is (= "Found a flaw" (:reason (:options result)))))))
+
+(deftest parse-args-deprecated-agent-test
+  (testing "deprecated --agent maps to :name"
+    (let [result (cli/parse-args ["create" "--root" "--claim" "Test" "--agent" "bot"])]
+      (is (= "bot" (:name (:options result))))
+      (is (some #(str/includes? % "deprecated") (:deprecation-warnings result)))))
+
+  (testing "deprecated --agent in vote command"
+    (let [result (cli/parse-args ["vote" "1" "--for" "--agent" "alice"])]
+      (is (= "alice" (:name (:options result))))
+      (is (some #(str/includes? % "deprecated") (:deprecation-warnings result))))))
 
 (deftest parse-args-case-insensitive-test
   (testing "commands are case insensitive"

@@ -80,11 +80,30 @@
 ;; Environment Variables
 ;; -----------------------------------------------------------------------------
 
-(defn get-default-agent
-  "Get the default agent name from AF_AGENT environment variable.
-   Returns nil if not set."
+(defn get-default-name
+  "Get the default agent name from AF_NAME (or legacy AF_AGENT) environment variable.
+   Returns nil if not set. Prefers AF_NAME over AF_AGENT."
   []
-  (System/getenv "AF_AGENT"))
+  (or (System/getenv "AF_NAME")
+      (System/getenv "AF_AGENT")))
+
+;; -----------------------------------------------------------------------------
+;; Deprecated Option Support
+;; -----------------------------------------------------------------------------
+
+(def ^:dynamic *deprecation-warnings*
+  "Atom to collect deprecation warnings during argument parsing."
+  (atom []))
+
+(defn deprecated-agent-option
+  "Create a deprecated --agent option that maps to :name.
+   Collects a warning when used."
+  [description]
+  [nil "--agent NAME" (str description " (DEPRECATED: use --name)")
+   :assoc-fn (fn [m _k v]
+               (swap! *deprecation-warnings* conj
+                      "Warning: --agent is deprecated, use --name instead")
+               (assoc m :name v))])
 
 ;; -----------------------------------------------------------------------------
 ;; Exit Codes
@@ -287,13 +306,14 @@
                        ["-p" "--priority P" "Priority (p0-p4)"
                         :parse-fn keyword
                         :validate [#{:p0 :p1 :p2 :p3 :p4} "Must be p0-p4"]]
-                       ["-a" "--agent NAME" "Agent name (created-by)"
-                        :default "cli-user"]]
+                       ["-n" "--name NAME" "Agent name (created-by)"
+                        :default "cli-user"]
+                       (deprecated-agent-option "Agent name")]
              :optional-id true}
 
    "ready" {:description "Get next job(s) for an agent"
             :usage "af ready [OPTIONS]"
-            :options [["-a" "--agent NAME" "Agent name (auto-claims job)"]
+            :options [["-n" "--name NAME" "Agent name (auto-claims job)"]
                       ["-r" "--role ROLE" "Filter by role"
                        :parse-fn keyword
                        :validate [#{:proposer :advisor :prover :verifier :ref-checker :counterexample}
@@ -304,7 +324,8 @@
                        :default 1
                        :parse-fn #(Integer/parseInt %)
                        :validate [pos? "Must be positive"]]
-                      ["-n" "--no-claim" "Don't auto-claim jobs"]]}
+                      [nil "--no-claim" "Don't auto-claim jobs"]
+                      (deprecated-agent-option "Agent name")]}
 
    "propose" {:description "Propose decomposition into children"
               :usage "af propose <parent-id> --session TOKEN --claim TEXT [--difficulty N] [--atomic] [--claim TEXT ...]"
@@ -316,42 +337,47 @@
                          :assoc-fn (fn [m k v] (update m k (fnil conj []) v))]
                         [nil "--atomic" "Mark preceding claim as atomic (skip decomposition)"
                          :assoc-fn (fn [m k _] (update m k (fnil conj []) true))]
-                        ["-a" "--agent NAME" "Agent name (defaults to session agent)"]]
+                        ["-n" "--name NAME" "Agent name (defaults to session agent)"]
+                        (deprecated-agent-option "Agent name")]
               :requires-id true}
 
    "approve" {:description "Vote to approve a proposal"
               :usage "af approve <parent-id> --session TOKEN [--reason TEXT]"
               :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
-                        ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
-                        ["-R" "--reason TEXT" "Reason for approval"]]
+                        ["-n" "--name NAME" "Agent name (defaults to session agent)"]
+                        ["-R" "--reason TEXT" "Reason for approval"]
+                        (deprecated-agent-option "Agent name")]
               :requires-id true}
 
    "reject" {:description "Vote to reject a proposal"
              :usage "af reject <parent-id> --session TOKEN [--reason TEXT]"
              :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
-                       ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
-                       ["-R" "--reason TEXT" "Reason for rejection"]]
+                       ["-n" "--name NAME" "Agent name (defaults to session agent)"]
+                       ["-R" "--reason TEXT" "Reason for rejection"]
+                       (deprecated-agent-option "Agent name")]
              :requires-id true}
 
    "vote" {:description "Cast verification vote"
            :usage "af vote <id> --session TOKEN --for|--against [--reason TEXT] [--propagate]"
            :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
-                     ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
+                     ["-n" "--name NAME" "Agent name (defaults to session agent)"]
                      [nil "--for" "Vote for (valid)"]
                      [nil "--against" "Vote against (invalid)"]
                      ["-R" "--reason TEXT" "Reason for vote"]
-                     [nil "--propagate" "Auto-vote on parents when all siblings verified"]]
+                     [nil "--propagate" "Auto-vote on parents when all siblings verified"]
+                     (deprecated-agent-option "Agent name")]
            :requires-id true}
 
    "vote-all" {:description "Batch vote on multiple motes"
                :usage "af vote-all --session TOKEN --for|--against [--reason TEXT]"
                :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
-                         ["-a" "--agent NAME" "Agent name (defaults to session agent)"]
+                         ["-n" "--name NAME" "Agent name (defaults to session agent)"]
                          [nil "--for" "Vote for (valid)"]
                          [nil "--against" "Vote against (invalid)"]
                          ["-R" "--reason TEXT" "Reason for all votes"]
                          [nil "--pending" "Only vote on motes needing verification (default)"]
-                         [nil "--dry-run" "Show what would be voted on without voting"]]}
+                         [nil "--dry-run" "Show what would be voted on without voting"]
+                         (deprecated-agent-option "Agent name")]}
 
    "update" {:description "Update mote fields"
              :usage "af update <id> --session TOKEN [OPTIONS]"
@@ -377,14 +403,15 @@
             :requires-id true}
 
    "claim" {:description "Claim mote for work"
-            :usage "af claim <id> --agent NAME --role ROLE"
-            :options [["-a" "--agent NAME" "Agent name (required)"
-                       :missing "Agent is required"]
+            :usage "af claim <id> --name NAME --role ROLE"
+            :options [["-n" "--name NAME" "Agent name (required)"
+                       :missing "Agent name is required"]
                       ["-r" "--role ROLE" "Role for this session (required)"
                        :parse-fn keyword
                        :validate [#{:proposer :advisor :prover :verifier :ref-checker :counterexample}
                                   "Invalid role"]
-                       :missing "Role is required"]]
+                       :missing "Role is required"]
+                      (deprecated-agent-option "Agent name")]
             :requires-id true}
 
    "unclaim" {:description "Release claim on mote"
@@ -567,8 +594,11 @@
    - :args - Positional arguments after command
    - :options - Parsed options map
    - :errors - Any parsing errors
-   - :help? - True if help was requested"
+   - :help? - True if help was requested
+   - :deprecation-warnings - Any deprecation warnings from using old options"
   [args]
+  ;; Reset deprecation warnings for this parse
+  (reset! *deprecation-warnings* [])
   (let [;; First, separate command from rest
         [raw-cmd & rest-args] args
         raw-cmd (when raw-cmd (str/lower-case raw-cmd))
@@ -639,9 +669,9 @@
             has-id-arg (or requires-id optional-id)
             id (when has-id-arg (first arguments))
             rest-args (if has-id-arg (rest arguments) arguments)
-            ;; Apply AF_AGENT environment variable as default for --agent if not provided
-            options (if (and (nil? (:agent options)) (get-default-agent))
-                      (assoc options :agent (get-default-agent))
+            ;; Apply AF_NAME (or legacy AF_AGENT) as default for --name if not provided
+            options (if (and (nil? (:name options)) (get-default-name))
+                      (assoc options :name (get-default-name))
                       options)]
         {:command cmd
          :id id
@@ -651,7 +681,8 @@
                    (and requires-id (nil? id) (not (:help options)))
                    (conj (str "Command '" cmd "' requires an ID argument")))
          :help? (:help options)
-         :summary summary}))))
+         :summary summary
+         :deprecation-warnings @*deprecation-warnings*}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Bare Command Output
@@ -686,7 +717,7 @@
              "\n"
              "\n"
              "Your next action:\n"
-             "  af ready --agent <name>    Get assigned a task with instructions\n"
+             "  af ready --name <you>      Get assigned a task with instructions\n"
              "\n"
              "Quick commands:\n"
              "  af status                  View proof progress\n"
@@ -731,7 +762,7 @@
                         "    " (get role-descriptions role "No description"))))
        "\n\n"
        "Get assigned work:\n"
-       "  af ready --agent <name>    Claim a job matching your capabilities\n"
+       "  af ready --name <you>      Claim a job matching your capabilities\n"
        "  af jobs                    List available work without claiming"))
 
 ;; -----------------------------------------------------------------------------
@@ -824,10 +855,15 @@
    Returns map with :exit-code and :output or :error."
   [args & {:keys [exit?] :or {exit? true}}]
   (let [parsed (parse-args args)
-        {:keys [options]} parsed
+        {:keys [options deprecation-warnings]} parsed
         fmt (:format options :text)
         verbose (:verbose options false)
         result (dispatch parsed)]
+    ;; Print deprecation warnings to stderr
+    (when (and exit? (seq deprecation-warnings))
+      (doseq [warning deprecation-warnings]
+        (binding [*out* *err*]
+          (println warning))))
     (cond
       ;; Error with messages
       (:messages result)
