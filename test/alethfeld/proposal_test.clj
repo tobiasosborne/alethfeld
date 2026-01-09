@@ -81,7 +81,11 @@
                     :votes [{:agent "a1" :vote :approve}
                             {:agent "a2" :vote :reject}
                             {:agent "a3" :vote :approve}]}]
-      (is (= {:approve 2 :reject 1} (proposal/count-votes proposal))))))
+      (is (= {:approve 2 :reject 1} (proposal/count-votes proposal)))))
+
+  (testing "nil votes treated as empty (uses generic count-votes-by-type)"
+    (let [proposal {:id "p1"}]
+      (is (= {:approve 0 :reject 0} (proposal/count-votes proposal))))))
 
 (deftest check-proposal-quorum-test
   (testing "pending with no votes"

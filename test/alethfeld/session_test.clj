@@ -216,6 +216,137 @@
       (is (session/session-expired? session)))))
 
 ;; =============================================================================
+;; TOCTOU Prevention Tests - Boundary Conditions
+;; =============================================================================
+
+(deftest session-expired?-now-parameter-test
+  (testing "Accepts :now parameter for consistent time checking"
+    (let [;; Create session that expires at a specific time
+          now (java.time.Instant/now)
+          expires-at-date (java.util.Date/from (.plusSeconds now 60))
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      ;; Using a time before expiration -> not expired
+      (is (not (session/session-expired? session :now now)))
+      ;; Using a time 30 seconds later -> not expired
+      (is (not (session/session-expired? session :now (.plusSeconds now 30))))
+      ;; Using a time 61 seconds later -> expired
+      (is (session/session-expired? session :now (.plusSeconds now 61)))))
+
+  (testing "Exact boundary: at expiration time is NOT expired (uses isAfter)"
+    ;; Note: java.util.Date has millisecond precision, java.time.Instant has nanosecond.
+    ;; We truncate to millis to ensure consistent comparison.
+    (let [now (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          expires-at-date (java.util.Date/from now)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      ;; At exact expiration time, isAfter returns false (equal is not after)
+      (is (not (session/session-expired? session :now now)))
+      ;; One millisecond after -> expired
+      (is (session/session-expired? session :now (.plusMillis now 1)))))
+
+  (testing "Defaults to current time when :now not provided"
+    (let [;; Create a session expired 1 second ago
+          past (java.util.Date. (- (System/currentTimeMillis) 1000))
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at past
+                   :expires-at past
+                   :actions []}]
+      (is (session/session-expired? session)))))
+
+(deftest session-active?-now-parameter-test
+  (testing "Accepts :now parameter for consistent time checking"
+    (init-session-dirs)
+    (let [;; Create a session with known expiration
+          session (session/create-session! *temp-dir* "1" :proposer "agent" :duration-minutes 1)
+          now (java.time.Instant/now)]
+      ;; Active with current time
+      (is (session/session-active? *temp-dir* (:session-id session) :now now))
+      ;; Active 30 seconds later
+      (is (session/session-active? *temp-dir* (:session-id session) :now (.plusSeconds now 30)))
+      ;; Not active 2 minutes later (past 1 minute expiration)
+      (is (not (session/session-active? *temp-dir* (:session-id session) :now (.plusSeconds now 120)))))))
+
+(deftest session-stale?-now-parameter-test
+  (testing "Accepts :now parameter for consistent time checking"
+    (let [now (java.time.Instant/now)
+          expires-at (java.util.Date/from (.plusSeconds now 60))
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at
+                   :actions []}]
+      ;; Not stale at current time
+      (is (not (session/session-stale? session :now now)))
+      ;; Stale 61 seconds later
+      (is (session/session-stale? session :now (.plusSeconds now 61)))))
+
+  (testing "Still detects crashed process regardless of :now"
+    (let [;; Session with non-existent PID, not expired
+          future-time (java.util.Date. (+ (System/currentTimeMillis) 3600000))
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at future-time
+                   :actions []
+                   :pid 999999999}  ; Non-existent PID
+          now (java.time.Instant/now)]
+      ;; Stale due to crashed PID even though not expired
+      (is (session/session-stale? session :now now)))))
+
+(deftest toctou-consistent-timestamp-test
+  (testing "Multiple expiration checks use same timestamp"
+    ;; This test verifies the TOCTOU fix: when checking multiple sessions,
+    ;; a single timestamp is used to ensure consistent evaluation.
+    (init-session-dirs)
+    (let [;; Create sessions that expire at slightly different times
+          ;; In a race condition, if we checked each with a new timestamp,
+          ;; results could be inconsistent
+          now (java.time.Instant/now)
+          base-time (java.util.Date/from now)
+          ;; Session 1 expires at now+50ms
+          session1 {:session-id "11111111-1111-1111-1111-111111111111-11111111-1111-1111-1111-111111111111"
+                    :mote-id "1"
+                    :role :proposer
+                    :agent "test"
+                    :started-at base-time
+                    :expires-at (java.util.Date/from (.plusMillis now 50))
+                    :actions []}
+          ;; Session 2 expires at now+100ms
+          session2 {:session-id "22222222-2222-2222-2222-222222222222-22222222-2222-2222-2222-222222222222"
+                    :mote-id "2"
+                    :role :proposer
+                    :agent "test"
+                    :started-at base-time
+                    :expires-at (java.util.Date/from (.plusMillis now 100))
+                    :actions []}
+          ;; Check time at 75ms (session1 expired, session2 not)
+          check-time (.plusMillis now 75)]
+      ;; With consistent timestamp, results are predictable
+      (is (session/session-expired? session1 :now check-time))
+      (is (not (session/session-expired? session2 :now check-time)))
+      ;; Verify the same check-time gives consistent results on re-check
+      (is (session/session-expired? session1 :now check-time))
+      (is (not (session/session-expired? session2 :now check-time))))))
+
+;; =============================================================================
 ;; Session Update Tests
 ;; =============================================================================
 

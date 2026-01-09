@@ -18,13 +18,26 @@
 ;; Quorum Logic (Pure Functions)
 ;; -----------------------------------------------------------------------------
 
+(defn count-votes-by-type
+  "Generic vote counter that tallies votes by positive and negative types.
+
+   Arguments:
+   - entity: Any map with a :votes key containing vote records
+   - positive-key: The vote type considered positive (e.g., :for, :approve)
+   - negative-key: The vote type considered negative (e.g., :against, :reject)
+
+   Returns a map with counts keyed by the provided keys:
+   {positive-key count, negative-key count}"
+  [entity positive-key negative-key]
+  (let [votes (:votes entity [])]
+    {positive-key (count (filter #(= positive-key (:vote %)) votes))
+     negative-key (count (filter #(= negative-key (:vote %)) votes))}))
+
 (defn count-verification-votes
   "Count for and against votes on a mote.
    Returns {:for n :against m}."
   [mote]
-  (let [votes (:votes mote [])]
-    {:for (count (filter #(= :for (:vote %)) votes))
-     :against (count (filter #(= :against (:vote %)) votes))}))
+  (count-votes-by-type mote :for :against))
 
 (defn check-verification-quorum
   "Check if a mote has reached verification quorum.

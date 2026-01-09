@@ -78,6 +78,36 @@
 ;; Cycle Detection (DFS)
 ;; -----------------------------------------------------------------------------
 
+;; Implementation Note: Local Mutable State in a Pure Function
+;;
+;; The find-cycles function uses a local atom for DFS state tracking. While this
+;; module emphasizes pure DAG validation, this use of mutation is intentional
+;; and acceptable for the following reasons:
+;;
+;; 1. **Why three-color DFS?**
+;;    The standard algorithm for cycle detection in directed graphs. The three
+;;    colors represent node states during traversal:
+;;    - :white = unvisited node
+;;    - :gray  = currently on the DFS stack (in the active path)
+;;    - :black = fully processed (all descendants explored)
+;;    A back edge to a :gray node indicates a cycle, as we've found a path from
+;;    a node back to one of its ancestors.
+;;
+;; 2. **Why mutable state (atom)?**
+;;    The color map must be shared across all DFS branches to correctly detect
+;;    cycles. Pure functional alternatives (threading state through recursion,
+;;    using a loop/recur with accumulated state) add significant complexity
+;;    without benefit. The atom provides O(1) lookups and updates, matching
+;;    the theoretical O(V+E) complexity of the algorithm.
+;;
+;; 3. **Why this is still "pure" from the caller's perspective:**
+;;    - The atom is locally scoped within the function body
+;;    - No mutation escapes: the atom is created, used, and discarded
+;;    - The function is referentially transparent: same input always produces
+;;      the same output, with no observable side effects
+;;    - This is analogous to using a local mutable array in an otherwise pure
+;;      algorithm - an implementation detail hidden behind a pure interface
+
 (defn find-cycles
   "Detect cycles in the reference/dependency graph using DFS.
 

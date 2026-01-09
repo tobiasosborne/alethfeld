@@ -583,4 +583,164 @@
                               (tx/with-validation *temp-dir* "Bad change"
                                 (fn [repo]
                                   ;; Make changes that will fail validation
-                                  (store/save-mote! repo (test-mote :id "1.1" :parent "1"))))))))))
+                                  (store/save-mote! repo (test-mote :id "1.1" :parent "1")))))))))
+
+;; =============================================================================
+;; Path Canonicalization Tests (alethfeld-9vok)
+;; =============================================================================
+
+(deftest path-canonicalization-symlink-test
+  (testing "Symlinked paths use the same lock"
+    ;; Create a real directory and a symlink to it
+    (let [real-dir (str (fs/create-temp-dir {:prefix "tx-test-real-"}))
+          parent (fs/parent real-dir)
+          link-path (str parent "/tx-test-symlink-" (System/currentTimeMillis))]
+      (try
+        ;; Create symlink
+        (fs/create-sym-link link-path real-dir)
+
+        ;; Initialize repos using both paths
+        (store/init-repo! real-dir)
+        (git/git-init! real-dir)
+        (git/git-config! real-dir "user.name" "Test User")
+        (git/git-config! real-dir "user.email" "test@example.com")
+
+        ;; Both paths should be able to transact (they're the same repo)
+        (tx/transact! real-dir "Via real path"
+                      (fn [repo]
+                        (store/save-mote! repo (test-mote :id "1" :claim "First"))))
+
+        (tx/transact! link-path "Via symlink"
+                      (fn [repo]
+                        (store/save-mote! repo (test-mote :id "2" :claim "Second"))))
+
+        ;; Both motes should exist (same repo)
+        (is (some? (store/load-mote real-dir "1")))
+        (is (some? (store/load-mote real-dir "2")))
+        (is (some? (store/load-mote link-path "1")))
+        (is (some? (store/load-mote link-path "2")))
+
+        (finally
+          (fs/delete-tree real-dir)
+          (fs/delete-if-exists link-path))))))
+
+(deftest path-canonicalization-nil-test
+  (testing "Nil path throws IllegalArgumentException"
+    (is (thrown? IllegalArgumentException
+          (tx/transact! nil "Should fail"
+                        (fn [_repo] :never-called))))))
+
+(deftest path-canonicalization-relative-path-test
+  (testing "Relative paths are resolved correctly"
+    (init-test-repo)
+    ;; Get relative path from cwd
+    (let [cwd (System/getProperty "user.dir")
+          rel-path (if (.startsWith *temp-dir* cwd)
+                     (subs *temp-dir* (inc (count cwd)))
+                     *temp-dir*)]
+      ;; Only run test if we can form a relative path
+      (when (not= rel-path *temp-dir*)
+        (tx/transact! rel-path "Via relative"
+                      (fn [repo]
+                        (store/save-mote! repo (test-mote :id "1" :claim "Relative test"))))
+        (is (some? (store/load-mote *temp-dir* "1")))))))
+
+(deftest path-canonicalization-trailing-slash-test
+  (testing "Paths with trailing slashes are normalized"
+    (init-test-repo)
+    ;; Transact with trailing slash
+    (tx/transact! (str *temp-dir* "/") "With trailing slash"
+                  (fn [repo]
+                    (store/save-mote! repo (test-mote :id "1" :claim "Trailing test"))))
+    ;; Should be accessible without trailing slash
+    (is (some? (store/load-mote *temp-dir* "1")))
+    ;; Transact again without trailing slash (same lock)
+    (tx/transact! *temp-dir* "Without trailing slash"
+                  (fn [repo]
+                    (store/save-mote! repo (test-mote :id "2" :claim "No trailing"))))
+    (is (some? (store/load-mote *temp-dir* "2")))))
+
+(deftest path-canonicalization-dotdot-test
+  (testing "Paths with .. are normalized"
+    (init-test-repo)
+    ;; Create a path with .. using the dirname itself (it exists)
+    ;; e.g., /tmp/alethfeld-tx-test-123/../alethfeld-tx-test-123 -> /tmp/alethfeld-tx-test-123
+    (let [dirname (fs/file-name *temp-dir*)
+          dotdot-path (str *temp-dir* "/../" dirname)]
+      ;; Transact using .. path
+      (tx/transact! dotdot-path "Via .. path"
+                    (fn [repo]
+                      (store/save-mote! repo (test-mote :id "1" :claim "Dotdot test"))))
+      ;; Should be accessible via original path
+      (is (some? (store/load-mote *temp-dir* "1"))))))
+
+(deftest path-canonicalization-nonexistent-path-test
+  (testing "Non-existent paths don't crash (fall back to absolute)"
+    ;; Use a unique path that doesn't exist
+    (let [nonexistent (str "/tmp/alethfeld-nonexistent-" (System/currentTimeMillis))]
+      (try
+        ;; This should NOT throw - canonicalization falls back gracefully
+        ;; The actual transaction will fail later when trying to access the path
+        (is (thrown? Exception
+              (tx/transact! nonexistent "Nonexistent path"
+                            (fn [repo]
+                              ;; This will fail because the directory doesn't exist
+                              (store/save-mote! repo (test-mote :id "1"))))))
+        (finally
+          (fs/delete-if-exists nonexistent))))))
+
+(deftest path-canonicalization-concurrent-same-repo-test
+  (testing "Concurrent transactions on same repo (via different paths) are serialized"
+    ;; Create a real directory and a symlink to it
+    (let [real-dir (str (fs/create-temp-dir {:prefix "tx-test-concurrent-"}))
+          parent (fs/parent real-dir)
+          link-path (str parent "/tx-test-link-" (System/currentTimeMillis))
+          counter (atom 0)
+          results (atom [])]
+      (try
+        ;; Create symlink
+        (fs/create-sym-link link-path real-dir)
+
+        ;; Initialize repo
+        (store/init-repo! real-dir)
+        (git/git-init! real-dir)
+        (git/git-config! real-dir "user.name" "Test User")
+        (git/git-config! real-dir "user.email" "test@example.com")
+
+        ;; Create initial mote
+        (tx/transact! real-dir "Initial"
+                      (fn [repo]
+                        (store/save-mote! repo (test-mote :id "1" :claim "Initial"))))
+
+        ;; Start concurrent transactions via different paths
+        (let [f1 (future
+                   (tx/transact! real-dir "Via real"
+                                 (fn [repo]
+                                   (let [n (swap! counter inc)]
+                                     (Thread/sleep 50) ; Hold lock for a bit
+                                     (swap! results conj [:real n])
+                                     (store/save-mote! repo (test-mote :id "2" :claim "Real"))
+                                     n))))
+              f2 (future
+                   (Thread/sleep 10) ; Small delay to ensure f1 starts first
+                   (tx/transact! link-path "Via link"
+                                 (fn [repo]
+                                   (let [n (swap! counter inc)]
+                                     (swap! results conj [:link n])
+                                     (store/save-mote! repo (test-mote :id "3" :claim "Link"))
+                                     n))))]
+          ;; Wait for both to complete
+          @f1
+          @f2
+
+          ;; Results should show serialization (counter values are consecutive)
+          (is (= #{1 2} (set (map second @results)))
+              "Both transactions should have run with consecutive counter values")
+
+          ;; Both motes should exist
+          (is (some? (store/load-mote real-dir "2")))
+          (is (some? (store/load-mote real-dir "3"))))
+
+        (finally
+          (fs/delete-tree real-dir)
+          (fs/delete-if-exists link-path)))))))

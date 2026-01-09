@@ -20,12 +20,50 @@
    Used to serialize transactions per repository."
   (ConcurrentHashMap.))
 
+(defn- normalize-repo-path
+  "Normalize a repository path for consistent lock identification.
+
+   Attempts to canonicalize the path (resolving symlinks, normalizing '..' etc).
+   Falls back to absolute path if canonicalization fails (e.g., broken symlinks,
+   permission issues, or invalid paths).
+
+   The result is always a string with:
+   - Resolved symlinks (when possible)
+   - Normalized path separators
+   - No trailing slashes (except for root '/')
+
+   LIMITATION: On case-insensitive filesystems, paths that differ only in case
+   will not be normalized to the same value. This is a known limitation - callers
+   should avoid using paths that differ only in case for the same repository."
+  [repo-path]
+  (when-not repo-path
+    (throw (IllegalArgumentException. "Repository path cannot be nil")))
+  (let [path-str (str repo-path)
+        ;; Try canonicalization first (resolves symlinks, normalizes path)
+        normalized (try
+                     (str (fs/canonicalize path-str))
+                     (catch Exception _
+                       ;; Fall back to absolute path if canonicalization fails
+                       ;; This handles broken symlinks, permission issues, etc.
+                       (str (fs/absolutize path-str))))]
+    ;; Remove trailing slash for consistency (except for root "/")
+    (if (and (> (count normalized) 1)
+             (.endsWith normalized "/"))
+      (subs normalized 0 (dec (count normalized)))
+      normalized)))
+
 (defn- get-repo-lock
   "Get or create a lock for the given repository path.
-   Uses canonical path to ensure consistent locking."
+
+   Uses normalized canonical path to ensure consistent locking across:
+   - Symlinked paths (resolve to same lock)
+   - Paths with different representations (e.g., '/foo/../bar' vs '/bar')
+   - Relative vs absolute paths
+
+   Thread-safe: Uses ConcurrentHashMap.computeIfAbsent for atomic lock creation."
   [repo-path]
-  (let [canonical (str (fs/canonicalize repo-path))]
-    (.computeIfAbsent repo-locks canonical
+  (let [normalized (normalize-repo-path repo-path)]
+    (.computeIfAbsent repo-locks normalized
                       (reify java.util.function.Function
                         (apply [_ _] (ReentrantLock.))))))
 

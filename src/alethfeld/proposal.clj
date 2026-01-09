@@ -9,7 +9,8 @@
   (:require [alethfeld.id :as id]
             [alethfeld.mote :as mote]
             [alethfeld.store :as store]
-            [alethfeld.tx :as tx]))
+            [alethfeld.tx :as tx]
+            [alethfeld.verify :as verify]))
 
 ;; -----------------------------------------------------------------------------
 ;; Quorum Logic (Pure Functions)
@@ -19,9 +20,7 @@
   "Count approve and reject votes in a proposal.
    Returns {:approve n :reject m}."
   [proposal]
-  (let [votes (:votes proposal [])]
-    {:approve (count (filter #(= :approve (:vote %)) votes))
-     :reject (count (filter #(= :reject (:vote %)) votes))}))
+  (verify/count-votes-by-type proposal :approve :reject))
 
 (defn check-proposal-quorum
   "Check if a proposal has reached quorum.

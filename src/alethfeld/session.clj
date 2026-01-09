@@ -367,12 +367,17 @@
    - repo-path: Path to the repository root
    - session-id: The session ID to check
 
-   Returns true if session exists in active directory and not expired."
-  [repo-path session-id]
+   Options:
+   - :now - Optional java.time.Instant for the current time (defaults to Instant/now).
+            Useful for testing and ensuring consistent time comparisons.
+
+   Returns true if session exists in active directory and not expired.
+
+   Note: This function is primarily used in tests. Production code should use
+   load-active-session + session-expired? for explicit control over timestamp."
+  [repo-path session-id & {:keys [now]}]
   (when-let [session (load-active-session repo-path session-id)]
-    (let [now (java.util.Date.)
-          expires (:expires-at session)]
-      (.before now expires))))
+    (not (session-expired? session :now now))))
 
 (defn session-expired?
   "Check if an active session has expired.
@@ -380,11 +385,17 @@
    Arguments:
    - session: Session map
 
+   Options:
+   - :now - Optional java.time.Instant for the current time (defaults to Instant/now).
+            Useful for testing and ensuring consistent time comparisons across
+            multiple checks (avoiding TOCTOU vulnerabilities).
+
    Returns true if current time is past expires-at."
-  [session]
-  (let [now (java.util.Date.)
-        expires (:expires-at session)]
-    (.after now expires)))
+  [session & {:keys [now]}]
+  (let [current-instant (or now (Instant/now))
+        expires-at (:expires-at session)
+        expires-instant (Instant/ofEpochMilli (.getTime expires-at))]
+    (.isAfter current-instant expires-instant)))
 
 ;; -----------------------------------------------------------------------------
 ;; Session Updates
@@ -538,13 +549,17 @@
    Arguments:
    - session: Session map
 
+   Options:
+   - :now - Optional java.time.Instant for the current time (defaults to Instant/now).
+            Useful for testing and ensuring consistent time comparisons.
+
    Returns true if session should be cleaned up.
 
    Note: If pid-alive? returns :unknown, we conservatively treat the session
    as NOT stale to avoid incorrectly cleaning up sessions when we can't
    determine process status (e.g., on platforms where the check fails)."
-  [session]
-  (or (session-expired? session)
+  [session & {:keys [now]}]
+  (or (session-expired? session :now now)
       (when-let [pid (:pid session)]
         (false? (pid-alive? pid)))))
 
@@ -554,11 +569,14 @@
    Arguments:
    - repo-path: Path to the repository root
 
-   Returns vector of session IDs that were archived."
+   Returns vector of session IDs that were archived.
+
+   Note: Uses a single timestamp for all expiration checks to avoid TOCTOU issues."
   [repo-path]
-  (let [active-sessions (load-all-active-sessions repo-path)]
+  (let [now (Instant/now)
+        active-sessions (load-all-active-sessions repo-path)]
     (->> active-sessions
-         (filter session-expired?)
+         (filter #(session-expired? % :now now))
          (mapv (fn [session]
                  (archive-session! repo-path (:session-id session))
                  (:session-id session))))))
@@ -583,12 +601,15 @@
 
    Note: If pid-alive? returns :unknown, we conservatively treat the session
    as NOT crashed to avoid incorrectly cleaning up sessions when we can't
-   determine process status."
+   determine process status.
+
+   Note: Uses a single timestamp for all expiration checks to avoid TOCTOU issues."
   [repo-path]
-  (let [active-sessions (load-all-active-sessions repo-path)]
+  (let [now (Instant/now)
+        active-sessions (load-all-active-sessions repo-path)]
     (->> active-sessions
          (keep (fn [session]
-                 (let [expired? (session-expired? session)
+                 (let [expired? (session-expired? session :now now)
                        crashed? (when-let [pid (:pid session)]
                                   (false? (pid-alive? pid)))]
                    (when (or expired? crashed?)

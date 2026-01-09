@@ -53,6 +53,39 @@
 ;; Pure Function Tests
 ;; -----------------------------------------------------------------------------
 
+(deftest count-votes-by-type-test
+  (testing "empty votes"
+    (let [entity {:id "1" :votes []}]
+      (is (= {:yes 0 :no 0} (verify/count-votes-by-type entity :yes :no)))))
+
+  (testing "positive votes only"
+    (let [entity {:id "1"
+                  :votes [{:agent "v1" :vote :yes}
+                          {:agent "v2" :vote :yes}]}]
+      (is (= {:yes 2 :no 0} (verify/count-votes-by-type entity :yes :no)))))
+
+  (testing "negative votes only"
+    (let [entity {:id "1"
+                  :votes [{:agent "v1" :vote :no}]}]
+      (is (= {:yes 0 :no 1} (verify/count-votes-by-type entity :yes :no)))))
+
+  (testing "mixed votes"
+    (let [entity {:id "1"
+                  :votes [{:agent "v1" :vote :yes}
+                          {:agent "v2" :vote :no}
+                          {:agent "v3" :vote :yes}]}]
+      (is (= {:yes 2 :no 1} (verify/count-votes-by-type entity :yes :no)))))
+
+  (testing "works with different key names"
+    (let [entity {:id "1"
+                  :votes [{:agent "v1" :vote :approve}
+                          {:agent "v2" :vote :reject}]}]
+      (is (= {:approve 1 :reject 1} (verify/count-votes-by-type entity :approve :reject)))))
+
+  (testing "nil votes treated as empty"
+    (let [entity {:id "1"}]
+      (is (= {:a 0 :b 0} (verify/count-votes-by-type entity :a :b))))))
+
 (deftest count-verification-votes-test
   (testing "empty votes"
     (let [m {:id "1" :votes []}]
