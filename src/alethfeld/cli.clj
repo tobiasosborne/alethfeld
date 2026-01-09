@@ -469,6 +469,11 @@
             :usage "af check"
             :options []}
 
+   "repair" {:description "Detect and repair DAG inconsistencies"
+             :usage "af repair [--dry-run | --auto]"
+             :options [[nil "--dry-run" "Show what would be fixed without fixing"]
+                       [nil "--auto" "Automatically fix all repairable issues"]]}
+
    "log" {:description "Show git history for mote"
           :usage "af log <id> [--limit N]"
           :options [["-l" "--limit N" "Max entries to show"

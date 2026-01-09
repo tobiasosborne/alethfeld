@@ -19,6 +19,7 @@
             [alethfeld.job :as job]
             [alethfeld.prompt :as prompt]
             [alethfeld.proposal :as proposal]
+            [alethfeld.repair :as repair]
             [alethfeld.session :as session]
             [alethfeld.verify :as verify]
             [clojure.string :as str]))
@@ -2604,6 +2605,77 @@
                        [(status-action)])})))
 
 ;; -----------------------------------------------------------------------------
+;; Repair Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-repair
+  "Detect and repair DAG inconsistencies.
+
+   Options:
+   - :dry-run - Show what would be fixed without fixing
+   - :auto - Automatically fix all repairable issues
+
+   Default behavior (no flags) shows detected issues with repair options.
+
+   Returns map with:
+   - :issues - Detected issues
+   - :repairs - Repair results (if --auto)
+   - :output - Formatted output string"
+  [{:keys [options]}]
+  (let [repo-path "."
+        dry-run? (:dry-run options)
+        auto? (:auto options)]
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Detect issues
+    (let [issues (repair/detect-issues repo-path)
+          has-issues? (pos? (:total-issues issues))]
+
+      (cond
+        ;; No issues found
+        (not has-issues?)
+        {:issues issues
+         :valid? true
+         :output "Checking DAG integrity...\n\nNo issues found. DAG is healthy."
+         :message "DAG is healthy."
+         :next-actions [(status-action)]}
+
+        ;; Dry run - show issues without fixing
+        (or dry-run? (not auto?))
+        {:issues issues
+         :valid? false
+         :output (str "Checking DAG integrity...\n\n"
+                      "Found " (:total-issues issues) " issues:\n"
+                      (repair/format-issues issues)
+                      (when-not auto?
+                        (str "\n\nRepair options:\n"
+                             "  af repair --dry-run     Show what would be fixed\n"
+                             "  af repair --auto        Fix automatically")))
+         :message (str "Found " (:total-issues issues) " issues.")
+         :next-actions [(make-action "af repair --auto" "Fix issues automatically")
+                        (status-action)]}
+
+        ;; Auto repair
+        auto?
+        (let [repairs (repair/execute-repairs! repo-path issues)]
+          {:issues issues
+           :repairs repairs
+           :valid? false
+           :output (str "Checking DAG integrity...\n\n"
+                        "Found " (:total-issues issues) " issues:\n"
+                        (repair/format-issues issues)
+                        "\n\nRepairs applied:\n"
+                        (repair/format-repairs repairs))
+           :message "Repairs applied."
+           :next-actions [(make-action "af check" "Verify repairs")
+                          (status-action)]})))))
+
+;; -----------------------------------------------------------------------------
 ;; Log Command
 ;; -----------------------------------------------------------------------------
 
@@ -3266,6 +3338,7 @@
   (cli/register-handler! "add-definition" cmd-add-definition!)
   (cli/register-handler! "add-dep" cmd-add-dep!)
   (cli/register-handler! "check" cmd-check)
+  (cli/register-handler! "repair" cmd-repair)
   (cli/register-handler! "log" cmd-log)
   (cli/register-handler! "sync" cmd-sync!)
   (cli/register-handler! "config" cmd-config)
