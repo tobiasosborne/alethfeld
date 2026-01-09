@@ -636,3 +636,100 @@
     (let [result (proposal/withdraw-proposal! *test-repo* "1" "proposer-1")]
       (is (some? (:commit result)))
       (is (string? (get-in result [:commit :sha]))))))
+
+;; -----------------------------------------------------------------------------
+;; Atomic Claims Tests (Step C.5)
+;; -----------------------------------------------------------------------------
+
+(deftest atomic-claim-proposed-taint-test
+  (testing "atomic claim gets :needs-verification taint when proposed"
+    (create-test-mote! "1" "Root")
+    (let [result (proposal/create-proposal!
+                  *test-repo* "1"
+                  [{:claim "Simple fact" :atomic true}]
+                  "proposer-1")
+          child (first (:children (:result result)))]
+      ;; Atomic claim should have :needs-verification
+      (is (contains? (:taint child) :needs-verification))
+      (is (not (contains? (:taint child) :needs-decomposition)))
+      ;; Atomic flag should be set
+      (is (true? (:atomic child))))))
+
+(deftest non-atomic-claim-proposed-taint-test
+  (testing "non-atomic claim gets :needs-decomposition taint when proposed"
+    (create-test-mote! "1" "Root")
+    (let [result (proposal/create-proposal!
+                  *test-repo* "1"
+                  [{:claim "Complex step"}]
+                  "proposer-1")
+          child (first (:children (:result result)))]
+      ;; Non-atomic claim should have :needs-decomposition
+      (is (contains? (:taint child) :needs-decomposition))
+      (is (not (contains? (:taint child) :needs-verification)))
+      ;; Atomic flag should not be set
+      (is (nil? (:atomic child))))))
+
+(deftest mixed-atomic-claims-proposed-test
+  (testing "mixed atomic and non-atomic claims get correct taints"
+    (create-test-mote! "1" "Root")
+    (let [result (proposal/create-proposal!
+                  *test-repo* "1"
+                  [{:claim "Complex step"}
+                   {:claim "Simple fact" :atomic true}
+                   {:claim "Another complex step"}]
+                  "proposer-1")
+          children (:children (:result result))
+          [child1 child2 child3] children]
+      ;; First claim: non-atomic
+      (is (contains? (:taint child1) :needs-decomposition))
+      (is (nil? (:atomic child1)))
+      ;; Second claim: atomic
+      (is (contains? (:taint child2) :needs-verification))
+      (is (true? (:atomic child2)))
+      ;; Third claim: non-atomic
+      (is (contains? (:taint child3) :needs-decomposition))
+      (is (nil? (:atomic child3))))))
+
+(deftest atomic-claim-promoted-taint-test
+  (testing "atomic claim gets :needs-verification taint when promoted"
+    (store/save-config! *test-repo* {:project-name "Test"
+                                     :proposal-quorum 1})
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Simple fact" :atomic true}]
+     "proposer-1")
+    ;; Approve to promote
+    (proposal/approve-proposal! *test-repo* "1" "advisor-1")
+    ;; Check promoted child
+    (let [child (store/load-mote *test-repo* "1.1")]
+      (is (= :fixed (:status child)))
+      ;; Should have :needs-verification (not :needs-decomposition)
+      (is (contains? (:taint child) :needs-verification))
+      (is (not (contains? (:taint child) :needs-decomposition)))
+      ;; Atomic flag preserved
+      (is (true? (:atomic child))))))
+
+(deftest mixed-atomic-claims-promoted-test
+  (testing "mixed claims get correct taints after promotion"
+    (store/save-config! *test-repo* {:project-name "Test"
+                                     :proposal-quorum 1})
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Complex step"}
+      {:claim "Simple fact" :atomic true}]
+     "proposer-1")
+    ;; Approve to promote
+    (proposal/approve-proposal! *test-repo* "1" "advisor-1")
+    ;; Check promoted children
+    (let [child1 (store/load-mote *test-repo* "1.1")
+          child2 (store/load-mote *test-repo* "1.2")]
+      ;; First: non-atomic, needs decomposition
+      (is (= :fixed (:status child1)))
+      (is (contains? (:taint child1) :needs-decomposition))
+      (is (not (contains? (:taint child1) :needs-verification)))
+      ;; Second: atomic, needs verification
+      (is (= :fixed (:status child2)))
+      (is (contains? (:taint child2) :needs-verification))
+      (is (not (contains? (:taint child2) :needs-decomposition))))))

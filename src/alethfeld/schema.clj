@@ -143,6 +143,8 @@
    [:claimed-by {:optional true} :string]
    [:claimed-at {:optional true} inst?]
 
+   [:atomic {:optional true} :boolean]
+
    [:created-by :string]
    [:created-at inst?]
    [:updated-at inst?]

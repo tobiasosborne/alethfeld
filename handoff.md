@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Step C.4 - Cross-References / Dependencies
+**Last session:** Step C.5 - Atomic Markers on Creation
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -10,7 +10,7 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 971 tests, 2634 assertions
+clj -M:test                    # Should pass 984 tests, 2690 assertions
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
 ```
@@ -22,7 +22,7 @@ bd stats                       # Check open/closed counts
 ### Repository Structure
 - **Branch:** `main` (v2 development, hidden from public)
 - **Default branch on GitHub:** `legacy` (v1, public-facing)
-- **Latest commit:** `654d3a3` - feat: Step C.4 - Cross-References / Dependencies
+- **Latest commit:** (pending) - feat: Step C.5 - Atomic Markers on Creation
 - v1 code archived in `archive/v1/`
 
 ### Project Status
@@ -30,89 +30,102 @@ bd stats                       # Check open/closed counts
 |-------|--------|----------|
 | Phase A | Session & Role Enforcement | **100% COMPLETE** (8/8 steps) |
 | Phase B | Essential UX Improvements | **100% COMPLETE** (4/4 steps) |
-| Phase C | Quality/Safety Features | **80% COMPLETE** (4/5 steps) |
+| Phase C | Quality/Safety Features | **100% COMPLETE** (5/5 steps) |
 
 ### Test Health
-- **Total tests:** 971
-- **Total assertions:** 2,634
+- **Total tests:** 984
+- **Total assertions:** 2,690
 - **Status:** ALL PASSING
 - **Known flaky tests:**
   - 3 concurrency tests (marked `^:flaky`, test isolation issues)
 
 ---
 
-## This Session: Step C.4 Cross-References / Dependencies
+## This Session: Step C.5 Atomic Markers on Creation
 
 ### What Was Implemented
 
-Added `af add-dep` command to express mote dependencies (mote X depends on mote Y).
+Added `--atomic` flag to `af propose` to mark claims as atomic at proposal time. Atomic claims skip decomposition and go directly to verification.
 
 ### Command Syntax
+
+Two ways to mark claims as atomic:
+
+**1. Positional args with `!` suffix:**
 ```bash
-af add-dep <id> --depends-on <mote-id> [--reason "..."] --session TOKEN
+af propose 1 "Simple fact!" --session TOKEN
+af propose 1 "Fact @3!" --session TOKEN   # with difficulty
 ```
+
+**2. CLI options:**
+```bash
+af propose 1 --claim "Simple fact" --atomic --session TOKEN
+```
+
+### How It Works
+
+- **Non-atomic claims (default):** Get `:needs-decomposition` taint
+- **Atomic claims:** Get `:needs-verification` taint instead
+
+This means atomic claims skip the decomposition workflow and go directly to verification voting.
 
 ### Files Modified
 
 | File | Changes |
 |------|---------|
-| `src/alethfeld/schema.clj` | Added `Dependency` schema and `:depends-on` field to Mote |
-| `src/alethfeld/mote.clj` | Added `add-dep` function and `:depends-on` support in `make-mote` |
-| `src/alethfeld/cmd.clj` | Added `cmd-add-dep!` function with validation |
-| `src/alethfeld/cli.clj` | Added `add-dep` command definition |
-| `src/alethfeld/dag.clj` | Updated `find-cycles` and `validate-refs` for dependencies |
-| `src/alethfeld/verify.clj` | Added `unverified-dependencies` check, blocks voting |
-| `src/alethfeld/errors.clj` | Added `:unverified-dependencies` error formatter |
-| `test/alethfeld/dag_test.clj` | Added 11 dependency tests (cycles, refs) |
-| `test/alethfeld/mote_test.clj` | Added 3 `add-dep` tests |
-| `test/alethfeld/verify_test.clj` | Added 6 dependency verification tests |
+| `src/alethfeld/cli.clj` | Added `--atomic` option to propose command (repeatable, positional) |
+| `src/alethfeld/cmd.clj` | Updated `parse-claims` to handle `!` notation; added `merge-option-claims`; updated `cmd-propose!` |
+| `src/alethfeld/proposal.clj` | Updated `create-child-motes` and `promote-children!` to handle atomic flag |
+| `src/alethfeld/schema.clj` | Added `:atomic {:optional true} :boolean` field to Mote schema |
+| `test/alethfeld/proposal_test.clj` | Added 6 atomic claims tests |
+| `test/alethfeld/cmd/proposal_test.clj` | Added 8 atomic claims parsing and integration tests |
 
 ### Implementation Details
 
-**Schema:**
-```clojure
-(def Dependency
-  [:map
-   [:ref MoteId]
-   [:reason {:optional true} :string]])
+**Claim parsing (`parse-claims`):**
+- Detects `!` suffix as atomic marker
+- `"My claim!"` → `{:claim "My claim" :atomic true}`
+- `"My claim @3!"` → `{:claim "My claim" :difficulty 3 :atomic true}`
 
-;; In Mote schema:
-[:depends-on {:optional true} [:vector Dependency]]
+**Proposal creation (`create-child-motes`):**
+```clojure
+(let [atomic? (:atomic claim-spec)
+      taint (if atomic?
+              #{:needs-verification}
+              #{:needs-decomposition})]
+  ...)
 ```
 
-**Core Logic (`cmd-add-dep!`):**
-1. Validate mote ID provided
-2. Validate dependency target provided
-3. Check mote cannot depend on itself
-4. Validate session
-5. Load mote and dependency target (both must exist)
-6. Check for duplicate dependency
-7. Add dependency and commit
-
-**DAG Validation:**
-- `find-cycles` now includes dependency edges (in addition to assumption refs)
-- `validate-refs` now checks both assumption refs AND dependency refs
-- Each broken ref includes `:ref-type` (`:assumption` or `:dependency`)
-
-**Verification Blocking:**
-- Cannot vote on a mote if any of its dependencies are not `:verified`
-- `unverified-dependencies` function returns list of unverified deps
-- Throws `:unverified-dependencies` error with list of blocking deps
+**Promotion (`promote-children!`):**
+```clojure
+(let [atomic? (:atomic child)
+      taint-to-add (if atomic?
+                     :needs-verification
+                     :needs-decomposition)]
+  ...)
+```
 
 ### Tests Added
 
 | Test | Purpose |
 |------|---------|
-| `find-cycles-with-dependencies-test` | 5 tests for cycle detection with deps |
-| `validate-refs-with-dependencies-test` | 5 tests for ref validation with deps |
-| `add-dep-test` | 3 tests for mote/add-dep function |
-| `unverified-dependencies-test` | 4 tests for dependency status checking |
-| `vote-blocked-by-unverified-dependencies-test` | 2 tests for voting blocked |
-| `vote-blocked-error-details-test` | 1 test for error message content |
+| `atomic-claim-proposed-taint-test` | Atomic claim gets `:needs-verification` when proposed |
+| `non-atomic-claim-proposed-taint-test` | Non-atomic claim gets `:needs-decomposition` when proposed |
+| `mixed-atomic-claims-proposed-test` | Mixed claims get correct taints |
+| `atomic-claim-promoted-taint-test` | Atomic claim preserves taint after promotion |
+| `mixed-atomic-claims-promoted-test` | Mixed claims preserve correct taints after promotion |
+| `parse-claims-atomic-test` | Parse `!` suffix for atomic |
+| `parse-claims-atomic-with-difficulty-test` | Parse `@N!` for difficulty + atomic |
+| `parse-claims-mixed-atomic-test` | Parse mixed atomic/non-atomic claims |
+| `parse-claims-atomic-preserves-whitespace-test` | Whitespace handling with atomic |
+| `propose-atomic-claim-has-correct-taint-test` | Integration: atomic claim gets correct taint |
+| `propose-non-atomic-claim-has-correct-taint-test` | Integration: non-atomic claim gets correct taint |
+| `propose-mixed-atomic-claims-test` | Integration: mixed claims work correctly |
+| `approve-atomic-claim-preserves-taint-test` | Integration: approved atomic keeps `:needs-verification` |
 
 ---
 
-## Phase C Progress
+## Phase C Complete!
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
@@ -120,42 +133,19 @@ af add-dep <id> --depends-on <mote-id> [--reason "..."] --session TOKEN
 | C.2 | `alethfeld-t52o` | **DONE** | Auto-Propagation (`--propagate` flag) |
 | C.3 | `alethfeld-hc3w` | **DONE** | Proposal Withdrawal (`af withdraw`) |
 | C.4 | `alethfeld-pu9n` | **DONE** | Cross-References / Dependencies (`af add-dep`) |
-| C.5 | - | pending | Atomic Markers on Creation |
+| C.5 | `alethfeld-nyrg` | **DONE** | Atomic Markers on Creation (`--atomic` flag) |
 
 ---
 
-## Next Steps: C.5 Atomic Markers on Creation
+## Next Steps
 
-### Step C.5: Atomic Markers on Creation
+Phase C is complete! Possible next steps:
 
-**Goal:** Mark claims as atomic at proposal time.
+1. **Phase D** - Vision features (Lean4 integration, visualization) - deferred to v0.3+
+2. **Documentation** - Step 7.4 (`alethfeld-dpdq`) - CLI documentation
+3. **Bug fixes** - Various items in `bd ready`
 
-**Implementation plan from IMPLEMENTATION-PLAN.md:**
-- Add `--atomic` flag to `af propose`:
-  ```bash
-  af propose 1 --claim "Simple fact" --atomic --agent proposer-1 --session <token>
-  ```
-- When `--atomic` specified:
-  - Do NOT add `:needs-decomposition` taint
-  - Add `:needs-verification` taint instead
-- Can mix: some claims atomic, some not
-
----
-
-## Bonus: Fixed Flaky Test
-
-Also fixed `alethfeld-gp1q` (flaky generate-id-test):
-- Changed timestamp format from `HHmmss` to `HHmmssSSS` (added milliseconds)
-- Reduces collision probability from ~7% to near zero when generating 100 IDs
-
----
-
-## Ready Work Queue
-
-Run `bd ready` to see available issues. Current unblocked work includes:
-- Phase C step: C.5 (Atomic Markers on Creation)
-- Various bug fixes and enhancements
-- Documentation tasks
+Run `bd ready` to see available work.
 
 ---
 

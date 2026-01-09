@@ -55,10 +55,11 @@
 
    Arguments:
    - parent: The parent mote
-   - claims: Vector of {:claim ... :difficulty ...} maps
+   - claims: Vector of {:claim ... :difficulty ... :atomic ...} maps
    - agent: The proposing agent
 
-   Returns vector of child motes with :proposed status."
+   Returns vector of child motes with :proposed status.
+   Atomic claims get :needs-verification taint, non-atomic get :needs-decomposition."
   [parent claims agent]
   (let [parent-id (:id parent)
         existing-children (:children parent [])
@@ -71,15 +72,20 @@
         result
         (let [claim-spec (first remaining)
               child-id (id/next-child-id parent-id all-children)
-              child (mote/make-child-mote
-                     child-id
-                     (:claim claim-spec)
-                     agent
-                     parent
-                     :status :proposed
-                     :taint #{:needs-decomposition}
-                     :difficulty (or (:difficulty claim-spec)
-                                    (:difficulty parent)))]
+              atomic? (:atomic claim-spec)
+              taint (if atomic?
+                      #{:needs-verification}
+                      #{:needs-decomposition})
+              child (cond-> (mote/make-child-mote
+                             child-id
+                             (:claim claim-spec)
+                             agent
+                             parent
+                             :status :proposed
+                             :taint taint
+                             :difficulty (or (:difficulty claim-spec)
+                                            (:difficulty parent)))
+                      atomic? (assoc :atomic true))]
           (recur (rest remaining)
                  (conj all-children child-id)
                  (conj result child)))))))
@@ -148,13 +154,18 @@
 
 (defn- promote-children!
   "Promote proposed children to fixed status.
-   Moves files from proposed/ to motes/."
+   Moves files from proposed/ to motes/.
+   Atomic children get :needs-verification taint, others get :needs-decomposition."
   [repo-path parent child-ids]
   (doseq [child-id child-ids]
     (when-let [child (store/load-mote repo-path child-id)]
-      (let [promoted (-> child
+      (let [atomic? (:atomic child)
+            taint-to-add (if atomic?
+                           :needs-verification
+                           :needs-decomposition)
+            promoted (-> child
                          (mote/set-status :fixed)
-                         (mote/add-taint :needs-decomposition))]
+                         (mote/add-taint taint-to-add))]
         ;; Delete from proposed/
         (store/delete-mote! repo-path child-id)
         ;; Save to motes/

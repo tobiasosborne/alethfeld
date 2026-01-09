@@ -213,13 +213,15 @@
                       ["-n" "--no-claim" "Don't auto-claim jobs"]]}
 
    "propose" {:description "Propose decomposition into children"
-              :usage "af propose <parent-id> --session TOKEN --claim TEXT [--difficulty N] [--claim TEXT ...]"
+              :usage "af propose <parent-id> --session TOKEN --claim TEXT [--difficulty N] [--atomic] [--claim TEXT ...]"
               :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
                         ["-c" "--claim TEXT" "Claim text (repeatable)"
                          :assoc-fn (fn [m k v] (update m k (fnil conj []) v))]
                         ["-d" "--difficulty N" "Difficulty for claims (repeatable)"
                          :parse-fn #(Integer/parseInt %)
                          :assoc-fn (fn [m k v] (update m k (fnil conj []) v))]
+                        [nil "--atomic" "Mark preceding claim as atomic (skip decomposition)"
+                         :assoc-fn (fn [m k _] (update m k (fnil conj []) true))]
                         ["-a" "--agent NAME" "Agent name (defaults to session agent)"]]
               :requires-id true}
 

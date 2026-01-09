@@ -364,34 +364,72 @@
 (defn- parse-claims
   "Parse claims from command-line args.
 
-   Each claim is a string. Can optionally include difficulty with @ notation:
+   Each claim is a string. Can optionally include difficulty with @ notation
+   and atomic marker with ! notation:
    'My claim @3' -> {:claim 'My claim' :difficulty 3}
+   'My claim !' -> {:claim 'My claim' :atomic true}
+   'My claim @3!' -> {:claim 'My claim' :difficulty 3 :atomic true}
    'My claim' -> {:claim 'My claim'}
 
-   Returns vector of {:claim ... :difficulty ...} maps."
+   Returns vector of {:claim ... :difficulty ... :atomic ...} maps."
   [args]
   (mapv (fn [arg]
-          (if-let [[_ claim difficulty] (re-matches #"(.+?)\s*@(\d+)\s*$" arg)]
-            {:claim (str/trim claim)
-             :difficulty (Integer/parseInt difficulty)}
-            {:claim arg}))
+          (let [;; Check for trailing ! (atomic marker)
+                [arg-without-atomic atomic?] (if (str/ends-with? arg "!")
+                                               [(subs arg 0 (dec (count arg))) true]
+                                               [arg false])
+                ;; Check for @N difficulty notation
+                [claim difficulty] (if-let [[_ c d] (re-matches #"(.+?)\s*@(\d+)\s*$" arg-without-atomic)]
+                                     [(str/trim c) (Integer/parseInt d)]
+                                     [arg-without-atomic nil])]
+            (cond-> {:claim claim}
+              difficulty (assoc :difficulty difficulty)
+              atomic? (assoc :atomic true))))
         args))
+
+(defn- merge-option-claims
+  "Merge claims from --claim options with --difficulty and --atomic options.
+
+   The --difficulty and --atomic options are positional and apply to claims
+   in order. If there are fewer difficulty/atomic values than claims, the
+   remaining claims inherit from parent (difficulty) or default to false (atomic).
+
+   Arguments:
+   - claim-texts: Vector of claim text strings from --claim options
+   - difficulties: Vector of difficulty values from --difficulty options
+   - atomics: Vector of booleans from --atomic options
+
+   Returns vector of {:claim ... :difficulty ... :atomic ...} maps."
+  [claim-texts difficulties atomics]
+  (mapv (fn [idx claim-text]
+          (let [difficulty (get difficulties idx)
+                atomic? (get atomics idx)]
+            (cond-> {:claim claim-text}
+              difficulty (assoc :difficulty difficulty)
+              atomic? (assoc :atomic true))))
+        (range (count claim-texts))
+        claim-texts))
 
 (defn cmd-propose!
   "Create a proposal to decompose a mote into children.
 
    Arguments (in context):
    - :id - The parent mote ID (required)
-   - :args - Child claims (required, at least one)
+   - :args - Child claims (required unless --claim used)
              Each claim can optionally include difficulty with @ notation:
              'My claim @3' sets difficulty to 3
+             Add ! suffix to mark as atomic: 'My claim !' or 'My claim @3!'
 
    Options:
    - :session - Session token (required)
+   - :claim - Claim text (repeatable, alternative to positional args)
+   - :difficulty - Difficulty for claims (repeatable, positional)
+   - :atomic - Mark claim as atomic (repeatable, positional)
    - :agent - Agent name (defaults to session agent)
 
    Creates proposed children with :proposed status and attaches
    a proposal to the parent. Sets parent taint to :needs-proposal-review.
+   Atomic claims get :needs-verification taint instead of :needs-decomposition.
 
    Returns map with:
    - :proposal - The created proposal
@@ -406,28 +444,39 @@
                       {:type :validation-failed
                        :errors ["Provide parent mote ID"]})))
 
-    (when (empty? args)
-      (throw (ex-info "At least one claim is required"
-                      {:type :validation-failed
-                       :errors ["Provide at least one claim as argument"]})))
+    ;; Get claims from both args and --claim options
+    (let [option-claims (:claim options)
+          positional-claims args]
+      (when (and (empty? positional-claims) (empty? option-claims))
+        (throw (ex-info "At least one claim is required"
+                        {:type :validation-failed
+                         :errors ["Provide claims as arguments or with --claim"]})))
 
-    ;; Check repository exists
-    (when-not (store/repo-exists? repo-path)
-      (throw (ex-info "Not an Alethfeld repository"
-                      {:type :not-initialized
-                       :path repo-path})))
+      ;; Check repository exists
+      (when-not (store/repo-exists? repo-path)
+        (throw (ex-info "Not an Alethfeld repository"
+                        {:type :not-initialized
+                         :path repo-path})))
 
-    ;; Session enforcement
-    (when-not session-id
-      (throw (ex-info "Session token is required"
-                      {:type :validation-failed
-                       :errors ["Provide --session with session token"]})))
+      ;; Session enforcement
+      (when-not session-id
+        (throw (ex-info "Session token is required"
+                        {:type :validation-failed
+                         :errors ["Provide --session with session token"]})))
 
-    (let [sess (session/enforce-session! repo-path session-id :propose id)
-          agent (or (:agent options) (:agent sess))
-          claims (parse-claims args)
-          result (proposal/create-proposal! repo-path id claims agent)]
-      (:result result))))
+      (let [sess (session/enforce-session! repo-path session-id :propose id)
+            agent (or (:agent options) (:agent sess))
+            ;; Parse positional claims (with @N and ! notation support)
+            parsed-positional (parse-claims positional-claims)
+            ;; Parse option-based claims (merge with --difficulty and --atomic)
+            parsed-options (when (seq option-claims)
+                            (merge-option-claims option-claims
+                                                 (:difficulty options)
+                                                 (:atomic options)))
+            ;; Combine claims (positional first, then options)
+            claims (vec (concat parsed-positional parsed-options))
+            result (proposal/create-proposal! repo-path id claims agent)]
+        (:result result)))))
 
 ;; -----------------------------------------------------------------------------
 ;; Approve Command
