@@ -10,7 +10,8 @@
             [clojure.string :as str]
             [clojure.data.json :as json]
             [clojure.pprint :as pprint]
-            [alethfeld.errors :as err])
+            [alethfeld.errors :as err]
+            [alethfeld.store :as store])
   (:gen-class))
 
 ;; Command handlers are registered by alethfeld.cmd namespace.
@@ -25,6 +26,55 @@
 ;; -----------------------------------------------------------------------------
 
 (def version "0.1.0-SNAPSHOT")
+
+;; -----------------------------------------------------------------------------
+;; Levenshtein Distance (for typo suggestions)
+;; -----------------------------------------------------------------------------
+
+(defn levenshtein-distance
+  "Calculate the Levenshtein (edit) distance between two strings.
+   Returns the minimum number of single-character edits (insertions,
+   deletions, or substitutions) required to transform s1 into s2."
+  [s1 s2]
+  (let [len1 (count s1)
+        len2 (count s2)]
+    (cond
+      (zero? len1) len2
+      (zero? len2) len1
+      :else
+      (let [;; Create initial row [0 1 2 ... len2]
+            initial-row (vec (range (inc len2)))]
+        (loop [i 0
+               prev-row initial-row]
+          (if (>= i len1)
+            (last prev-row)
+            (let [c1 (nth s1 i)
+                  curr-row (loop [j 0
+                                  row [(inc i)]]
+                             (if (>= j len2)
+                               row
+                               (let [c2 (nth s2 j)
+                                     cost (if (= c1 c2) 0 1)
+                                     insert (inc (nth row j))
+                                     delete (inc (nth prev-row (inc j)))
+                                     substitute (+ (nth prev-row j) cost)]
+                                 (recur (inc j)
+                                        (conj row (min insert delete substitute))))))]
+              (recur (inc i) curr-row))))))))
+
+(defn suggest-command
+  "Find the closest matching command to the given input.
+   Returns the suggestion if Levenshtein distance is <= 2, otherwise nil."
+  [input known-commands]
+  (let [input-lower (str/lower-case input)
+        distances (for [cmd known-commands]
+                    [cmd (levenshtein-distance input-lower cmd)])
+        [best-cmd best-dist] (reduce (fn [[bc bd] [c d]]
+                                       (if (< d bd) [c d] [bc bd]))
+                                     [nil Integer/MAX_VALUE]
+                                     distances)]
+    (when (and best-cmd (<= best-dist 2))
+      best-cmd)))
 
 ;; -----------------------------------------------------------------------------
 ;; Exit Codes
@@ -427,13 +477,14 @@
         [cmd & rest-args] args
         cmd (when cmd (str/lower-case cmd))]
     (cond
-      ;; No command
+      ;; No command - bare invocation (not help)
       (nil? cmd)
       {:command nil
        :args []
        :options {}
        :errors nil
-       :help? true}
+       :help? false
+       :bare? true}
 
       ;; Help command
       (= cmd "help")
@@ -459,13 +510,22 @@
        :errors nil
        :help? true}
 
-      ;; Unknown command
+      ;; Unknown command - with typo suggestion
       (not (contains? commands cmd))
-      {:command cmd
-       :args rest-args
-       :options {}
-       :errors [(str "Unknown command: " cmd)]
-       :help? false}
+      (let [suggestion (suggest-command cmd (keys commands))
+            error-msg (if suggestion
+                        (str "Unknown command: " cmd "\n\n"
+                             "Did you mean: " suggestion "?\n"
+                             "  af " suggestion
+                             (when (seq rest-args)
+                               (str " " (str/join " " rest-args))))
+                        (str "Unknown command: " cmd))]
+        {:command cmd
+         :args rest-args
+         :options {}
+         :errors [error-msg]
+         :help? false
+         :suggestion suggestion})
 
       ;; Valid command - parse options
       :else
@@ -486,6 +546,59 @@
                    (conj (str "Command '" cmd "' requires an ID argument")))
          :help? (:help options)
          :summary summary}))))
+
+;; -----------------------------------------------------------------------------
+;; Bare Command Output
+;; -----------------------------------------------------------------------------
+
+(def valid-roles
+  "List of valid agent roles."
+  ["proposer" "advisor" "prover" "verifier" "ref-checker" "counterexample"])
+
+(defn- format-bare-output
+  "Generate the bare command output showing project context and next action.
+   This is shown when `af` is invoked with no arguments."
+  []
+  (let [repo-path "."
+        initialized? (store/repo-exists? repo-path)]
+    (if initialized?
+      ;; Project is initialized - show status
+      (let [config (store/load-config repo-path)
+            project-name (:project-name config "Unnamed Project")
+            motes (store/load-all-motes repo-path)
+            mote-list (vals motes)
+            total (count mote-list)
+            verified (count (filter #(= :verified (:status %)) mote-list))
+            fixed (count (filter #(= :fixed (:status %)) mote-list))
+            proposed (count (filter #(= :proposed (:status %)) mote-list))]
+        (str "Alethfeld v" version " - Collaborative Proof Verification\n"
+             "\n"
+             "Project: " project-name "\n"
+             "Motes: " total
+             (when (pos? total)
+               (str " (" verified " verified, " fixed " need work, " proposed " proposed)"))
+             "\n"
+             "\n"
+             "Your next action:\n"
+             "  af ready --agent <name>    Get assigned a task with instructions\n"
+             "\n"
+             "Quick commands:\n"
+             "  af status                  View proof progress\n"
+             "  af tree 1                  View proof structure from mote 1\n"
+             "  af help                    Full command reference\n"
+             "\n"
+             "Roles: " (str/join ", " valid-roles)))
+      ;; Not initialized - suggest init
+      (str "Alethfeld v" version " - Collaborative Proof Verification\n"
+           "\n"
+           "No project found in current directory.\n"
+           "\n"
+           "Your next action:\n"
+           "  af init --name \"My Proof\"   Initialize a new proof project\n"
+           "\n"
+           "Or navigate to an existing Alethfeld project directory.\n"
+           "\n"
+           "Roles: " (str/join ", " valid-roles)))))
 
 ;; -----------------------------------------------------------------------------
 ;; Command Dispatch
@@ -511,7 +624,7 @@
    - parsed: Result from parse-args
 
    Returns the result of the handler, or handles help/errors."
-  [{:keys [command id args options errors help?] :as parsed}]
+  [{:keys [command id args options errors help? bare?] :as parsed}]
   (cond
     ;; Errors
     (seq errors)
@@ -522,6 +635,11 @@
     ;; Version
     (:version options)
     {:output (str "Alethfeld v" version)
+     :exit-code :success}
+
+    ;; Bare invocation - show context and next action
+    bare?
+    {:output (format-bare-output)
      :exit-code :success}
 
     ;; Help
