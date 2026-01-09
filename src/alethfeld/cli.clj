@@ -326,6 +326,14 @@
                                 :missing "Meaning is required"]]
                      :requires-id true}
 
+   "add-dep" {:description "Add dependency link"
+              :usage "af add-dep <id> --depends-on MOTE-ID [--reason TEXT] --session TOKEN"
+              :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                        ["-d" "--depends-on ID" "Mote ID that this mote depends on (required)"
+                         :missing "Dependency target is required"]
+                        ["-r" "--reason TEXT" "Reason for dependency"]]
+              :requires-id true}
+
    "check" {:description "Validate DAG integrity"
             :usage "af check"
             :options []}

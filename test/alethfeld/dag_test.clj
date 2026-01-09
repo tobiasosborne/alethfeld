@@ -10,14 +10,15 @@
 
 (defn- make-test-mote
   "Create a simple test mote with minimal required fields."
-  [id & {:keys [parent children assumptions status proposal]
+  [id & {:keys [parent children assumptions status proposal depends-on]
          :or {children [] assumptions [] status :fixed}}]
   (cond-> (m/make-mote id (str "Claim for " id) "test-agent"
                        :children children
                        :assumptions assumptions
                        :status status)
     parent (assoc :parent parent)
-    proposal (assoc :proposal proposal)))
+    proposal (assoc :proposal proposal)
+    depends-on (assoc :depends-on depends-on)))
 
 (defn- motes->map
   "Convert a sequence of motes into a map keyed by id."
@@ -344,3 +345,104 @@
       (let [result (dag/validate-mote-graph motes)]
         (is (not (:valid? result)))
         (is (some #(= :cycle (:category %)) (:errors result)))))))
+
+;; -----------------------------------------------------------------------------
+;; Dependency Tests
+;; -----------------------------------------------------------------------------
+
+(deftest find-cycles-with-dependencies-test
+  (testing "dependencies do not create cycle when acyclic"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :depends-on [{:ref "2"}])
+                  (make-test-mote "2")])]
+      (is (nil? (dag/find-cycles motes)))))
+
+  (testing "dependency self-reference creates cycle"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :depends-on [{:ref "1"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (some #(= "1" %) result)))))
+
+  (testing "dependency cycle between two motes detected"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :depends-on [{:ref "2"}])
+                  (make-test-mote "2"
+                    :depends-on [{:ref "1"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (some #(= "1" %) result))
+        (is (some #(= "2" %) result)))))
+
+  (testing "mixed assumption and dependency creates cycle"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :assumptions [{:type :internal :ref "2"}])
+                  (make-test-mote "2"
+                    :depends-on [{:ref "1"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (>= (count result) 2)))))
+
+  (testing "three-node dependency cycle detected"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :depends-on [{:ref "2" :reason "uses lemma"}])
+                  (make-test-mote "2"
+                    :depends-on [{:ref "3"}])
+                  (make-test-mote "3"
+                    :depends-on [{:ref "1"}])])]
+      (let [result (dag/find-cycles motes)]
+        (is (vector? result))
+        (is (>= (count result) 2))))))
+
+(deftest validate-refs-with-dependencies-test
+  (testing "valid dependency refs pass"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :depends-on [{:ref "2"}])
+                  (make-test-mote "2")])]
+      (is (nil? (dag/validate-refs motes)))))
+
+  (testing "broken dependency ref detected"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :depends-on [{:ref "nonexistent"}])])]
+      (let [result (dag/validate-refs motes)]
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (is (= "1" (:mote-id (first result))))
+        (is (= "nonexistent" (:ref (first result))))
+        (is (= :dependency (:ref-type (first result)))))))
+
+  (testing "broken assumption ref includes ref-type"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :assumptions [{:type :internal :ref "missing"}])])]
+      (let [result (dag/validate-refs motes)]
+        (is (vector? result))
+        (is (= :assumption (:ref-type (first result)))))))
+
+  (testing "multiple broken refs from both types detected"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :assumptions [{:type :internal :ref "missing-assumption"}]
+                    :depends-on [{:ref "missing-dep"}])])]
+      (let [result (dag/validate-refs motes)]
+        (is (vector? result))
+        (is (= 2 (count result)))
+        (is (some #(= :assumption (:ref-type %)) result))
+        (is (some #(= :dependency (:ref-type %)) result)))))
+
+  (testing "mixed valid and broken deps reports only broken ones"
+    (let [motes (motes->map
+                 [(make-test-mote "1"
+                    :depends-on [{:ref "2"} {:ref "missing"}])
+                  (make-test-mote "2")])]
+      (let [result (dag/validate-refs motes)]
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (is (= "missing" (:ref (first result))))))))

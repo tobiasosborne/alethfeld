@@ -1381,6 +1381,84 @@
         updated-mote))))
 
 ;; -----------------------------------------------------------------------------
+;; Add-Dependency Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-add-dep!
+  "Add a dependency to a mote (mote X depends on mote Y).
+
+   Arguments (in context):
+   - :id - The mote ID to add dependency to (required)
+
+   Options:
+   - :session - Session token (required)
+   - :depends-on - The mote ID that this mote depends on (required)
+   - :reason - Optional note explaining why this dependency exists
+
+   Returns the updated mote."
+  [{:keys [id options]}]
+  (let [repo-path "."
+        {:keys [depends-on reason session]} options]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide mote ID to add dependency to"]})))
+
+    (when-not depends-on
+      (throw (ex-info "Dependency target is required"
+                      {:type :validation-failed
+                       :errors ["Provide --depends-on with the mote ID"]})))
+
+    (when (= id depends-on)
+      (throw (ex-info "Mote cannot depend on itself"
+                      {:type :validation-failed
+                       :errors ["A mote cannot have a dependency on itself"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Session enforcement
+    (when-not session
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    (session/enforce-session! repo-path session :add-dep id)
+
+    ;; Load and validate mote exists
+    (let [current-mote (store/load-mote repo-path id)]
+      (when-not current-mote
+        (throw (ex-info "Mote not found"
+                        {:type :not-found
+                         :mote-id id})))
+
+      ;; Validate dependency target exists
+      (when-not (store/load-mote repo-path depends-on)
+        (throw (ex-info "Dependency target mote not found"
+                        {:type :not-found
+                         :mote-id depends-on})))
+
+      ;; Check for duplicate dependency
+      (when (some #(= depends-on (:ref %)) (:depends-on current-mote))
+        (throw (ex-info "Dependency already exists"
+                        {:type :validation-failed
+                         :errors [(str "Mote " id " already depends on " depends-on)]})))
+
+      ;; Create dependency and add to mote
+      (let [dependency (cond-> {:ref depends-on}
+                          reason (assoc :reason reason))
+            updated-mote (mote/add-dep current-mote dependency)]
+        (tx/atomic-write! repo-path
+                          (str "Add dependency " id " -> " depends-on)
+                          [updated-mote])
+        updated-mote))))
+
+;; -----------------------------------------------------------------------------
 ;; Check Command
 ;; -----------------------------------------------------------------------------
 
@@ -1898,6 +1976,7 @@
   (cli/register-handler! "add-ref" cmd-add-ref!)
   (cli/register-handler! "add-assumption" cmd-add-assumption!)
   (cli/register-handler! "add-definition" cmd-add-definition!)
+  (cli/register-handler! "add-dep" cmd-add-dep!)
   (cli/register-handler! "check" cmd-check)
   (cli/register-handler! "log" cmd-log)
   (cli/register-handler! "sync" cmd-sync!)

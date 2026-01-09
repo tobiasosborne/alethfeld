@@ -58,6 +58,18 @@
   [mote agent]
   (some #(= agent (:agent %)) (:votes mote)))
 
+(defn unverified-dependencies
+  "Return list of dependency refs that are not yet :verified.
+   Returns empty vector if all dependencies are verified or if no dependencies exist."
+  [repo-path mote]
+  (let [deps (:depends-on mote [])]
+    (vec
+     (for [{:keys [ref]} deps
+           :let [dep-mote (store/load-mote repo-path ref)]
+           :when (or (nil? dep-mote)
+                     (not= :verified (:status dep-mote)))]
+       ref))))
+
 ;; -----------------------------------------------------------------------------
 ;; Vote Casting
 ;; -----------------------------------------------------------------------------
@@ -117,7 +129,8 @@
    - Mote not found
    - Mote status is not :fixed (can only verify fixed motes)
    - Agent has already voted
-   - Agent is a contributor (self-vote prevention)"
+   - Agent is a contributor (self-vote prevention)
+   - Mote has unverified dependencies"
   [repo-path mote-id agent vote-type & {:keys [reason]}]
   (tx/with-validation
     repo-path
@@ -149,6 +162,13 @@
                            :mote-id mote-id
                            :agent agent
                            :contributors (session/get-contributors current-mote)})))
+        ;; Check dependencies are verified
+        (let [unverified-deps (unverified-dependencies repo current-mote)]
+          (when (seq unverified-deps)
+            (throw (ex-info "Cannot verify mote with unverified dependencies"
+                            {:type :unverified-dependencies
+                             :mote-id mote-id
+                             :unverified-deps unverified-deps}))))
         ;; Cast the vote
         (let [vote (mote/make-vote agent vote-type :reason reason)
               voted-mote (mote/add-vote current-mote vote)

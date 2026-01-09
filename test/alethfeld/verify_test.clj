@@ -445,3 +445,86 @@
       (is (contains? (:taint m) :needs-refinement))
       ;; Verification taint should be removed
       (is (not (contains? (:taint m) :needs-verification))))))
+
+;; -----------------------------------------------------------------------------
+;; Dependency Verification Tests
+;; -----------------------------------------------------------------------------
+
+(deftest unverified-dependencies-test
+  (testing "mote without dependencies returns empty"
+    (create-test-mote! "1" "No dependencies")
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (empty? (verify/unverified-dependencies *test-repo* m)))))
+
+  (testing "mote with verified dependency returns empty"
+    (create-test-mote! "1" "Dependency" :status :verified)
+    (let [m2 (mote/make-mote "2" "Depends on 1" "test-agent"
+                             :status :fixed
+                             :depends-on [{:ref "1"}])]
+      (store/save-mote! *test-repo* m2)
+      (is (empty? (verify/unverified-dependencies *test-repo* m2)))))
+
+  (testing "mote with unverified dependency returns it"
+    (create-test-mote! "1" "Not verified yet" :status :fixed)
+    (let [m2 (mote/make-mote "2" "Depends on 1" "test-agent"
+                             :status :fixed
+                             :depends-on [{:ref "1"}])]
+      (store/save-mote! *test-repo* m2)
+      (is (= ["1"] (verify/unverified-dependencies *test-repo* m2)))))
+
+  (testing "returns all unverified dependencies"
+    (create-test-mote! "1" "Verified" :status :verified)
+    (create-test-mote! "2" "Fixed" :status :fixed)
+    (create-test-mote! "3" "Proposed" :status :proposed)
+    (let [m4 (mote/make-mote "4" "Depends on all" "test-agent"
+                             :status :fixed
+                             :depends-on [{:ref "1"} {:ref "2"} {:ref "3"}])]
+      (store/save-mote! *test-repo* m4)
+      (let [unverified (verify/unverified-dependencies *test-repo* m4)]
+        (is (= 2 (count unverified)))
+        (is (some #{"2"} unverified))
+        (is (some #{"3"} unverified))))))
+
+(deftest vote-blocked-by-unverified-dependencies-test
+  (testing "cannot vote when dependency is not verified"
+    (create-test-mote! "1" "Dependency" :status :fixed)
+    (let [m2 (mote/make-mote "2" "Depends on 1" "test-agent"
+                             :status :fixed
+                             :taint #{:needs-verification}
+                             :depends-on [{:ref "1"}])]
+      (store/save-mote! *test-repo* m2)
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo
+           #"unverified dependencies"
+           (verify/cast-vote! *test-repo* "2" "verifier-1" :for)))))
+
+  (testing "can vote after dependency is verified"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    ;; First, verify the dependency
+    (create-test-mote! "1" "Dependency" :status :verified)
+    ;; Then the dependent mote can be voted on
+    (let [m2 (mote/make-mote "2" "Depends on 1" "test-agent"
+                             :status :fixed
+                             :taint #{:needs-verification}
+                             :depends-on [{:ref "1"}])]
+      (store/save-mote! *test-repo* m2)
+      (let [result (verify/cast-vote! *test-repo* "2" "verifier-1" :for)]
+        (is (= :verified (:quorum-status (:result result))))))))
+
+(deftest vote-blocked-error-details-test
+  (testing "error includes list of unverified dependencies"
+    (create-test-mote! "10" "Dep 1" :status :fixed)
+    (create-test-mote! "11" "Dep 2" :status :fixed)
+    (let [m (mote/make-mote "12" "Depends on both" "test-agent"
+                            :status :fixed
+                            :taint #{:needs-verification}
+                            :depends-on [{:ref "10"} {:ref "11"}])]
+      (store/save-mote! *test-repo* m)
+      (try
+        (verify/cast-vote! *test-repo* "12" "verifier-1" :for)
+        (is false "Should have thrown")
+        (catch clojure.lang.ExceptionInfo e
+          (let [data (ex-data e)]
+            (is (= :unverified-dependencies (:type data)))
+            (is (= "12" (:mote-id data)))
+            (is (= 2 (count (:unverified-deps data))))))))))

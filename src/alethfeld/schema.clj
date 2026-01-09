@@ -64,6 +64,12 @@
    [:symbol :string]
    [:meaning :string]])
 
+(def Dependency
+  "Dependency on another mote (mote X depends on mote Y)."
+  [:map
+   [:ref MoteId]
+   [:reason {:optional true} :string]])
+
 ;; -----------------------------------------------------------------------------
 ;; Votes
 ;; -----------------------------------------------------------------------------
@@ -131,6 +137,7 @@
 
    [:assumptions [:vector Assumption]]
    [:definitions [:vector Definition]]
+   [:depends-on {:optional true} [:vector Dependency]]
    [:votes [:vector Vote]]
 
    [:claimed-by {:optional true} :string]

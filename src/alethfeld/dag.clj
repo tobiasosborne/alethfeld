@@ -17,6 +17,11 @@
        (filter #(= :internal (:type %)))
        (map :ref)))
 
+(defn- dependency-refs
+  "Extract dependency reference IDs from a mote's :depends-on."
+  [mote]
+  (map :ref (:depends-on mote)))
+
 ;; -----------------------------------------------------------------------------
 ;; Parent-Child Validation
 ;; -----------------------------------------------------------------------------
@@ -74,18 +79,21 @@
 ;; -----------------------------------------------------------------------------
 
 (defn find-cycles
-  "Detect cycles in the assumption graph using DFS.
+  "Detect cycles in the reference/dependency graph using DFS.
 
-   Only internal refs (assumptions with :type :internal) form edges in the graph.
+   Edges are formed from:
+   - Internal refs (assumptions with :type :internal)
+   - Dependencies (:depends-on references)
 
    Returns nil if no cycles exist, or a vector of mote IDs forming a cycle path.
    The cycle path includes all nodes in the cycle."
   [motes]
   (when (seq motes)
-    (let [;; Build adjacency list from internal refs
+    (let [;; Build adjacency list from internal refs AND dependencies
           adjacency (into {}
                          (map (fn [[id mote]]
-                                [id (vec (internal-refs mote))])
+                                [id (vec (concat (internal-refs mote)
+                                                 (dependency-refs mote)))])
                               motes))
 
           ;; DFS state: :white = unvisited, :gray = in current path, :black = done
@@ -136,19 +144,29 @@
 ;; -----------------------------------------------------------------------------
 
 (defn validate-refs
-  "Validate that all internal refs point to existing motes.
+  "Validate that all internal refs and dependencies point to existing motes.
+
+   Checks:
+   - Internal refs (assumptions with :type :internal)
+   - Dependencies (:depends-on references)
 
    External refs are not validated (they point outside the project).
 
    Returns nil if all refs are valid, or a vector of broken ref descriptors:
-   [{:mote-id \"1\" :ref \"missing-id\"} ...]"
+   [{:mote-id \"1\" :ref \"missing-id\" :ref-type :assumption|:dependency} ...]"
   [motes]
   (let [existing-ids (set (keys motes))
-        broken-refs
+        broken-assumption-refs
         (for [[mote-id mote] motes
               ref-id (internal-refs mote)
               :when (not (contains? existing-ids ref-id))]
-          {:mote-id mote-id :ref ref-id})]
+          {:mote-id mote-id :ref ref-id :ref-type :assumption})
+        broken-dependency-refs
+        (for [[mote-id mote] motes
+              ref-id (dependency-refs mote)
+              :when (not (contains? existing-ids ref-id))]
+          {:mote-id mote-id :ref ref-id :ref-type :dependency})
+        broken-refs (concat broken-assumption-refs broken-dependency-refs)]
     (when (seq broken-refs)
       (vec broken-refs))))
 

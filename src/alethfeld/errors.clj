@@ -91,6 +91,12 @@
           "Mote " mote-id " was created or fixed by this agent.\n"
           "To fix: A different agent must verify this work to maintain integrity."))
 
+   :unverified-dependencies
+   (fn [{:keys [mote-id unverified-deps]}]
+     (str "Error: Cannot verify mote " mote-id " - it has unverified dependencies.\n\n"
+          "Unverified dependencies: " (clojure.string/join ", " unverified-deps) "\n"
+          "To fix: Verify the dependencies first, then vote on this mote."))
+
    :quorum-not-reached
    (fn [{:keys [mote-id votes-needed votes-have]}]
      (str "Error: Quorum not reached for mote " mote-id ".\n\n"

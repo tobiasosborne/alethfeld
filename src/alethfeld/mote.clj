@@ -105,6 +105,7 @@
    - :proposal - Active proposal, defaults to nil
    - :assumptions - Vector of assumptions, defaults to []
    - :definitions - Vector of definitions, defaults to []
+   - :depends-on - Vector of dependencies, defaults to nil
    - :votes - Vector of votes, defaults to []
    - :claimed-by - Agent name, defaults to nil
    - :claimed-at - Timestamp, defaults to nil
@@ -114,7 +115,7 @@
    - :meta - Additional metadata map"
   [id claim created-by & {:keys [status taint priority difficulty
                                   parent children proposal
-                                  assumptions definitions votes
+                                  assumptions definitions depends-on votes
                                   claimed-by claimed-at
                                   created-at updated-at contributors meta]}]
   (let [ts (or created-at (now))
@@ -135,6 +136,7 @@
              :contributors (or contributors default-contributors)}
       parent (assoc :parent parent)
       proposal (assoc :proposal proposal)
+      depends-on (assoc :depends-on depends-on)
       claimed-by (assoc :claimed-by claimed-by)
       claimed-at (assoc :claimed-at claimed-at)
       meta (assoc :meta meta))))
@@ -220,6 +222,13 @@
   [mote definition]
   (-> mote
       (update :definitions conj definition)
+      touch))
+
+(defn add-dep
+  "Add a dependency to a mote. Returns new mote."
+  [mote dependency]
+  (-> mote
+      (update :depends-on (fnil conj []) dependency)
       touch))
 
 (defn add-vote

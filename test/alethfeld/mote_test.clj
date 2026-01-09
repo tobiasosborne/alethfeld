@@ -279,6 +279,30 @@
       (is (= 1 (count (:definitions result))))
       (is (= definition (first (:definitions result)))))))
 
+(deftest add-dep-test
+  (testing "add-dep adds to depends-on vector"
+    (let [mote (base-mote)
+          dep {:ref "2" :reason "uses evenness lemma"}
+          result (m/add-dep mote dep)]
+      (is (s/valid? s/Mote result))
+      (is (= 1 (count (:depends-on result))))
+      (is (= dep (first (:depends-on result))))))
+
+  (testing "add-dep creates depends-on if not present"
+    (let [mote (base-mote)
+          dep {:ref "2"}
+          result (m/add-dep mote dep)]
+      (is (vector? (:depends-on result)))
+      (is (= 1 (count (:depends-on result))))))
+
+  (testing "add-dep appends to existing dependencies"
+    (let [mote (assoc (base-mote) :depends-on [{:ref "1"}])
+          new-dep {:ref "2" :reason "also depends"}
+          result (m/add-dep mote new-dep)]
+      (is (= 2 (count (:depends-on result))))
+      (is (= "1" (:ref (first (:depends-on result)))))
+      (is (= "2" (:ref (second (:depends-on result))))))))
+
 (deftest add-vote-test
   (testing "add-vote adds to votes vector"
     (let [mote (base-mote)
