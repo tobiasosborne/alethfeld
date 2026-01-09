@@ -811,6 +811,164 @@
     (is (= #{} (session/get-roles-for-action :unknown-action)))))
 
 ;; =============================================================================
+;; Session Expiration Boundary Condition Tests
+;; =============================================================================
+
+(deftest session-expired?-boundary-conditions-test
+  (testing "Session at exact expiration time is NOT expired (boundary: equal)"
+    ;; When checking at the exact expiration instant, the session should NOT be
+    ;; expired because session-expired? uses .isAfter, which returns false for
+    ;; equal times.
+    (let [now (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          expires-at-date (java.util.Date/from now)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      (is (not (session/session-expired? session :now now))
+          "Session should NOT be expired at exact expiration time")))
+
+  (testing "Session 1ms BEFORE expiration is NOT expired"
+    ;; When checking 1ms before the expiration time, the session should
+    ;; definitely NOT be expired.
+    (let [expiration-time (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          one-ms-before (.minusMillis expiration-time 1)
+          expires-at-date (java.util.Date/from expiration-time)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      (is (not (session/session-expired? session :now one-ms-before))
+          "Session should NOT be expired 1ms before expiration")))
+
+  (testing "Session 1ms AFTER expiration IS expired"
+    ;; When checking 1ms after the expiration time, the session should
+    ;; definitely be expired because .isAfter returns true.
+    (let [expiration-time (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          one-ms-after (.plusMillis expiration-time 1)
+          expires-at-date (java.util.Date/from expiration-time)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      (is (session/session-expired? session :now one-ms-after)
+          "Session SHOULD be expired 1ms after expiration")))
+
+  (testing "Transition around expiration boundary - comprehensive"
+    ;; Test a range of times around the boundary to ensure consistency
+    (let [expiration-time (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          expires-at-date (java.util.Date/from expiration-time)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      ;; Times before expiration - should NOT be expired
+      (is (not (session/session-expired? session :now (.minusMillis expiration-time 1000)))
+          "1 second before: not expired")
+      (is (not (session/session-expired? session :now (.minusMillis expiration-time 100)))
+          "100ms before: not expired")
+      (is (not (session/session-expired? session :now (.minusMillis expiration-time 10)))
+          "10ms before: not expired")
+      (is (not (session/session-expired? session :now (.minusMillis expiration-time 1)))
+          "1ms before: not expired")
+      ;; Exact expiration time - should NOT be expired (isAfter semantics)
+      (is (not (session/session-expired? session :now expiration-time))
+          "at exact expiration: not expired")
+      ;; Times after expiration - SHOULD be expired
+      (is (session/session-expired? session :now (.plusMillis expiration-time 1))
+          "1ms after: expired")
+      (is (session/session-expired? session :now (.plusMillis expiration-time 10))
+          "10ms after: expired")
+      (is (session/session-expired? session :now (.plusMillis expiration-time 100))
+          "100ms after: expired")
+      (is (session/session-expired? session :now (.plusMillis expiration-time 1000))
+          "1 second after: expired"))))
+
+(deftest session-stale?-boundary-conditions-test
+  (testing "Session at exact expiration time is NOT stale (via session-expired?)"
+    (let [expiration-time (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          expires-at-date (java.util.Date/from expiration-time)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      (is (not (session/session-stale? session :now expiration-time))
+          "Session should NOT be stale at exact expiration time")))
+
+  (testing "Session 1ms before expiration is NOT stale"
+    (let [expiration-time (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          one-ms-before (.minusMillis expiration-time 1)
+          expires-at-date (java.util.Date/from expiration-time)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      (is (not (session/session-stale? session :now one-ms-before))
+          "Session should NOT be stale 1ms before expiration")))
+
+  (testing "Session 1ms after expiration IS stale"
+    (let [expiration-time (.truncatedTo (java.time.Instant/now) java.time.temporal.ChronoUnit/MILLIS)
+          one-ms-after (.plusMillis expiration-time 1)
+          expires-at-date (java.util.Date/from expiration-time)
+          session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                   :mote-id "1"
+                   :role :proposer
+                   :agent "test"
+                   :started-at (java.util.Date.)
+                   :expires-at expires-at-date
+                   :actions []}]
+      (is (session/session-stale? session :now one-ms-after)
+          "Session SHOULD be stale 1ms after expiration"))))
+
+(deftest session-active?-boundary-conditions-test
+  (testing "Session at exact expiration time IS still active"
+    (init-session-dirs)
+    (let [;; Create session, then we'll check at exact expiration time
+          now (java.time.Instant/now)
+          ;; Create session with 1-minute duration, then compute when it expires
+          session (session/create-session! *temp-dir* "1" :proposer "agent" :duration-minutes 1)
+          ;; The session expires at started-at + 1 minute
+          ;; We need to get the expiration instant
+          expires-instant (java.time.Instant/ofEpochMilli (.getTime (:expires-at session)))]
+      ;; At exact expiration time, session should still be active
+      (is (session/session-active? *temp-dir* (:session-id session) :now expires-instant)
+          "Session should be active at exact expiration time")))
+
+  (testing "Session 1ms before expiration IS active"
+    (init-session-dirs)
+    (let [session (session/create-session! *temp-dir* "1" :proposer "agent" :duration-minutes 1)
+          expires-instant (java.time.Instant/ofEpochMilli (.getTime (:expires-at session)))
+          one-ms-before (.minusMillis expires-instant 1)]
+      (is (session/session-active? *temp-dir* (:session-id session) :now one-ms-before)
+          "Session should be active 1ms before expiration")))
+
+  (testing "Session 1ms after expiration is NOT active"
+    (init-session-dirs)
+    (let [session (session/create-session! *temp-dir* "1" :proposer "agent" :duration-minutes 1)
+          expires-instant (java.time.Instant/ofEpochMilli (.getTime (:expires-at session)))
+          one-ms-after (.plusMillis expires-instant 1)]
+      (is (not (session/session-active? *temp-dir* (:session-id session) :now one-ms-after))
+          "Session should NOT be active 1ms after expiration"))))
+
+;; =============================================================================
 ;; Contributors & Self-Vote Prevention Tests
 ;; =============================================================================
 

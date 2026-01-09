@@ -12,6 +12,7 @@
             [alethfeld.tx :as tx]
             [alethfeld.dag :as dag]
             [alethfeld.path :as path]
+            [alethfeld.id :as id]
             [alethfeld.proposal :as proposal]
             [alethfeld.verify :as verify]
             [alethfeld.cli :as cli]))
@@ -672,4 +673,227 @@
     (let [motes (load-all-motes)]
       (is (= 5 (count motes)))
       (let [validation (dag/validate-mote-graph motes)]
+        (is (:valid? validation))))))
+
+;; =============================================================================
+;; Very Deep Nesting Tests (>10 levels)
+;; =============================================================================
+
+(deftest e2e-very-deep-nesting-test
+  (testing "Very deep nesting (15+ levels) works correctly"
+    (init-repo!)
+
+    (let [depth 18  ;; Create 18 levels deep (root + 17 children)
+          ;; Build nested IDs: "1", "1.1", "1.1.1", ...
+          ids (reduce (fn [acc _]
+                        (conj acc (str (last acc) ".1")))
+                      ["1"]
+                      (range (dec depth)))]
+
+      (testing "Creating 18-level deep hierarchy"
+        ;; Create root mote
+        (create-root-mote! "1" "Level 0 - Root")
+
+        ;; Create each nested child
+        (doseq [i (range 1 depth)]
+          (let [child-id (nth ids i)
+                parent-id (nth ids (dec i))
+                claim (str "Level " i " claim")]
+            (create-child-mote! child-id claim parent-id)))
+
+        ;; Verify all motes were created
+        (let [motes (load-all-motes)]
+          (is (= depth (count motes)) "Should have exactly 18 motes")))
+
+      (testing "ID depth calculation works at all levels"
+        (doseq [i (range depth)]
+          (let [mote-id (nth ids i)
+                expected-depth (inc i)]  ;; depth is 1-indexed
+            (is (= expected-depth (id/id-depth mote-id))
+                (str "ID " mote-id " should have depth " expected-depth)))))
+
+      (testing "Deepest mote has correct depth"
+        (let [deepest-id (last ids)]
+          (is (= depth (id/id-depth deepest-id))
+              "Deepest ID should have depth 18")))
+
+      (testing "ancestor-ids returns all ancestors for deepest mote"
+        (let [deepest-id (last ids)
+              ancestors (id/ancestor-ids deepest-id)]
+          ;; Should have (depth - 1) ancestors
+          (is (= (dec depth) (count ancestors))
+              "Deepest mote should have 17 ancestors")
+          ;; First ancestor should be immediate parent
+          (is (= (nth ids (- depth 2)) (first ancestors))
+              "First ancestor should be immediate parent")
+          ;; Last ancestor should be root
+          (is (= "1" (last ancestors))
+              "Last ancestor should be root")))
+
+      (testing "ancestor-ids at various depths"
+        ;; Level 10 (id at index 9) should have 9 ancestors
+        (let [level-10-id (nth ids 9)
+              ancestors (id/ancestor-ids level-10-id)]
+          (is (= 9 (count ancestors))
+              "Level 10 mote should have 9 ancestors")
+          ;; Verify ancestors are in correct order (immediate parent first)
+          (is (= (nth ids 8) (first ancestors))
+              "First ancestor should be level 9")
+          (is (= "1" (last ancestors))
+              "Last ancestor should be root")))
+
+      (testing "is-ancestor? works across deep hierarchy"
+        (let [root-id "1"
+              mid-id (nth ids 9)   ;; Level 10
+              deep-id (last ids)]  ;; Level 18
+          ;; Root is ancestor of everything
+          (is (id/is-ancestor? root-id mid-id)
+              "Root should be ancestor of level 10")
+          (is (id/is-ancestor? root-id deep-id)
+              "Root should be ancestor of deepest")
+          ;; Mid is ancestor of deeper
+          (is (id/is-ancestor? mid-id deep-id)
+              "Level 10 should be ancestor of deepest")
+          ;; But not the other way
+          (is (not (id/is-ancestor? deep-id mid-id))
+              "Deepest should not be ancestor of level 10")
+          (is (not (id/is-ancestor? mid-id root-id))
+              "Level 10 should not be ancestor of root")))
+
+      (testing "parent-id chain traversal to root"
+        (let [deepest-id (last ids)]
+          ;; Walk up the parent chain and verify we reach root
+          (loop [current-id deepest-id
+                 steps 0]
+            (if-let [parent (id/parent-id current-id)]
+              (do
+                (is (< steps depth) "Should not take more steps than depth")
+                (recur parent (inc steps)))
+              ;; Reached root (no parent)
+              (do
+                (is (= "1" current-id) "Should end at root")
+                (is (= (dec depth) steps)
+                    "Should take exactly (depth - 1) steps to reach root"))))))
+
+      (testing "Path operations work at depth"
+        (let [deepest-id (last ids)
+              deepest-mote (load-mote deepest-id)]
+          ;; Verify mote was loaded successfully
+          (is (some? deepest-mote)
+              "Deepest mote should be loadable")
+          ;; Verify the path includes all ancestor directories
+          (let [mote-path (path/mote-id->path deepest-id (:status deepest-mote))]
+            (is (string? mote-path)
+                "Path should be generated for deep mote"))))
+
+      (testing "DAG validation passes for very deep hierarchy"
+        (let [motes (load-all-motes)
+              validation (dag/validate-mote-graph motes)]
+          (is (:valid? validation)
+              "Very deep DAG should be valid")
+          (is (empty? (:errors validation))
+              "Should have no validation errors"))))))
+
+(deftest e2e-very-deep-nesting-with-siblings-test
+  (testing "Very deep nesting with siblings at each level"
+    (init-repo!)
+
+    (let [depth 12  ;; 12 levels deep
+          siblings-per-level 2]  ;; 2 siblings at select levels
+
+      (testing "Creating deep hierarchy with branching"
+        ;; Create root
+        (create-root-mote! "1" "Root")
+
+        ;; Create main chain: 1.1, 1.1.1, 1.1.1.1, etc.
+        (let [main-chain (reduce (fn [acc _]
+                                   (conj acc (str (last acc) ".1")))
+                                 ["1"]
+                                 (range (dec depth)))]
+          ;; Create main chain
+          (doseq [i (range 1 depth)]
+            (let [child-id (nth main-chain i)
+                  parent-id (nth main-chain (dec i))]
+              (create-child-mote! child-id (str "Main chain level " i) parent-id)))
+
+          ;; Add siblings at levels 3, 6, and 9
+          (doseq [level [3 6 9]]
+            (let [parent-id (nth main-chain (dec level))
+                  sibling-id (str parent-id ".2")]
+              (create-child-mote! sibling-id (str "Sibling at level " level) parent-id)))))
+
+      (testing "All motes exist and DAG is valid"
+        (let [motes (load-all-motes)
+              ;; depth main chain + 3 siblings
+              expected-count (+ depth 3)]
+          (is (= expected-count (count motes))
+              (str "Should have " expected-count " motes"))
+          (let [validation (dag/validate-mote-graph motes)]
+            (is (:valid? validation)
+                "DAG with siblings should be valid"))))
+
+      (testing "Siblings have correct depths"
+        ;; Sibling at level 3 should have depth 3
+        (is (= 3 (id/id-depth "1.1.2")))
+        ;; Sibling at level 6 should have depth 6
+        (is (= 6 (id/id-depth "1.1.1.1.1.2")))
+        ;; Sibling at level 9 should have depth 9
+        (is (= 9 (id/id-depth "1.1.1.1.1.1.1.1.2"))))
+
+      (testing "is-sibling? works at depth"
+        ;; Main chain and sibling at level 3
+        (is (id/is-sibling? "1.1.1" "1.1.2")
+            "1.1.1 and 1.1.2 should be siblings")
+        ;; Main chain and sibling at level 6
+        (is (id/is-sibling? "1.1.1.1.1.1" "1.1.1.1.1.2")
+            "Level 6 nodes should be siblings")))))
+
+(deftest e2e-very-deep-nesting-common-ancestor-test
+  (testing "common-ancestor works across very deep hierarchies"
+    (init-repo!)
+
+    (testing "Creating two deep branches"
+      ;; Create root and first level children
+      (create-root-mote! "1" "Root")
+      (create-child-mote! "1.1" "Branch A base" "1")
+      (create-child-mote! "1.2" "Branch B base" "1")
+
+      ;; Create deep chain under 1.1 (10 levels)
+      (let [branch-a-ids (reduce (fn [acc _]
+                                   (conj acc (str (last acc) ".1")))
+                                 ["1.1"]
+                                 (range 9))]
+        (doseq [i (range 1 10)]
+          (let [child-id (nth branch-a-ids i)
+                parent-id (nth branch-a-ids (dec i))]
+            (create-child-mote! child-id (str "Branch A level " (inc i)) parent-id))))
+
+      ;; Create deep chain under 1.2 (10 levels)
+      (let [branch-b-ids (reduce (fn [acc _]
+                                   (conj acc (str (last acc) ".1")))
+                                 ["1.2"]
+                                 (range 9))]
+        (doseq [i (range 1 10)]
+          (let [child-id (nth branch-b-ids i)
+                parent-id (nth branch-b-ids (dec i))]
+            (create-child-mote! child-id (str "Branch B level " (inc i)) parent-id)))))
+
+    (testing "common-ancestor between deep branches"
+      ;; Deepest in branch A: 1.1.1.1.1.1.1.1.1.1.1 (depth 11)
+      ;; Deepest in branch B: 1.2.1.1.1.1.1.1.1.1.1 (depth 11)
+      (let [deep-a "1.1.1.1.1.1.1.1.1.1.1"
+            deep-b "1.2.1.1.1.1.1.1.1.1.1"]
+        (is (= "1" (id/common-ancestor deep-a deep-b))
+            "Common ancestor of two deep branches should be root")))
+
+    (testing "common-ancestor within same branch"
+      ;; Two nodes in branch A at different depths
+      (let [mid-a "1.1.1.1.1"      ;; depth 5
+            deep-a "1.1.1.1.1.1.1.1.1.1.1"]  ;; depth 11
+        (is (= "1.1.1.1.1" (id/common-ancestor mid-a deep-a))
+            "Common ancestor should be the shallower node")))
+
+    (testing "DAG with two deep branches is valid"
+      (let [motes (load-all-motes)
+            validation (dag/validate-mote-graph motes)]
         (is (:valid? validation))))))

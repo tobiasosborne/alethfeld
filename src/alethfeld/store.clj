@@ -13,17 +13,12 @@
 ;; Path Helpers
 ;; -----------------------------------------------------------------------------
 
-(defn- full-path
-  "Prepend repo-path to a relative path."
-  [repo-path relative-path]
-  (str repo-path "/" relative-path))
-
 (defn- mote-path
   "Get full path to a mote file.
    Returns nil if mote-id is invalid."
   [repo-path mote-id status]
   (when-let [relative (path/mote-id->path mote-id status)]
-    (full-path repo-path relative)))
+    (io/full-path repo-path relative)))
 
 ;; -----------------------------------------------------------------------------
 ;; Config Operations
@@ -39,7 +34,7 @@
    - Config map if file exists and is valid
    - nil if file doesn't exist"
   [repo-path]
-  (io/read-edn (full-path repo-path (path/config-path))))
+  (io/read-edn (io/full-path repo-path (path/config-path))))
 
 (defn save-config!
   "Save config to a repository.
@@ -51,7 +46,7 @@
    Creates .alethfeld directory if needed.
    Returns the path written to."
   [repo-path config]
-  (let [config-file (full-path repo-path (path/config-path))]
+  (let [config-file (io/full-path repo-path (path/config-path))]
     (io/write-edn config-file config)))
 
 ;; -----------------------------------------------------------------------------
@@ -151,9 +146,9 @@
   [repo-path & {:keys [include-proposed include-archived]
                 :or {include-proposed true
                      include-archived false}}]
-  (let [motes-base (full-path repo-path (path/motes-path))
-        proposed-base (full-path repo-path (path/proposed-path))
-        archive-base (full-path repo-path (path/archive-path))
+  (let [motes-base (io/full-path repo-path (path/motes-path))
+        proposed-base (io/full-path repo-path (path/proposed-path))
+        archive-base (io/full-path repo-path (path/archive-path))
 
         ;; Collect paths from each location
         mote-paths (io/list-edn-files motes-base :recursive true)
@@ -206,9 +201,9 @@
                            (assoc default-config :project-name project-name)
                            default-config))]
     ;; Create directories
-    (io/ensure-dir (full-path repo-path (path/motes-path)))
-    (io/ensure-dir (full-path repo-path (path/proposed-path)))
-    (io/ensure-dir (full-path repo-path (path/archive-path)))
+    (io/ensure-dir (io/full-path repo-path (path/motes-path)))
+    (io/ensure-dir (io/full-path repo-path (path/proposed-path)))
+    (io/ensure-dir (io/full-path repo-path (path/archive-path)))
     ;; Write config
     (save-config! repo-path final-config)
     final-config))
@@ -216,7 +211,7 @@
 (defn repo-exists?
   "Check if an Alethfeld repository exists at the given path."
   [repo-path]
-  (io/file-exists? (full-path repo-path (path/config-path))))
+  (io/file-exists? (io/full-path repo-path (path/config-path))))
 
 ;; -----------------------------------------------------------------------------
 ;; Validation

@@ -187,3 +187,8 @@
     (when-not (fs/exists? d)
       (fs/create-dirs d))
     (str path)))
+
+(defn full-path
+  "Join repo path with relative path using forward slash separator."
+  [repo-path relative-path]
+  (str repo-path "/" relative-path))

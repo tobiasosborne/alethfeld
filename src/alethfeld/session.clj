@@ -226,20 +226,15 @@
 ;; Path Helpers
 ;; -----------------------------------------------------------------------------
 
-(defn- full-path
-  "Prepend repo-path to a relative path."
-  [repo-path relative-path]
-  (str repo-path "/" relative-path))
-
 (defn- active-session-path
   "Get full path to an active session file."
   [repo-path session-id]
-  (full-path repo-path (path/session-path session-id :active)))
+  (io/full-path repo-path (path/session-path session-id :active)))
 
 (defn- completed-session-path
   "Get full path to a completed session file."
   [repo-path session-id]
-  (full-path repo-path (path/session-path session-id :completed)))
+  (io/full-path repo-path (path/session-path session-id :completed)))
 
 ;; -----------------------------------------------------------------------------
 ;; Session Creation
@@ -336,7 +331,7 @@
 
    Returns a vector of session maps."
   [repo-path]
-  (let [active-dir (full-path repo-path (path/active-sessions-path))
+  (let [active-dir (io/full-path repo-path (path/active-sessions-path))
         files (io/list-edn-files active-dir)]
     (->> files
          (keep io/read-edn)
@@ -631,8 +626,8 @@
 
    Creates .alethfeld/sessions/active/ and .alethfeld/sessions/completed/."
   [repo-path]
-  (io/ensure-dir (full-path repo-path (path/active-sessions-path)))
-  (io/ensure-dir (full-path repo-path (path/completed-sessions-path))))
+  (io/ensure-dir (io/full-path repo-path (path/active-sessions-path)))
+  (io/ensure-dir (io/full-path repo-path (path/completed-sessions-path))))
 
 ;; -----------------------------------------------------------------------------
 ;; Validation

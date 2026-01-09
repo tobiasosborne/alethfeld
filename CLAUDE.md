@@ -62,3 +62,24 @@ clj -M:test
 - Use `clojure.test` with `deftest`, `testing`, `is`
 - Run all tests: `clj -M:test`
 - Test runner: cognitect-labs/test-runner
+
+## Known Limitations
+
+### Transaction Race Window
+
+There is a small window (~<100ms) between validation passing and git commit completing where changes are written to disk but not yet recorded in git. See `src/alethfeld/tx.clj` `with-validation` docstring.
+
+**If process crashes during this window:**
+- Files on disk are validated and consistent
+- Git history does not reflect the changes
+- Concurrent agents using `git pull` will not see the changes
+
+**Why this is acceptable for v0.1:**
+- Window is typically <100ms for normal operations
+- Validated changes are not rolled back (data integrity preserved)
+- Manual recovery is straightforward: `git add . && git commit -m 'recovery'`
+- Concurrent access is serialized via per-repository locks
+
+**Potential future mitigations:**
+- Validate against git index instead of working tree
+- Add startup recovery to detect uncommitted validated changes
