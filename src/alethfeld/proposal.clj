@@ -312,6 +312,78 @@
                :archived-children nil})))))))
 
 ;; -----------------------------------------------------------------------------
+;; Proposal Withdrawal
+;; -----------------------------------------------------------------------------
+
+(defn withdraw-proposal!
+  "Withdraw a proposal by the original proposer.
+
+   Arguments:
+   - repo-path: Path to the repository
+   - parent-id: ID of the parent mote with the proposal
+   - agent: Name of the withdrawing agent (must be the proposer)
+
+   A proposal can only be withdrawn if:
+   - The parent has an active proposal
+   - The proposal status is :pending
+   - The agent is the original proposer
+
+   On withdrawal:
+   - Children move from proposed/ to archive/ with :withdrawn status
+   - Parent proposal is cleared
+   - Parent gets :needs-decomposition taint
+
+   Returns:
+   - :result - Map with :withdrawn-children
+   - :commit - Commit info
+
+   Throws if:
+   - Parent not found
+   - No active proposal
+   - Proposal not pending (already approved or rejected)
+   - Agent is not the proposer"
+  [repo-path parent-id agent]
+  (tx/with-validation
+    repo-path
+    (str "af: withdraw " parent-id)
+    (fn [repo]
+      (let [parent (store/load-mote repo parent-id)]
+        ;; Validate
+        (when-not parent
+          (throw (ex-info "Parent mote not found"
+                          {:type :not-found
+                           :mote-id parent-id})))
+        (when-not (:proposal parent)
+          (throw (ex-info "No active proposal"
+                          {:type :no-proposal
+                           :mote-id parent-id})))
+        (let [proposal (:proposal parent)
+              proposer (:proposed-by proposal)]
+          ;; Check proposal is pending
+          (when-not (= :pending (:status proposal))
+            (throw (ex-info "Proposal is not pending"
+                            {:type :invalid-status
+                             :mote-id parent-id
+                             :proposal-status (:status proposal)
+                             :expected :pending})))
+          ;; Check agent is the proposer
+          (when-not (= agent proposer)
+            (throw (ex-info "Only the proposer can withdraw a proposal"
+                            {:type :action-not-allowed
+                             :mote-id parent-id
+                             :agent agent
+                             :proposer proposer})))
+          ;; Archive children
+          (let [child-ids (:children proposal)
+                final-parent (-> parent
+                                 (mote/clear-proposal)
+                                 (mote/remove-taint :needs-proposal-review)
+                                 (mote/add-taint :needs-decomposition))]
+            (archive-children! repo child-ids)
+            (store/save-mote! repo final-parent)
+            {:withdrawn-children child-ids}))))))
+
+;; -----------------------------------------------------------------------------
 ;; Query Functions
 ;; -----------------------------------------------------------------------------
 

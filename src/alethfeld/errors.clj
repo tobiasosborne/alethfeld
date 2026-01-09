@@ -168,12 +168,20 @@
           "then claim the desired mote."))
 
    :action-not-allowed
-   (fn [{:keys [role action allowed-actions]}]
-     (str "Error: Action not allowed for your role.\n\n"
-          "Your role: " (when role (name role)) "\n"
-          "Attempted action: " (when action (name action)) "\n"
-          (when (seq allowed-actions)
-            (str "Allowed actions: " (str/join ", " (map name allowed-actions))))))
+   (fn [{:keys [role action allowed-actions agent proposer mote-id]}]
+     (if proposer
+       ;; Withdrawal-specific error
+       (str "Error: Only the proposer can withdraw a proposal.\n\n"
+            "Your agent: " agent "\n"
+            "Proposer: " proposer "\n"
+            (when mote-id (str "Mote: " mote-id "\n"))
+            "\nTo fix: Only the agent who created the proposal can withdraw it.")
+       ;; Role-based error
+       (str "Error: Action not allowed for your role.\n\n"
+            "Your role: " (when role (name role)) "\n"
+            "Attempted action: " (when action (name action)) "\n"
+            (when (seq allowed-actions)
+              (str "Allowed actions: " (str/join ", " (map name allowed-actions)))))))
 
    :session-not-found
    (fn [{:keys [session-id]}]

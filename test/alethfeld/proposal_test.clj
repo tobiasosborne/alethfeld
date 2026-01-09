@@ -521,3 +521,118 @@
     ;; Both children should exist
     (let [parent (store/load-mote *test-repo* "1")]
       (is (= ["1.1" "1.2"] (:children parent))))))
+
+;; -----------------------------------------------------------------------------
+;; withdraw-proposal! Tests
+;; -----------------------------------------------------------------------------
+
+(deftest withdraw-proposal-basic-test
+  (testing "proposer can withdraw their own proposal"
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step A"} {:claim "Step B"}]
+     "proposer-1")
+    (let [result (proposal/withdraw-proposal! *test-repo* "1" "proposer-1")
+          {:keys [withdrawn-children]} (:result result)]
+      (is (= ["1.1" "1.2"] withdrawn-children))
+      ;; Children no longer in proposed
+      (is (not (file-exists-in? "1.1" "proposed")))
+      (is (not (file-exists-in? "1.2" "proposed")))
+      ;; Children are now in archive with :rejected status
+      (let [child1 (store/load-mote *test-repo* "1.1")
+            child2 (store/load-mote *test-repo* "1.2")]
+        (is (= :rejected (:status child1)))
+        (is (= :rejected (:status child2)))))))
+
+(deftest withdraw-proposal-updates-parent-test
+  (testing "parent updated after withdrawal"
+    (create-test-mote! "1" "Root" :taint #{})
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step"}]
+     "proposer-1")
+    ;; Verify parent has :needs-proposal-review
+    (let [parent-before (store/load-mote *test-repo* "1")]
+      (is (contains? (:taint parent-before) :needs-proposal-review)))
+    ;; Withdraw
+    (proposal/withdraw-proposal! *test-repo* "1" "proposer-1")
+    (let [parent (store/load-mote *test-repo* "1")]
+      ;; Proposal cleared
+      (is (nil? (:proposal parent)))
+      ;; Taint updated - needs new decomposition
+      (is (contains? (:taint parent) :needs-decomposition))
+      (is (not (contains? (:taint parent) :needs-proposal-review))))))
+
+(deftest withdraw-proposal-after-votes-test
+  (testing "proposer can withdraw even after votes (but before quorum)"
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step"}]
+     "proposer-1")
+    ;; Add one vote (not yet at quorum)
+    (proposal/approve-proposal! *test-repo* "1" "advisor-1")
+    ;; Proposer withdraws
+    (let [result (proposal/withdraw-proposal! *test-repo* "1" "proposer-1")
+          {:keys [withdrawn-children]} (:result result)]
+      (is (= ["1.1"] withdrawn-children))
+      ;; Child archived with rejected status
+      (let [child (store/load-mote *test-repo* "1.1")]
+        (is (= :rejected (:status child)))))))
+
+(deftest withdraw-proposal-error-not-proposer-test
+  (testing "throws when non-proposer tries to withdraw"
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step"}]
+     "proposer-1")
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"Only the proposer can withdraw"
+         (proposal/withdraw-proposal! *test-repo* "1" "other-agent")))))
+
+(deftest withdraw-proposal-error-no-proposal-test
+  (testing "throws when no active proposal"
+    (create-test-mote! "1" "Root")
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"No active proposal"
+         (proposal/withdraw-proposal! *test-repo* "1" "agent-1")))))
+
+(deftest withdraw-proposal-error-not-pending-test
+  (testing "throws when proposal already approved"
+    (create-test-mote! "1" "Root")
+    ;; Set quorum to 1 for quick approval
+    (store/save-config! *test-repo* {:project-name "Test"
+                                     :proposal-quorum 1})
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step"}]
+     "proposer-1")
+    ;; Approve it (quorum=1 means it's approved immediately)
+    (proposal/approve-proposal! *test-repo* "1" "advisor-1")
+    ;; Now trying to withdraw should fail
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"(No active proposal|Proposal is not pending)"
+         (proposal/withdraw-proposal! *test-repo* "1" "proposer-1")))))
+
+(deftest withdraw-proposal-error-parent-not-found-test
+  (testing "throws when parent not found"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"Parent mote not found"
+         (proposal/withdraw-proposal! *test-repo* "nonexistent" "agent-1")))))
+
+(deftest withdraw-proposal-creates-commit-test
+  (testing "withdraw-proposal! creates git commit"
+    (create-test-mote! "1" "Root")
+    (proposal/create-proposal!
+     *test-repo* "1"
+     [{:claim "Step"}]
+     "proposer-1")
+    (let [result (proposal/withdraw-proposal! *test-repo* "1" "proposer-1")]
+      (is (some? (:commit result)))
+      (is (string? (get-in result [:commit :sha]))))))

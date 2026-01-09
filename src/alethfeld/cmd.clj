@@ -1125,6 +1125,69 @@
            :action-count (:action-count ended-session)})))))
 
 ;; -----------------------------------------------------------------------------
+;; Withdraw Command
+;; -----------------------------------------------------------------------------
+
+(defn cmd-withdraw!
+  "Withdraw a proposal that you created.
+
+   Arguments (in context):
+   - :id - The parent mote ID with the proposal (required)
+
+   Options:
+   - :session - Session token (required)
+
+   Only the original proposer can withdraw their own proposal.
+   The proposal must be pending (not yet approved or rejected).
+
+   On withdrawal:
+   - Proposed children are archived
+   - Parent gets :needs-decomposition taint back
+   - Parent proposal is cleared
+
+   Returns map with:
+   - :withdrawn-children - Vector of archived child IDs
+   - :mote-id - The parent mote ID"
+  [{:keys [id options]}]
+  (let [repo-path "."
+        session-id (:session options)]
+
+    ;; Validation
+    (when-not id
+      (throw (ex-info "Parent mote ID is required"
+                      {:type :validation-failed
+                       :errors ["Provide parent mote ID with the proposal"]})))
+
+    ;; Check repository exists
+    (when-not (store/repo-exists? repo-path)
+      (throw (ex-info "Not an Alethfeld repository"
+                      {:type :not-initialized
+                       :path repo-path})))
+
+    ;; Session enforcement
+    (when-not session-id
+      (throw (ex-info "Session token is required"
+                      {:type :validation-failed
+                       :errors ["Provide --session with session token"]})))
+
+    ;; Validate session (but we don't use enforce-session! since withdraw
+    ;; is a special action that depends on being the proposer, not on role)
+    (let [sess (session/load-active-session repo-path session-id)]
+      (when-not sess
+        (throw (ex-info "Session not found or expired"
+                        {:type :invalid-session
+                         :session-id session-id})))
+      (when (session/session-expired? sess)
+        (throw (ex-info "Session has expired"
+                        {:type :session-expired
+                         :session-id session-id})))
+
+      (let [agent (:agent sess)
+            result (proposal/withdraw-proposal! repo-path id agent)]
+        (assoc (:result result)
+               :mote-id id)))))
+
+;; -----------------------------------------------------------------------------
 ;; Add-Ref Command
 ;; -----------------------------------------------------------------------------
 
@@ -1831,6 +1894,7 @@
   (cli/register-handler! "claim" cmd-claim!)
   (cli/register-handler! "unclaim" cmd-unclaim!)
   (cli/register-handler! "done" cmd-done!)
+  (cli/register-handler! "withdraw" cmd-withdraw!)
   (cli/register-handler! "add-ref" cmd-add-ref!)
   (cli/register-handler! "add-assumption" cmd-add-assumption!)
   (cli/register-handler! "add-definition" cmd-add-definition!)

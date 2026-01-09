@@ -346,6 +346,12 @@
              :options []
              :optional-id true}
 
+   "withdraw" {:description "Withdraw own proposal"
+               :usage "af withdraw <parent-id> --session TOKEN"
+               :options [["-s" "--session TOKEN" "Session token (required)"
+                          :missing "Session token is required"]]
+               :requires-id true}
+
    "help" {:description "Show help"
            :usage "af help [command]"
            :options []}})
