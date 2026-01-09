@@ -1,8 +1,8 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Phase 7 Workflow Refactoring Complete
-**Session status:** VERIFIER-FIRST WORKFLOW IMPLEMENTED - ALL TESTS PASSING
+**Last session:** Phase 7 Prompts Complete
+**Session status:** 7.9 + 7.11 DONE - ALL TESTS PASSING
 
 ---
 
@@ -50,14 +50,13 @@ Blocked:              ~3
 
 ### Phase 7 Remaining (P2 Medium)
 
-- 7.7 Verifier CLI commands (new)
-- 7.8 Permission boundaries (new)
-- 7.9 Proposer prompt updates
-- 7.10 Remove --atomic flag
+- `alethfeld-b5wf` - 7.7 Verifier CLI commands
+- `alethfeld-q02u` - 7.8 Permission boundaries
+- `alethfeld-o137` - 7.10 Remove --atomic flag (touches CLI + tests)
 
 ### Phase 7 Test Updates
 
-- `alethfeld-iqsd` - 7.12 tests may now be unblocked (core 7.1-7.6 done)
+- `alethfeld-iqsd` - 7.12 tests may now be unblocked
 
 ### Other Ready Work
 
