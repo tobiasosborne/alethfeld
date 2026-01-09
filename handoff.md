@@ -1,32 +1,27 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** cmd.clj Refactoring Complete
-**Session status:** REFACTORING COMPLETE - ALL TESTS PASSING
+**Last session:** Phase 7 Workflow Refactoring Complete
+**Session status:** VERIFIER-FIRST WORKFLOW IMPLEMENTED - ALL TESTS PASSING
 
 ---
 
 ## Session Summary
 
-This session completed the cmd.clj refactoring:
+This session completed Phase 7 (Verifier-First Workflow Refactoring):
 
-1. **Created 12 module files** under `src/alethfeld/cmd/`:
-   - `core.clj` - Shared helpers (actions, dry-run)
-   - `init.clj` - Repository initialization
-   - `show.clj` - Mote display
-   - `create.clj` - Mote creation
-   - `ready.clj` - Job discovery and claiming
-   - `proposal.clj` - Propose, approve, reject workflows
-   - `update.clj` - Mote field updates
-   - `voting.clj` - Verification voting and taints
-   - `session.clj` - Session lifecycle (claim, unclaim, done)
-   - `reference.clj` - References, assumptions, dependencies
-   - `utility.clj` - Check, repair, log, sync, tree, status
-   - `config.clj` - Configuration management
+1. **7.1** Changed default taint from `:needs-decomposition` to `:needs-verification` in mote.clj
+2. **7.2** Updated proposal taints to always use `:needs-verification` in proposal.clj
+3. **7.3** Reordered role priorities: verifier=0, proposer=1, advisor=2, prover=3
+4. **7.4** Changed proposal quorum from 2 to 1 (single-agent approval)
+5. **7.5** Changed vote quorum from 2 to 1 (single-agent verification)
+6. **7.6** Rewrote verifier prompt with three-option decision structure
 
-2. **Refactored cmd.clj** to 161-line aggregator with re-exports
+**Test Updates:**
+- Updated ~20 test files with explicit quorum parameters where multi-vote behavior is tested
+- All 1098 tests passing (6556 assertions)
 
-3. **Closed 16 beads issues** related to the refactoring
+**Commit:** `0a07f71` - feat: Implement verifier-first workflow (Phase 7)
 
 ---
 
@@ -37,41 +32,36 @@ This session completed the cmd.clj refactoring:
 | Source | State |
 |--------|-------|
 | **`docs/V02-REVISION-PLAN.md`** | Canonical plan |
-| **Beads issues** | Updated - cmd.clj refactoring closed |
-| **Codebase** | cmd.clj refactoring complete |
+| **Beads issues** | Phase 7 core (7.1-7.6) CLOSED |
+| **Codebase** | Verifier-first workflow implemented |
 
 ### Issue Stats
 
 ```
-Closed this session:  16 (cmd.clj refactoring)
-Open:                 ~34
-Ready to work:        ~31
-Blocked:              3
+Closed this session:  6 (Phase 7.1-7.6)
+Open:                 ~28
+Ready to work:        ~25
+Blocked:              ~3
 ```
 
 ---
 
 ## Priority Work Queues
 
-### 1. Phase 7 Workflow Refactoring (Next Priority)
+### Phase 7 Remaining (P2 Medium)
 
-Now that cmd.clj is split, implement verifier-first workflow:
+- 7.7 Verifier CLI commands (new)
+- 7.8 Permission boundaries (new)
+- 7.9 Proposer prompt updates
+- 7.10 Remove --atomic flag
 
-**P0 Critical:**
-- `alethfeld-j3s7` - 7.1 Default taint to :needs-verification
-- `alethfeld-lpiy` - 7.2 Proposal taints for verifier-first
-- `alethfeld-b3ze` - 7.3 Reorder role priorities
+### Phase 7 Test Updates
 
-**P1 High:**
-- `alethfeld-wb01` - 7.4 Proposal quorum to 1
-- `alethfeld-6tg2` - 7.5 Vote quorum to 1
-- `alethfeld-u8rl` - 7.6 Verifier prompt updates
+- `alethfeld-iqsd` - 7.12 tests may now be unblocked (core 7.1-7.6 done)
 
-**P2 Medium:**
-- 7.7-7.10 (verifier CLI, permissions, proposer prompt, remove --atomic)
+### Other Ready Work
 
-**P0 (after all above):**
-- `alethfeld-iqsd` - 7.12 Update tests for new workflow
+Run `bd ready` for current unblocked issues.
 
 ---
 
@@ -79,37 +69,52 @@ Now that cmd.clj is split, implement verifier-first workflow:
 
 ```bash
 # Check project health
-clj -M:test              # ~1098 tests, all passing
+clj -M:test              # 1098 tests, all passing
 bd stats                 # Issue counts
 bd ready                 # Available work
 
-# Start Phase 7 work
-bd update alethfeld-j3s7 --status=in_progress
+# Continue Phase 7 remaining items
+bd list --status=open | grep "7\."
 ```
 
 ---
 
-## Key Files
+## Key Files Changed
 
-| File | Purpose |
+| File | Changes |
 |------|---------|
-| `docs/V02-REVISION-PLAN.md` | Canonical v0.2 plan |
-| `src/alethfeld/cmd.clj` | 161-line aggregator |
-| `src/alethfeld/cmd/*.clj` | 12 focused modules |
-
----
-
-## Blocked Issues (3)
-
-1. `alethfeld-iqsd` [P0] - 7.12 tests (blocked by 6 Phase 7 issues)
-2. `alethfeld-4ntd` [P2] - Auto-infer session (blocked by `alethfeld-mjlt`)
-3. (cmd.clj aggregator unblocked - now completed)
+| `src/alethfeld/mote.clj` | Default taint to :needs-verification |
+| `src/alethfeld/proposal.clj` | All children get :needs-verification |
+| `src/alethfeld/job.clj` | Verifier priority 0 (highest) |
+| `src/alethfeld/store.clj` | Quorums default to 1 |
+| `src/alethfeld/verify.clj` | Vote quorum fallback to 1 |
+| `src/alethfeld/cmd/config.clj` | Config defaults to 1 |
+| `src/alethfeld/cmd/proposal.clj` | Proposal quorum fallback to 1 |
+| `src/alethfeld/cmd/voting.clj` | Dry-run quorum to 1 |
+| `prompts/verifier.md` | Three-option decision structure |
 
 ---
 
 ## Test Health
 
 - **Total tests:** 1,098
-- **Total assertions:** 6,535
+- **Total assertions:** 6,556
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
+
+---
+
+## Workflow Change Summary
+
+Before (v0.1):
+- Decomposition-first: proposers break down claims, then advisors approve
+- Default quorum: 2 (requires consensus)
+- Verifiers act last (verify decomposed atomic claims)
+
+After (v0.2):
+- Verification-first: verifiers evaluate claims first as gatekeepers
+- Default quorum: 1 (single-agent can approve)
+- Verifiers have three options:
+  1. Claim is verifiable as-is (vote for/against)
+  2. Claim needs decomposition (request proposer work)
+  3. Claim needs refinement (request prover work)
