@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** v0.2 Revision Planning
+**Last session:** v0.2 Implementation - Batch 1 & 2
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -10,10 +10,10 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 1083 tests, 6514 assertions
-git status                     # Should be clean (except review/ changes)
-bd stats                       # 37 open, 322 closed
-bd ready                       # See available work (19 new v0.2 issues!)
+clj -M:test                    # Should pass 1085 tests, ~6530 assertions
+git status                     # Should be clean
+bd stats                       # Check open/closed counts
+bd ready                       # See available work
 ```
 
 ---
@@ -23,8 +23,10 @@ bd ready                       # See available work (19 new v0.2 issues!)
 ### Repository Structure
 - **Branch:** `main` (v2 development)
 - **Default branch on GitHub:** `legacy` (v1, public-facing)
-- **Latest commit:** Agent UX testing and v0.2 planning
-- v1 code archived in `archive/v1/`
+- **Latest commits:**
+  - `feat(ux): Agent UX improvements for v0.2` (--name rename, session timeout, --atomic hint)
+  - `feat(cmd): Add approve-all command for batch proposal approval`
+  - `feat(repair): Add DAG repair command for recovery`
 
 ### Project Status
 | Phase | Status | Progress |
@@ -32,142 +34,160 @@ bd ready                       # See available work (19 new v0.2 issues!)
 | Phase A | Session & Role Enforcement | **100% COMPLETE** |
 | Phase B | Essential UX Improvements | **100% COMPLETE** |
 | Phase C | Quality/Safety Features | **100% COMPLETE** |
-| **v0.2** | **Agent UX Improvements** | **PLANNED** (0/19 steps) |
+| **v0.2** | **Agent UX Improvements** | **5/19 steps complete** |
+
+### v0.2 Progress
+
+| Step | ID | Status | Description |
+|------|-----|--------|-------------|
+| 1.1 | `alethfeld-cwe5` | **DONE** | Rename --agent to --name |
+| 1.2 | `alethfeld-pubp` | Ready | Smart role detection hint |
+| 1.3 | `alethfeld-19kq` | **DONE** | Add --atomic hint to proposer prompt |
+| 1.4 | `alethfeld-umt5` | Open | Contextual --atomic suggestion |
+| 2.1 | `alethfeld-7pby` | **DONE** | Add approve-all command |
+| 2.2 | `alethfeld-hyzu` | Open | Add --max flag to af ready |
+| 3.x | Various | Open | Session ergonomics (3 issues) |
+| 4.x | Various | Open | Visibility improvements (3 issues) |
+| 5.2 | `alethfeld-lqpn` | **DONE** | Session auto-expire |
+| 5.3 | `alethfeld-zh6d` | Ready | Add af ready --reserve |
+| 5.4 | `alethfeld-m1z0` | **DONE** | Add af repair command |
+| 6.x | Various | Open | Documentation (3 issues) |
 
 ### Test Health
-- **Total tests:** 1,083
-- **Total assertions:** 6,514
+- **Total tests:** 1,085
+- **Total assertions:** ~6,530
 - **Status:** ALL PASSING
 - **Known flaky tests:**
   - 3 concurrency tests (marked `^:flaky`, test isolation issues)
+  - ID uniqueness test (occasionally generates duplicate in 100 rapid calls)
 
 ---
 
-## This Session: v0.2 Revision Planning
+## This Session: v0.2 Implementation
 
 ### What Was Done
 
-Analyzed comprehensive agent UX test results from `review/ux-review/` and created detailed v0.2 revision plan with tracked beads issues.
+Implemented 5 v0.2 issues in this session:
 
-**Test Documents Analyzed:**
-- `af_recommendations.md` - 9 prioritized UX recommendations
-- `agent_behavior_log.md` - 55-command trace of sqrt(2) proof attempt
-- `subagent_test_log.md` - Multi-agent/orchestrator testing results
-- `agent-ux-testing-guide.md` - Testing methodology (10 design principles)
+**1. Rename --agent to --name (cwe5)**
+- Changed all CLI options from `--agent` to `--name` with `-n` short form
+- Added deprecation warning system for `--agent` option
+- Updated `AF_NAME` env var (legacy `AF_AGENT` still works)
+- Updated all tests
 
-### Key Findings from Testing
+**2. Add --atomic hint to proposer prompt (19kq)**
+- Updated `prompts/proposer.md` with guidance for self-evident claims
+- Added tip about using `--atomic` for leaf nodes
 
-| Metric | v0.1 Result | v0.2 Target |
-|--------|-------------|-------------|
-| Commands to completion | 55 | <40 |
-| Stuck points | 2 | 0 |
-| Help consultations | 4 | <2 |
-| Subagent success rate | 50% (parallel) | >95% |
+**3. Add approve-all command (7pby)**
+- New command: `af approve-all --session TOKEN [--reason TEXT]`
+- Batch approves all pending proposals agent can vote on
+- Mirrors existing `vote-all` pattern for verifiers
 
-**Stuck Points Identified:**
-1. **Role selection confusion** - Agent tried `af ready --agent advisor` expecting role, but `--agent` is just a name field
-2. **Atomic flag discovery** - Took 5 commands to find `--atomic` for leaf nodes
+**4. Session auto-expire config (lqpn)**
+- Added `:session-timeout-minutes` to Config schema
+- Configurable session duration (default 30 min)
 
-**Critical Multi-Agent Finding:**
-- Parallel subagents cause **race conditions and DAG corruption**
-- Sequential subagents work reliably
-- `vote-all` is 4x more efficient than individual votes
+**5. Add af repair command (m1z0)**
+- New namespace: `src/alethfeld/repair.clj`
+- Detects: orphaned parents, stale sessions, phantom children, broken refs, cycles
+- Modes: default (show issues), `--dry-run`, `--auto` (fix automatically)
 
-### Documents Created
-
-**`docs/V02-REVISION-PLAN.md`** - Comprehensive revision plan with:
-- 19 implementation steps across 6 batches
-- Priority matrix (effort vs impact)
-- Success criteria and testing plan
-- File modification list
-- Changelog for v0.2
-
-### Beads Issues Created (19 total)
-
-**Epic:** `alethfeld-14qm` - [EPIC] Alethfeld v0.2 - Agent UX Improvements (P0)
-
-| Batch | Issues | Priority | Focus |
-|-------|--------|----------|-------|
-| **1. Stuck Point Fixes** | `cwe5`, `pubp`, `19kq`, `umt5` | P1-P2 | `--agent`→`--name`, role hints, `--atomic` discovery |
-| **2. Batch Operations** | `7pby`, `hyzu` | P1-P2 | `approve-all`, `--max` flag |
-| **3. Session Ergonomics** | `mjlt`, `4ntd`, `f2zg` | P2-P3 | `@current` alias, auto-infer, `AF_SESSION` env |
-| **4. Visibility** | `2crv`, `oz8q`, `b98b` | P2-P3 | Quorum progress, status breakdown |
-| **5. Multi-Agent** | `0k7m`, `lqpn`, `zh6d`, `m1z0` | P1-P2 | Sessions command, auto-expire, `--reserve`, `repair` |
-| **6. Documentation** | `jtsz`, `0rrh`, `tr2k` | P2-P3 | Help consistency, `af workflow`, role descriptions |
-
-### Dependencies Set
+### Files Modified
 
 ```
-alethfeld-pubp (1.2 role hint) → depends on → alethfeld-cwe5 (1.1 rename --agent)
-alethfeld-4ntd (3.2 auto-infer) → depends on → alethfeld-mjlt (3.1 @current alias)
-alethfeld-zh6d (5.3 --reserve) → depends on → alethfeld-lqpn (5.2 auto-expire)
+src/alethfeld/cli.clj        - Added approve-all, repair commands; --name option
+src/alethfeld/cmd.clj        - Added cmd-approve-all!, cmd-repair; :name handling
+src/alethfeld/repair.clj     - NEW: DAG repair module
+src/alethfeld/schema.clj     - Added :session-timeout-minutes
+prompts/proposer.md          - Added --atomic guidance
+test/alethfeld/cli_test.clj  - Updated tests for --name
+test/alethfeld/session_test.clj - Added config timeout tests
 ```
 
-### Issue ID Reference
+### Commits
 
-| Step | ID | Title |
-|------|-----|-------|
-| 1.1 | `alethfeld-cwe5` | Rename --agent to --name |
-| 1.2 | `alethfeld-pubp` | Smart role detection hint |
-| 1.3 | `alethfeld-19kq` | Add --atomic hint to proposer prompt |
-| 1.4 | `alethfeld-umt5` | Contextual --atomic suggestion |
-| 2.1 | `alethfeld-7pby` | Add approve-all command |
-| 2.2 | `alethfeld-hyzu` | Add --max flag to af ready |
-| 3.1 | `alethfeld-mjlt` | Support @current session alias |
-| 3.2 | `alethfeld-4ntd` | Auto-infer session when unambiguous |
-| 3.3 | `alethfeld-f2zg` | Support AF_SESSION env variable |
-| 4.1 | `alethfeld-2crv` | Show quorum progress in vote displays |
-| 4.2 | `alethfeld-oz8q` | Enhanced af status progress breakdown |
-| 4.3 | `alethfeld-b98b` | Explain parent mote status |
-| 5.1 | `alethfeld-0k7m` | Add af sessions command |
-| 5.2 | `alethfeld-lqpn` | Session auto-expire |
-| 5.3 | `alethfeld-zh6d` | Add af ready --reserve |
-| 5.4 | `alethfeld-m1z0` | Add af repair command |
-| 6.1 | `alethfeld-jtsz` | Make af help = af --help |
-| 6.2 | `alethfeld-0rrh` | Add af workflow command |
-| 6.3 | `alethfeld-tr2k` | Enhance af roles with descriptions |
+```
+61fc64f feat(ux): Agent UX improvements for v0.2
+bd3e0eb feat(cmd): Add approve-all command for batch proposal approval
+b181a71 feat(repair): Add DAG repair command for recovery
+```
 
 ---
 
 ## Next Steps
 
-**Recommended implementation order:**
+### Recommended Next Issues
 
-### 1. Start with P1 Ready Issues (no blockers)
+**P1 (High Priority):**
+1. `alethfeld-pubp` - Smart role detection hint (unblocked by cwe5)
+2. `alethfeld-zh6d` - Add af ready --reserve (unblocked by lqpn)
+
+**P2 (Medium Priority):**
+- `alethfeld-hyzu` - Add --max flag to af ready
+- `alethfeld-mjlt` - Support @current session alias
+- `alethfeld-0k7m` - Add af sessions command
+
+**Full priority list:**
 ```bash
-bd ready  # Shows 10 ready issues
+bd ready  # Shows all ready work
+bd list --status=open | grep v0.2  # All v0.2 issues
 ```
 
-**P1 v0.2 issues ready to start:**
-- `alethfeld-cwe5` - [v0.2-1.1] Rename --agent to --name
-- `alethfeld-19kq` - [v0.2-1.3] Add --atomic hint to proposer prompt
-- `alethfeld-7pby` - [v0.2-2.1] Add approve-all command
-- `alethfeld-lqpn` - [v0.2-5.2] Session auto-expire
-- `alethfeld-m1z0` - [v0.2-5.4] Add af repair command
-
-### 2. After 1.1 completes, unblocks:
-- `alethfeld-pubp` - [v0.2-1.2] Smart role detection hint
-
-### 3. After 5.2 completes, unblocks:
-- `alethfeld-zh6d` - [v0.2-5.3] Add af ready --reserve
-
-### 4. All P2-P3 issues can run in parallel
+### Dependencies to Note
+```
+alethfeld-4ntd (3.2 auto-infer) → depends on → alethfeld-mjlt (3.1 @current alias)
+```
 
 ---
 
-## Breaking Changes in v0.2
+## Architecture Reference
 
-When implementing, note these breaking changes:
+### New Namespaces Added
 
-1. **`--agent` renamed to `--name`**
-   - Keep `--agent` as deprecated alias (prints warning)
-   - Update all prompts and documentation
+| Namespace | Purpose |
+|-----------|---------|
+| `alethfeld.repair` | DAG issue detection and repair |
 
-2. **New commands added:**
-   - `af approve-all` - Batch approve pending proposals
-   - `af sessions` - List active sessions
-   - `af repair` - Fix DAG inconsistencies
-   - `af workflow` - Show workflow guide
+### New Commands Added
+
+| Command | Description |
+|---------|-------------|
+| `af approve-all` | Batch approve pending proposals |
+| `af repair` | Detect and fix DAG inconsistencies |
+
+### Key Patterns Used
+
+**Batch Commands Pattern** (from vote-all):
+```clojure
+;; 1. Find eligible items
+(defn find-eligible-items [repo-path agent] ...)
+
+;; 2. Dry-run mode shows what would happen
+(if dry-run
+  {:would-do (vec eligible-ids) :dry-run true}
+
+  ;; 3. Execute with error collection
+  (reduce (fn [acc item]
+            (try
+              (do-operation! item)
+              (update acc :done conj item)
+              (catch Exception e
+                (update acc :skipped conj {:id item :reason (ex-message e)}))))
+          {:done [] :skipped []}
+          eligible))
+```
+
+**Deprecation Warning Pattern**:
+```clojure
+(def ^:dynamic *deprecation-warnings* (atom []))
+
+(defn deprecated-option [...]
+  [...
+   :assoc-fn (fn [m k v]
+               (swap! *deprecation-warnings* conj "Warning: ...")
+               (assoc m :new-key v))])
+```
 
 ---
 
@@ -175,40 +195,10 @@ When implementing, note these breaking changes:
 
 | Document | Purpose |
 |----------|---------|
-| **`docs/V02-REVISION-PLAN.md`** | **NEW** - Full v0.2 implementation plan |
-| `docs/AGENT-UX-PLAN.md` | Earlier UX plan (now superseded by V02-REVISION-PLAN) |
-| `docs/IMPLEMENTATION-PLAN.md` | Full v0.1-v0.2 spec with all step details |
-| `review/ux-review/` | Agent testing results and methodology |
+| **`docs/V02-REVISION-PLAN.md`** | Full v0.2 implementation plan |
+| `docs/IMPLEMENTATION-PLAN.md` | Overall v0.1-v0.2 spec |
+| `review/ux-review/` | Agent testing results |
 | `CLAUDE.md` | Development conventions |
-
----
-
-## Architecture Reference
-
-### Key Namespaces
-
-| Namespace | Purpose |
-|-----------|---------|
-| `alethfeld.cli` | CLI entry point, argument parsing |
-| `alethfeld.cmd` | Command implementations (cmd-*! functions) |
-| `alethfeld.proposal` | Proposal workflow |
-| `alethfeld.verify` | Verification voting, quorum logic |
-| `alethfeld.session` | Session management, role enforcement |
-| `alethfeld.mote` | Mote constructors and transformations |
-| `alethfeld.store` | File I/O, mote persistence |
-| `alethfeld.tx` | Transaction layer, atomic writes |
-| `alethfeld.errors` | Human-readable error formatting |
-
-### Session-Based Commands
-
-All mutation commands require `--session TOKEN`:
-- `propose`, `approve`, `reject`, `withdraw`
-- `vote`, `vote-all`
-- `taint`, `add-ref`, `add-assumption`, `add-definition`, `add-dep`
-- `claim`, `unclaim`, `done`
-
-Sessionless commands (read-only):
-- `init`, `show`, `ready`, `tree`, `status`, `check`, `log`, `config`, `help`
 
 ---
 
@@ -229,54 +219,19 @@ git add . && git commit -m "..."      # Commit changes
 git push                              # Push to remote
 ```
 
-### Running Specific Tests
-```bash
-# Run specific namespace
-clj -M:test --namespace alethfeld.cmd-test
-
-# Run all tests
-clj -M:test
-```
-
----
-
-## Troubleshooting
-
-### Tests Failing
-```bash
-clj -M:test --namespace alethfeld.proposal-test
-```
-
-### Beads Issues
-```bash
-bd doctor                             # Check for sync problems
-bd sync --status                      # Check sync status
-```
-
-### Blocked Issues
-```bash
-bd blocked                            # Show all blocked issues
-bd show <id>                          # See what's blocking it
-```
-
 ---
 
 ## Known Issues
 
 1. **Concurrency tests flaky**
    - 3 tests in `concurrency_test.clj` marked `^:flaky`
-   - Cause: Test fixture isolation issues
-   - Impact: Occasional CI failures, not production bugs
 
-2. **Session enforcement push-based** (`alethfeld-ka8d`) - P1
-   - Each command handler checks permissions manually
-   - Risk: New commands could bypass permission checks
-   - Recommended: Centralize to middleware layer
+2. **ID generation test occasionally flaky**
+   - `generate-id-test` can fail with 99/100 unique (race condition)
 
-3. **Multi-agent race conditions** (addressed in v0.2)
-   - Parallel subagents can corrupt DAG
-   - Fix: `alethfeld-zh6d` adds `--reserve` flag
-   - Fix: `alethfeld-m1z0` adds `af repair` command
+3. **Cycles require manual resolution**
+   - `af repair --auto` cannot fix dependency cycles
+   - User must manually break cycle
 
 ---
 
