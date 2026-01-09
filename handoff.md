@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Step C.5 - Atomic Markers on Creation
+**Last session:** Comprehensive Code Review (4 parallel agents)
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -41,87 +41,80 @@ bd stats                       # Check open/closed counts
 
 ---
 
-## This Session: Step C.5 Atomic Markers on Creation
+## This Session: Comprehensive Code Review
 
-### What Was Implemented
+### What Was Done
 
-Added `--atomic` flag to `af propose` to mark claims as atomic at proposal time. Atomic claims skip decomposition and go directly to verification.
+Ran 4 parallel code review agents analyzing the entire codebase from different perspectives:
 
-### Command Syntax
+1. **Linus Torvalds style** - Direct critique of code quality, over-engineering, naming
+2. **Architecture & Design** - Elegance, efficiency, module structure, idiomatic Clojure
+3. **Test Coverage** - Edge cases, integration tests, missing tests, test design quality
+4. **Bugs & Code Smells** - Race conditions, duplication, style inconsistencies, logic bugs
 
-Two ways to mark claims as atomic:
+### Key Findings
 
-**1. Positional args with `!` suffix:**
-```bash
-af propose 1 "Simple fact!" --session TOKEN
-af propose 1 "Fact @3!" --session TOKEN   # with difficulty
-```
+**Overall Grade: B+** - Well-architected, test-driven codebase with solid fundamentals
 
-**2. CLI options:**
-```bash
-af propose 1 --claim "Simple fact" --atomic --session TOKEN
-```
+**Strengths:**
+- Clean layering (schema → mote → dag → tx → cmd → cli)
+- No circular dependencies
+- Excellent test coverage (984 tests, 2690 assertions)
+- Strong integration tests (675 LOC)
+- Good error message UX
 
-### How It Works
+**Critical Issues Found:**
+- Race condition in snapshot restoration (tx.clj)
+- Missing nil checks in proposal child promotion
+- Session enforcement is push-based (should be middleware)
+- ~30% of error paths untested
 
-- **Non-atomic claims (default):** Get `:needs-decomposition` taint
-- **Atomic claims:** Get `:needs-verification` taint instead
+### Issues Created
 
-This means atomic claims skip the decomposition workflow and go directly to verification voting.
+Created **30 beads issues** from the review findings:
 
-### Files Modified
+| Priority | Count | Description |
+|----------|-------|-------------|
+| P0 | 3 | Critical bugs (race conditions, nil checks, atomicity) |
+| P1 | 4 | Race conditions, session enforcement |
+| P2 | 17 | Code duplication, logic bugs, missing tests |
+| P3 | 6 | Code smells, style, documentation |
 
-| File | Changes |
-|------|---------|
-| `src/alethfeld/cli.clj` | Added `--atomic` option to propose command (repeatable, positional) |
-| `src/alethfeld/cmd.clj` | Updated `parse-claims` to handle `!` notation; added `merge-option-claims`; updated `cmd-propose!` |
-| `src/alethfeld/proposal.clj` | Updated `create-child-motes` and `promote-children!` to handle atomic flag |
-| `src/alethfeld/schema.clj` | Added `:atomic {:optional true} :boolean` field to Mote schema |
-| `test/alethfeld/proposal_test.clj` | Added 6 atomic claims tests |
-| `test/alethfeld/cmd/proposal_test.clj` | Added 8 atomic claims parsing and integration tests |
+**Key Issues by Category:**
 
-### Implementation Details
+**Critical Bugs (P0):**
+- `alethfeld-ul71` - Fix race condition in snapshot restoration
+- `alethfeld-ou3f` - Fix missing nil check in proposal child promotion
+- `alethfeld-i5em` - Fix proposal atomicity missing child status validation
 
-**Claim parsing (`parse-claims`):**
-- Detects `!` suffix as atomic marker
-- `"My claim!"` → `{:claim "My claim" :atomic true}`
-- `"My claim @3!"` → `{:claim "My claim" :difficulty 3 :atomic true}`
+**Race Conditions (P1):**
+- `alethfeld-q6ui` - Fix TOCTOU in session expiration
+- `alethfeld-6f4k` - Fix PID liveness check (Unix-only)
+- `alethfeld-9vok` - Fix path canonicalization with symlinks
 
-**Proposal creation (`create-child-motes`):**
-```clojure
-(let [atomic? (:atomic claim-spec)
-      taint (if atomic?
-              #{:needs-verification}
-              #{:needs-decomposition})]
-  ...)
-```
+**Architecture (P1-P2):**
+- `alethfeld-ka8d` - Centralize session enforcement to middleware
+- `alethfeld-ock9` - Split cmd.clj into submodules (2037 LOC)
+- `alethfeld-ppdz` - Add caching for load-all-motes
 
-**Promotion (`promote-children!`):**
-```clojure
-(let [atomic? (:atomic child)
-      taint-to-add (if atomic?
-                     :needs-verification
-                     :needs-decomposition)]
-  ...)
-```
+**Code Duplication (P2):**
+- `alethfeld-qwnk` - Extract duplicated full-path helper
+- `alethfeld-ozha` - Unify vote counting logic
+- `alethfeld-wo65` - Unify quorum checking logic (blocked by ozha)
 
-### Tests Added
+**Test Gaps (P2):**
+- `alethfeld-9mwp` - Add tests for claim text edge cases
+- `alethfeld-w1ps` - Add tests for non-standard quorum configs
+- `alethfeld-8rvs` - Add tests for session expiration boundaries
+- `alethfeld-89sq` - Add tests for git operation failures
+- `alethfeld-sowp` - Add comprehensive error path testing
 
-| Test | Purpose |
-|------|---------|
-| `atomic-claim-proposed-taint-test` | Atomic claim gets `:needs-verification` when proposed |
-| `non-atomic-claim-proposed-taint-test` | Non-atomic claim gets `:needs-decomposition` when proposed |
-| `mixed-atomic-claims-proposed-test` | Mixed claims get correct taints |
-| `atomic-claim-promoted-taint-test` | Atomic claim preserves taint after promotion |
-| `mixed-atomic-claims-promoted-test` | Mixed claims preserve correct taints after promotion |
-| `parse-claims-atomic-test` | Parse `!` suffix for atomic |
-| `parse-claims-atomic-with-difficulty-test` | Parse `@N!` for difficulty + atomic |
-| `parse-claims-mixed-atomic-test` | Parse mixed atomic/non-atomic claims |
-| `parse-claims-atomic-preserves-whitespace-test` | Whitespace handling with atomic |
-| `propose-atomic-claim-has-correct-taint-test` | Integration: atomic claim gets correct taint |
-| `propose-non-atomic-claim-has-correct-taint-test` | Integration: non-atomic claim gets correct taint |
-| `propose-mixed-atomic-claims-test` | Integration: mixed claims work correctly |
-| `approve-atomic-claim-preserves-taint-test` | Integration: approved atomic keeps `:needs-verification` |
+### Dependencies
+
+Only one dependency added (to enable parallel work):
+- `alethfeld-wo65` depends on `alethfeld-ozha` (quorum uses vote counting)
+
+All other 29 issues can be worked on in parallel.
 
 ---
 
@@ -139,13 +132,26 @@ This means atomic claims skip the decomposition workflow and go directly to veri
 
 ## Next Steps
 
-Phase C is complete! Possible next steps:
+**Recommended priority order:**
 
-1. **Phase D** - Vision features (Lean4 integration, visualization) - deferred to v0.3+
-2. **Documentation** - Step 7.4 (`alethfeld-dpdq`) - CLI documentation
-3. **Bug fixes** - Various items in `bd ready`
+1. **P0 Critical Bugs** (3 issues) - Fix race conditions and nil checks
+   - `alethfeld-ul71`, `alethfeld-ou3f`, `alethfeld-i5em`
+   - Can be worked in parallel
 
-Run `bd ready` to see available work.
+2. **P1 Race Conditions** (4 issues) - Session/concurrency safety
+   - `alethfeld-q6ui`, `alethfeld-6f4k`, `alethfeld-9vok`, `alethfeld-ka8d`
+   - Can be worked in parallel
+
+3. **P2 Test Gaps** (6 issues) - Improve coverage to reduce risk
+   - Focus on error paths and edge cases first
+
+4. **P2 Refactoring** (5 issues) - Code quality improvements
+   - Vote counting → quorum unification (sequential)
+   - Other duplication fixes (parallel)
+
+5. **P3 Polish** (6 issues) - Style, documentation, minor cleanup
+
+Run `bd ready` to see available work (47 issues ready).
 
 ---
 
@@ -267,6 +273,20 @@ git diff HEAD~1                       # See last commit changes
 2. **Flaky generate-id-test** (`alethfeld-gp1q`)
    - Occasional UUID collision in 100 UUIDs
    - Very rare, statistically expected
+
+3. **Race condition in tx.clj** (`alethfeld-ul71`) - P0
+   - ~100ms window between validation and git commit
+   - Process crash during window leaves files on disk without git record
+   - Manual recovery: `git add . && git commit -m 'recovery'`
+
+4. **Session enforcement push-based** (`alethfeld-ka8d`) - P1
+   - Each command handler checks permissions manually
+   - Risk: New commands could bypass permission checks
+   - Recommended: Centralize to middleware layer
+
+5. **PID liveness check Unix-only** (`alethfeld-6f4k`) - P1
+   - `kill -0` doesn't work on Windows
+   - Session cleanup may fail on Windows
 
 ---
 
