@@ -253,6 +253,169 @@
         (when (re-matches #"p[0-4]" spec)
           (keyword spec))))))
 
+;; -----------------------------------------------------------------------------
+;; Ready Command Output Formatting
+;; -----------------------------------------------------------------------------
+
+(defn- pad-right
+  "Pad string s to width n with spaces on the right."
+  [s n]
+  (let [s (str s)]
+    (if (>= (count s) n)
+      s
+      (str s (apply str (repeat (- n (count s)) " "))))))
+
+(defn- format-box-line
+  "Create a horizontal box line of given width with corners."
+  [width left-corner right-corner fill-char]
+  (str left-corner (apply str (repeat (- width 2) fill-char)) right-corner))
+
+(defn- format-box-content
+  "Format a line of content within the box."
+  [content width]
+  (let [padding (- width 4 (count content))]
+    (str "|  " content (apply str (repeat (max 0 padding) " ")) " |")))
+
+(def ^:private box-width 80)
+
+(defn- format-job-claimed-header
+  "Format the prominent header when a job is claimed.
+
+   Returns a vector of strings (lines) for the header box."
+  [job]
+  (let [mote-id (:mote-id job)
+        role (name (:role job))
+        session-id (or (:session-id job) "N/A")
+        priority (name (:priority job))
+        difficulty (:difficulty job)
+        title (str "JOB CLAIMED: " role " on mote " mote-id)]
+    [(format-box-line box-width "+" "+" "=")
+     (format-box-content title box-width)
+     (format-box-line box-width "+" "+" "-")
+     (format-box-content (str "Session: " session-id) box-width)
+     (format-box-content (str "Role: " role) box-width)
+     (format-box-content (str "Priority: " priority " | Difficulty: " difficulty) box-width)
+     (format-box-line box-width "+" "+" "=")]))
+
+(defn- format-job-commands
+  "Format the commands section for a claimed job.
+
+   Returns a vector of strings (lines)."
+  [job]
+  (let [mote-id (:mote-id job)
+        session-id (or (:session-id job) "SESSION")
+        role (:role job)]
+    (case role
+      :verifier
+      ["COMMANDS YOU CAN USE:"
+       (str "  af vote " mote-id " --for --session " session-id " --reason \"...\"")
+       (str "  af vote " mote-id " --against --session " session-id " --reason \"...\"")
+       ""
+       "WHEN FINISHED:"
+       (str "  af done --session " session-id)]
+
+      :advisor
+      ["COMMANDS YOU CAN USE:"
+       (str "  af approve " mote-id " --session " session-id " --reason \"...\"")
+       (str "  af reject " mote-id " --session " session-id " --reason \"...\"")
+       ""
+       "WHEN FINISHED:"
+       (str "  af done --session " session-id)]
+
+      :proposer
+      ["COMMANDS YOU CAN USE:"
+       (str "  af propose " mote-id " --session " session-id " --claim \"substep 1\" --claim \"substep 2\"")
+       ""
+       "WHEN FINISHED:"
+       (str "  af done --session " session-id)]
+
+      :prover
+      ["COMMANDS YOU CAN USE:"
+       (str "  af add-ref " mote-id " --session " session-id " --ref \"citation\" --note \"...\"")
+       (str "  af add-assumption " mote-id " --session " session-id " --ref <mote-id> --note \"...\"")
+       (str "  af add-definition " mote-id " --session " session-id " --symbol \"x\" --meaning \"...\"")
+       (str "  af taint " mote-id " --session " session-id " --remove needs-refinement")
+       ""
+       "WHEN FINISHED:"
+       (str "  af done --session " session-id)]
+
+      :ref-checker
+      ["COMMANDS YOU CAN USE:"
+       (str "  af add-ref " mote-id " --session " session-id " --ref \"corrected citation\" --note \"...\"")
+       (str "  af taint " mote-id " --session " session-id " --remove needs-refs")
+       ""
+       "WHEN FINISHED:"
+       (str "  af done --session " session-id)]
+
+      :counterexample
+      ["COMMANDS YOU CAN USE:"
+       (str "  af vote " mote-id " --for --session " session-id " --reason \"No counterexample found\"")
+       (str "  af vote " mote-id " --against --session " session-id " --reason \"Counterexample: ...\"")
+       (str "  af taint " mote-id " --session " session-id " --remove needs-counterexample")
+       ""
+       "WHEN FINISHED:"
+       (str "  af done --session " session-id)]
+
+      ;; Default case
+      ["WHEN FINISHED:"
+       (str "  af done --session " session-id)])))
+
+(defn- format-claimed-job-output
+  "Format the complete output for a claimed job, including header, prompt, and commands.
+
+   Returns a string with the full formatted output."
+  [job]
+  (let [header-lines (format-job-claimed-header job)
+        prompt (:prompt job)
+        command-lines (format-job-commands job)]
+    (str/join "\n"
+              (concat header-lines
+                      [""]
+                      [prompt]
+                      [""]
+                      command-lines))))
+
+(defn- format-job-list-item
+  "Format a single job for the list view.
+
+   Arguments:
+   - idx: 1-based index of the job
+   - job: The job map
+
+   Returns a formatted string for this job."
+  [idx job]
+  (let [mote-id (:mote-id job)
+        role (name (:role job))
+        priority (name (:priority job))
+        difficulty (:difficulty job)
+        claim (get-in job [:mote :claim] "")]
+    (str "  " idx ". mote " mote-id " | role: " role " | " priority " | difficulty: " difficulty
+         (when (seq claim)
+           (str "\n     " (if (> (count claim) 60)
+                           (str (subs claim 0 57) "...")
+                           claim))))))
+
+(defn- format-job-list
+  "Format the list of available jobs for display.
+
+   Arguments:
+   - jobs: Vector of job maps
+
+   Returns a string with the formatted job list."
+  [jobs]
+  (if (empty? jobs)
+    (str "No jobs available.\n\n"
+         "All motes are either:\n"
+         "  - Already claimed by another agent\n"
+         "  - In a terminal state (verified, rejected, refuted)\n"
+         "  - Not in need of work (no taints)\n")
+    (str "Available jobs:\n"
+         (str/join "\n\n" (map-indexed (fn [i j] (format-job-list-item (inc i) j)) jobs))
+         "\n\n"
+         "Claim a job:\n"
+         "  af ready --agent <name> --job 1    # Claim job #1\n"
+         "  af ready --agent <name>            # Claim highest priority")))
+
 (defn- resolve-children
   "Resolve child IDs to full mote maps for prompt rendering."
   [mote motes]
@@ -267,25 +430,33 @@
 (defn cmd-ready
   "Get next job(s) for an agent.
 
+   Modes:
+   1. List mode (no --agent): Shows available jobs numbered, no claiming
+   2. Claim mode (--agent NAME): Claims highest priority job (or specific with --job)
+   3. Preview mode (--agent NAME --no-claim): Like claim mode but doesn't claim
+
    Options:
    - :agent - Agent name (auto-claims jobs unless --no-claim)
    - :role - Filter by role (:proposer, :advisor, :prover, :verifier, :ref-checker, :counterexample)
    - :difficulty - Difficulty filter (\"N\" for exact, \"N-M\" for range)
    - :priority - Priority filter (\"pN\" for exact, \"pN-pM\" for range)
-   - :max - Maximum jobs to return (default: 1)
+   - :max - Maximum jobs to return (default: 10 for list mode, 1 for claim mode)
    - :no-claim - Don't auto-claim jobs
+   - :job - Specific job number to claim (1-indexed, from list mode output)
 
-   Returns a vector of Job maps, each containing:
-   - :job-id, :mote-id, :role, :difficulty, :priority
-   - :mote, :parent, :siblings
-   - :prompt (rendered prompt for the role)
+   Returns:
+   - In list mode: A map with :mode :list and :output (formatted string)
+   - In claim mode: A map with :mode :claimed and :output (formatted string with prompt)
+     plus the full job data
 
    Note: Automatically cleans up stale sessions (expired or crashed)
    before selecting jobs."
   [{:keys [options]}]
   (let [repo-path "."
-        {:keys [agent role difficulty priority max no-claim]} options
-        max-jobs (or max 1)]
+        {:keys [agent role difficulty priority max no-claim job]} options
+        ;; Default max depends on mode: list mode shows more, claim mode shows 1
+        list-mode? (nil? agent)
+        max-jobs (or max (if list-mode? 10 1))]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
@@ -306,11 +477,13 @@
           motes (store/load-all-motes repo-path)
 
           ;; Select jobs (with claim timeout enforcement)
+          ;; For list mode or when --job is specified, get more jobs
+          jobs-to-fetch (if (or list-mode? job) (clojure.core/max max-jobs 10) max-jobs)
           jobs (job/select-jobs motes
                                 :role role
                                 :difficulty difficulty-filter
                                 :priority priority-filter
-                                :max max-jobs
+                                :max jobs-to-fetch
                                 :claim-timeout claim-timeout)
 
           ;; Enrich jobs with prompts
@@ -320,42 +493,97 @@
                                       (assoc j :prompt rendered-prompt)))
                                   jobs)]
 
-      ;; Auto-claim if agent provided and not --no-claim
-      (if (and agent (not no-claim) (seq jobs-with-prompts))
-        (let [;; Ensure session directories exist
-              _ (session/ensure-session-dirs! repo-path)
-              ;; Update motes with claims and create sessions
-              claimed-jobs (mapv (fn [j]
-                                   (let [;; Create session for this job
-                                         job-role (:role j)
-                                         sess (session/create-session! repo-path
-                                                                       (:mote-id j)
-                                                                       job-role
-                                                                       agent)
-                                         ;; Update mote with claim
-                                         updated-mote (mote/set-claimed-by (:mote j) agent)
-                                         ;; Re-render prompt with session context
-                                         resolved-children (resolve-children (:mote j) motes)
-                                         session-prompt (prompt/render-prompt j
-                                                                              :resolved-children resolved-children
-                                                                              :session sess)]
-                                     (assoc j
-                                            :mote updated-mote
-                                            :claimed-by agent
-                                            :session-id (:session-id sess)
-                                            :session sess
-                                            :prompt session-prompt)))
-                                 jobs-with-prompts)
-              ;; Extract updated motes for atomic write
-              updated-motes (mapv :mote claimed-jobs)
-              ;; Commit all claims atomically via transaction layer
-              commit-msg (str "Claim jobs for " agent ": "
-                              (str/join ", " (map :mote-id claimed-jobs)))]
-          (tx/atomic-write! repo-path commit-msg updated-motes :validate false)
-          claimed-jobs)
+      (cond
+        ;; List mode: no agent provided - show numbered list
+        list-mode?
+        {:mode :list
+         :jobs jobs-with-prompts
+         :output (format-job-list jobs-with-prompts)}
 
-        ;; Return without claiming
-        jobs-with-prompts))))
+        ;; Preview mode: agent provided but --no-claim
+        no-claim
+        (let [selected-jobs (if job
+                              ;; Select specific job by number (1-indexed)
+                              (let [job-idx (dec job)]
+                                (if (and (>= job-idx 0) (< job-idx (count jobs-with-prompts)))
+                                  [(nth jobs-with-prompts job-idx)]
+                                  []))
+                              ;; Take first max-jobs
+                              (take max-jobs jobs-with-prompts))]
+          {:mode :preview
+           :jobs (vec selected-jobs)
+           :output (if (empty? selected-jobs)
+                     (if job
+                       (str "Job #" job " not found. Run 'af ready' to see available jobs.")
+                       "No jobs available matching your criteria.")
+                     (format-job-list selected-jobs))})
+
+        ;; Claim mode: agent provided, claim the job(s)
+        (seq jobs-with-prompts)
+        (let [;; Select which jobs to claim
+              jobs-to-claim (if job
+                              ;; Claim specific job by number (1-indexed)
+                              (let [job-idx (dec job)]
+                                (if (and (>= job-idx 0) (< job-idx (count jobs-with-prompts)))
+                                  [(nth jobs-with-prompts job-idx)]
+                                  []))
+                              ;; Take first max-jobs
+                              (take max-jobs jobs-with-prompts))]
+          (if (empty? jobs-to-claim)
+            ;; Invalid job number
+            (throw (ex-info (str "Job #" job " not found")
+                            {:type :not-found
+                             :job-number job
+                             :available-count (count jobs-with-prompts)}))
+
+            ;; Proceed with claiming
+            (let [;; Ensure session directories exist
+                  _ (session/ensure-session-dirs! repo-path)
+                  ;; Update motes with claims and create sessions
+                  claimed-jobs (mapv (fn [j]
+                                       (let [;; Create session for this job
+                                             job-role (:role j)
+                                             sess (session/create-session! repo-path
+                                                                           (:mote-id j)
+                                                                           job-role
+                                                                           agent)
+                                             ;; Update mote with claim
+                                             updated-mote (mote/set-claimed-by (:mote j) agent)
+                                             ;; Re-render prompt with session context
+                                             resolved-children (resolve-children (:mote j) motes)
+                                             session-prompt (prompt/render-prompt j
+                                                                                  :resolved-children resolved-children
+                                                                                  :session sess)]
+                                         (assoc j
+                                                :mote updated-mote
+                                                :claimed-by agent
+                                                :session-id (:session-id sess)
+                                                :session sess
+                                                :prompt session-prompt)))
+                                     jobs-to-claim)
+                  ;; Extract updated motes for atomic write
+                  updated-motes (mapv :mote claimed-jobs)
+                  ;; Commit all claims atomically via transaction layer
+                  commit-msg (str "Claim jobs for " agent ": "
+                                  (str/join ", " (map :mote-id claimed-jobs)))]
+              (tx/atomic-write! repo-path commit-msg updated-motes :validate false)
+
+              ;; Return with formatted output
+              {:mode :claimed
+               :jobs claimed-jobs
+               :output (str/join "\n\n" (map format-claimed-job-output claimed-jobs))})))
+
+        ;; No jobs available when trying to claim
+        :else
+        {:mode :no-jobs
+         :jobs []
+         :output (str "No jobs available.\n\n"
+                      "All motes are either:\n"
+                      "  - Already claimed by another agent\n"
+                      "  - In a terminal state (verified, rejected, refuted)\n"
+                      "  - Not in need of work (no taints)\n"
+                      "\n"
+                      "Run 'af status' to see project overview.")}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Propose Command
