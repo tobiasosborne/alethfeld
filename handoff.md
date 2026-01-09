@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Parallel Bugfixing #4 (4 P2 improvements)
+**Last session:** Agent UX Planning
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -13,6 +13,7 @@ Run these to verify project health:
 clj -M:test                    # Should pass 1034 tests, 2945 assertions
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
+bd ready                       # See available work (17 new UX issues!)
 ```
 
 ---
@@ -41,7 +42,51 @@ bd stats                       # Check open/closed counts
 
 ---
 
-## This Session: Parallel Bugfixing #4
+## This Session: Agent UX Planning
+
+### What Was Done
+
+Analyzed agent UX test results from `review/ux-review/` directory and created comprehensive implementation plan.
+
+**Key findings from agent testing:**
+1. Agents discovered the WRONG workflow (guessed roles instead of using `af ready`)
+2. Role prompts didn't print (buried in EDN output)
+3. No next-action guidance after commands
+4. 25% of commands wasted on role discovery trial-and-error
+
+**Created:**
+- `docs/AGENT-UX-PLAN.md` - Detailed implementation plan covering all 10 design principles
+- 17 beads issues organized into 4 batches
+
+### Agent Lifecycle Principle (NEW)
+
+**One agent = One mote = One role = Terminate**
+
+Agents are ephemeral workers:
+1. Spawn → `af ready` → Get ONE task → Complete it → `af done` → **Terminate**
+2. No role switching mid-session
+3. No claiming additional motes
+4. New work = spawn NEW agent
+
+### Beads Issues Created
+
+**Epic:** `alethfeld-kyqa` - Agent UX Overhaul
+
+| Batch | Priority | Issues | Focus |
+|-------|----------|--------|-------|
+| 1: Critical | P0 | `oos6`, `9fr0`, `anh6`, `vxl1` | Bare command, prompt printing, external prompts, list-then-claim |
+| 2: Errors | P0-P1 | `qkhp`, `ume7`, `p0nh` | Role errors, session errors, permission errors |
+| 3: Next Actions | P1 | `852b`, `lnf4`, `atkc` | Next steps after commands, contextual suggestions, terminate message |
+| 4: Polish | P2-P3 | `ae0p`, `36gm`, `hz32`, `1mdv`, `xliw`, `my56` | Typos, auto-session, dry-run, verbosity, aliases, env var |
+
+### Key Documents
+- `docs/AGENT-UX-PLAN.md` - Full implementation plan
+- `review/ux-review/agent-ux-testing-guide.md` - Testing methodology & design principles
+- `review/ux-review/af-discovery-test-001.md` - Test results showing problems
+
+---
+
+## Previous Session: Parallel Bugfixing #4
 
 ### What Was Done
 
@@ -57,11 +102,6 @@ Fixed 4 P2 improvements in parallel using 4 subagents:
 ### Test Changes
 - Added 25 new tests (141 assertions) across test files
 - All 1034 tests pass with 2945 assertions
-
-### Commit
-```
-fix: P2 improvements - consistent validation, unified quorum, edge case tests
-```
 
 ---
 
@@ -205,18 +245,20 @@ All other 29 issues can be worked on in parallel.
 
 **Recommended priority order:**
 
-1. ✅ ~~**P0 Critical Bugs** (3 issues)~~ - ALL FIXED
+1. **Agent UX Overhaul** (17 issues) - **NEW TOP PRIORITY**
+   - Epic: `alethfeld-kyqa`
+   - Start with Batch 1 (P0): `oos6`, `9fr0`, `anh6`, `vxl1`, `qkhp`
+   - See `docs/AGENT-UX-PLAN.md` for full implementation details
+   - Goal: Agents complete sqrt(2) proof in <50 commands (currently 76)
 
-2. **P1 Race Conditions** (3 remaining) - Session/concurrency safety
+2. ✅ ~~**P0 Critical Bugs** (3 issues)~~ - ALL FIXED
+
+3. **P1 Race Conditions** (3 remaining) - Session/concurrency safety
    - `alethfeld-q6ui`, `alethfeld-9vok`, `alethfeld-ka8d`
    - Can be worked in parallel
 
-3. **P2 Test Gaps** (6 issues) - Improve coverage to reduce risk
+4. **P2 Test Gaps** (6 issues) - Improve coverage to reduce risk
    - Focus on error paths and edge cases first
-
-4. **P2 Refactoring** (5 issues) - Code quality improvements
-   - Vote counting → quorum unification (sequential)
-   - Other duplication fixes (parallel)
 
 5. **P3 Polish** (6 issues) - Style, documentation, minor cleanup
 
