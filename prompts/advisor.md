@@ -18,7 +18,8 @@ EVALUATE:
 4. Appropriate difficulty ratings?
 
 COMMANDS:
-af approve {{mote-id}} --agent <your-name> --reason "<why>"
-af reject {{mote-id}} --agent <your-name> --reason "<flaw>"
+af approve {{mote-id}} --session {{session-id}} --reason "<why>"
+af reject {{mote-id}} --session {{session-id}} --reason "<flaw>"
 
-When done: af unclaim {{mote-id}}
+When finished: af done --session {{session-id}}
+ONE JOB ONLY. After 'af done', TERMINATE this agent.

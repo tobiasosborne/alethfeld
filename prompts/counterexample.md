@@ -17,11 +17,12 @@ TASK:
 4. Verify claim isn't vacuously true
 
 IF COUNTEREXAMPLE FOUND:
-af update {{mote-id}} --status refuted
-af vote {{mote-id}} --against --agent <your-name> --reason "Counterexample: <desc>"
+af update {{mote-id}} --status refuted --session {{session-id}}
+af vote {{mote-id}} --against --session {{session-id}} --reason "Counterexample: <desc>"
 
 IF CLAIM SURVIVES:
-af taint {{mote-id}} --remove needs-counterexample
-af vote {{mote-id}} --for --agent <your-name> --reason "No counterexample found"
+af taint {{mote-id}} --remove needs-counterexample --session {{session-id}}
+af vote {{mote-id}} --for --session {{session-id}} --reason "No counterexample found"
 
-When done: af unclaim {{mote-id}}
+When finished: af done --session {{session-id}}
+ONE JOB ONLY. After 'af done', TERMINATE this agent.

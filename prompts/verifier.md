@@ -26,9 +26,10 @@ TASK:
 4. Cast your vote with reasoning
 
 COMMANDS:
-af vote {{mote-id}} --for --agent <your-name> --reason "<why valid>"
-af vote {{mote-id}} --against --agent <your-name> --reason "<flaw>"
-af taint {{mote-id}} --add needs-counterexample  (if suspicious)
-af taint {{mote-id}} --add needs-refinement      (if incomplete)
+af vote {{mote-id}} --for --session {{session-id}} --reason "<why valid>"
+af vote {{mote-id}} --against --session {{session-id}} --reason "<flaw>"
+af taint {{mote-id}} --add needs-counterexample --session {{session-id}}  (if suspicious)
+af taint {{mote-id}} --add needs-refinement --session {{session-id}}      (if incomplete)
 
-When done: af unclaim {{mote-id}}
+When finished: af done --session {{session-id}}
+ONE JOB ONLY. After 'af done', TERMINATE this agent.

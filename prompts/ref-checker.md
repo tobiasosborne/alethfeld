@@ -14,7 +14,8 @@ TASK:
 4. Note preprint vs peer-reviewed status
 
 COMMANDS:
-af add-ref {{mote-id}} --ref "<corrected>" --note "<update>"  (to fix)
-af taint {{mote-id}} --remove needs-refs                      (when done)
+af add-ref {{mote-id}} --ref "<corrected>" --note "<update>" --session {{session-id}}  (to fix)
+af taint {{mote-id}} --remove needs-refs --session {{session-id}}                       (when done)
 
-When done: af unclaim {{mote-id}}
+When finished: af done --session {{session-id}}
+ONE JOB ONLY. After 'af done', TERMINATE this agent.

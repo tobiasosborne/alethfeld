@@ -325,6 +325,11 @@
          "MOTE: " mote-id "\n"
          "ROLE: " (name role) "\n"
          "\n"
+         "IMPORTANT: You have ONE job. Complete it, then terminate.\n"
+         "- Do NOT claim additional motes\n"
+         "- Do NOT switch roles\n"
+         "- After running 'af done', this agent should EXIT\n"
+         "\n"
          "ALLOWED COMMANDS:\n"
          (format-allowed-commands role mote-id session-id) "\n"
          "\n"
@@ -332,6 +337,7 @@
          (format-forbidden-actions role) "\n"
          "\n"
          "When finished: af done --session " session-id "\n"
+         "Then TERMINATE this agent. New work = spawn NEW agent.\n"
          "═══════════════════════════════════════════════════════════════════════════════")))
 
 ;; -----------------------------------------------------------------------------

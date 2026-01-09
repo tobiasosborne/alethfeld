@@ -589,13 +589,14 @@
       ;; Should NOT have "af unclaim"
       (is (not (str/includes? prompt-str "af unclaim"))))))
 
-(deftest render-prompt-no-session-unclaim-test
-  (testing "Non-session prompt still has 'af unclaim'"
+(deftest render-prompt-termination-instruction-test
+  (testing "Prompt includes termination instruction"
     (let [job (test-job :role :verifier
                         :mote (test-mote :taint #{:needs-verification}))
           prompt-str (prompt/render-prompt job)]
-      ;; Should have "When done: af unclaim"
-      (is (str/includes? prompt-str "When done: af unclaim")))))
+      ;; Should have termination instruction
+      (is (str/includes? prompt-str "ONE JOB ONLY"))
+      (is (str/includes? prompt-str "TERMINATE this agent")))))
 
 (deftest render-prompt-session-context-all-roles-test
   (testing "Session context works for all roles"

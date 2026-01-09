@@ -26,4 +26,5 @@ af propose {{mote-id}} \
   ... \
   --agent <your-name>
 
-When done: af unclaim {{mote-id}}
+When finished: af done --session {{session-id}}
+ONE JOB ONLY. After 'af done', TERMINATE this agent.

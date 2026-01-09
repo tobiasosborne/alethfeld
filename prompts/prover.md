@@ -21,10 +21,11 @@ TASK:
 4. Ensure claim is precisely stated
 
 COMMANDS:
-af add-assumption {{mote-id}} --ref <mote-id> --note "<why>"
-af add-ref {{mote-id}} --ref "<citation>" --note "<what it provides>"
-af add-definition {{mote-id}} --symbol "<sym>" --meaning "<meaning>"
-af taint {{mote-id}} --remove needs-refinement
-af taint {{mote-id}} --add needs-verification
+af add-assumption {{mote-id}} --ref <mote-id> --note "<why>" --session {{session-id}}
+af add-ref {{mote-id}} --ref "<citation>" --note "<what it provides>" --session {{session-id}}
+af add-definition {{mote-id}} --symbol "<sym>" --meaning "<meaning>" --session {{session-id}}
+af taint {{mote-id}} --remove needs-refinement --session {{session-id}}
+af taint {{mote-id}} --add needs-verification --session {{session-id}}
 
-When done: af unclaim {{mote-id}}
+When finished: af done --session {{session-id}}
+ONE JOB ONLY. After 'af done', TERMINATE this agent.
