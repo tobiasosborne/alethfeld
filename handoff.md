@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Parallel Bugfixing #3 (4 P1/P2 bugs fixed)
+**Last session:** Parallel Bugfixing #4 (4 P2 improvements)
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -10,7 +10,7 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 1009 tests, 2804 assertions
+clj -M:test                    # Should pass 1034 tests, 2945 assertions
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
 ```
@@ -33,15 +33,39 @@ bd stats                       # Check open/closed counts
 | Phase C | Quality/Safety Features | **100% COMPLETE** (5/5 steps) |
 
 ### Test Health
-- **Total tests:** 1,009
-- **Total assertions:** 2,804
+- **Total tests:** 1,034
+- **Total assertions:** 2,945
 - **Status:** ALL PASSING
 - **Known flaky tests:**
   - 3 concurrency tests (marked `^:flaky`, test isolation issues)
 
 ---
 
-## This Session: Parallel Bugfixing #3
+## This Session: Parallel Bugfixing #4
+
+### What Was Done
+
+Fixed 4 P2 improvements in parallel using 4 subagents:
+
+| Issue | File(s) | Fix |
+|-------|---------|-----|
+| `alethfeld-kvcp` (P2) | dag.clj | Collect ALL validation errors instead of short-circuiting |
+| `alethfeld-wo65` (P2) | verify.clj, proposal.clj | Unify quorum checking with generic check-quorum-generic |
+| `alethfeld-9mwp` (P2) | mote_test.clj, schema_test.clj | Add 18 claim text edge case tests |
+| `alethfeld-89sq` (P2) | git_test.clj | Add 23 git failure scenario tests |
+
+### Test Changes
+- Added 25 new tests (141 assertions) across test files
+- All 1034 tests pass with 2945 assertions
+
+### Commit
+```
+fix: P2 improvements - consistent validation, unified quorum, edge case tests
+```
+
+---
+
+## Previous Session: Parallel Bugfixing #3
 
 ### What Was Done
 
@@ -53,15 +77,6 @@ Fixed 4 P1/P2 issues in parallel using 4 subagents:
 | `alethfeld-q6ui` (P1) | session.clj | Add `:now` param to session-expired? to avoid TOCTOU races |
 | `alethfeld-ozha` (P2) | verify.clj, proposal.clj | Unify vote counting with generic count-votes-by-type |
 | `alethfeld-9b04` (P2) | dag.clj | Add explanatory comment for three-color DFS cycle detection |
-
-### Test Changes
-- Added 9 new tests (31 assertions) across test files
-- All 1009 tests pass with 2804 assertions
-
-### Commit
-```
-fix: P1/P2 bugs - path canonicalization, TOCTOU, vote counting, DFS docs
-```
 
 ---
 
