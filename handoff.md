@@ -1,7 +1,7 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Parallel Bugfixing (4 P0/P1 bugs fixed)
+**Last session:** Parallel Bugfixing #2 (4 P2 bugs fixed)
 **Session status:** COMPLETED SUCCESSFULLY
 
 ---
@@ -10,7 +10,7 @@
 
 Run these to verify project health:
 ```bash
-clj -M:test                    # Should pass 988 tests, 2717 assertions
+clj -M:test                    # Should pass 1000 tests, 2773 assertions
 git status                     # Should be clean
 bd stats                       # Check open/closed counts
 ```
@@ -33,15 +33,39 @@ bd stats                       # Check open/closed counts
 | Phase C | Quality/Safety Features | **100% COMPLETE** (5/5 steps) |
 
 ### Test Health
-- **Total tests:** 988
-- **Total assertions:** 2,717
+- **Total tests:** 1,000
+- **Total assertions:** 2,773
 - **Status:** ALL PASSING
 - **Known flaky tests:**
   - 3 concurrency tests (marked `^:flaky`, test isolation issues)
 
 ---
 
-## This Session: Parallel Bugfixing
+## This Session: Parallel Bugfixing #2
+
+### What Was Done
+
+Fixed 4 P2 bugs in parallel using 4 subagents:
+
+| Issue | File | Fix |
+|-------|------|-----|
+| `alethfeld-l3i7` (P2) | job.clj | Handle nil/invalid priorities in comparator (return rank 999 instead of nil) |
+| `alethfeld-f6i4` (P2) | dag.clj | Fix cycle detection with Clojure-idiomatic find-index, proper error handling |
+| `alethfeld-sjc7` (P2) | mote.clj | Use java.time.Instant/Duration for claim expiry, add `:now` option for testing |
+| `alethfeld-sek2` (P2) | prompt.clj | Fall back to proposal child IDs when resolved-children missing |
+
+### Test Changes
+- Added 12 new tests (56 assertions) across all 4 test files
+- All 1000 tests pass
+
+### Commit
+```
+fix: P2 bugs - job NPE, cycle detection, claim expiry, prompt children
+```
+
+---
+
+## Previous Session: Parallel Bugfixing #1
 
 ### What Was Done
 
@@ -55,15 +79,6 @@ Fixed 4 P0/P1 bugs in parallel using 4 subagents:
 | `alethfeld-6f4k` (P1) | session.clj | pid-alive? now cross-platform (Unix/Windows) with tri-state return |
 
 Also fixed: DAG validation was including archived motes, causing ID collision issues when re-proposing after rejection.
-
-### Test Changes
-- Added 4 new tests (27 assertions) across all 4 test files
-- All 988 tests pass
-
-### Commit
-```
-fix: P0/P1 bugs - dag validation, proposal nil checks, tx error handling, session PID
-```
 
 ---
 
