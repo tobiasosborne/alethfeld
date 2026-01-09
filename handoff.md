@@ -2,241 +2,287 @@
 
 **Last updated:** 2026-01-09
 **Last session:** Step C.3 - Proposal Withdrawal
+**Session status:** COMPLETED SUCCESSFULLY
+
+---
+
+## Quick Status Check
+
+Run these to verify project health:
+```bash
+clj -M:test                    # Should pass 965 tests, 2587 assertions
+git status                     # Should be clean
+bd stats                       # Should show 21 open, 270 closed
+```
+
+---
 
 ## Current State
 
 ### Repository Structure
 - **Branch:** `main` (v2 development, hidden from public)
 - **Default branch on GitHub:** `legacy` (v1, public-facing)
+- **Latest commit:** `a935bd1` - feat: Step C.3 - Proposal Withdrawal
 - v1 code archived in `archive/v1/`
 
 ### Project Status
-**v0.2 Phase A is 100% COMPLETE** (8 of 8 steps done).
-**v0.2 Phase B is 100% COMPLETE** (4 of 4 steps done).
-**v0.2 Phase C is 60% COMPLETE** (3 of 5 steps done).
+| Phase | Status | Progress |
+|-------|--------|----------|
+| Phase A | Session & Role Enforcement | **100% COMPLETE** (8/8 steps) |
+| Phase B | Essential UX Improvements | **100% COMPLETE** (4/4 steps) |
+| Phase C | Quality/Safety Features | **60% COMPLETE** (3/5 steps) |
+
+### Test Health
+- **Total tests:** 965
+- **Total assertions:** 2,587
+- **Status:** ALL PASSING
+- **Known flaky tests:**
+  - 3 concurrency tests (marked `^:flaky`, test isolation issues)
+  - 1 generate-id test (`alethfeld-gp1q`, rare UUID collision)
 
 ---
 
-## This Session: Completed Work
+## This Session: Step C.3 Proposal Withdrawal
 
-### Step C.3: Proposal Withdrawal (DONE)
+### What Was Implemented
 
-Implemented `af withdraw` command for proposers to cancel their own proposals:
+Added `af withdraw` command that allows proposers to cancel their own pending proposals.
 
-- **Issue:** `alethfeld-hc3w` (now closed)
-- **Files modified:**
-  - `src/alethfeld/cli.clj` - Added withdraw command definition
-  - `src/alethfeld/cmd.clj` - Added cmd-withdraw! function
-  - `src/alethfeld/proposal.clj` - Added withdraw-proposal! function
-  - `src/alethfeld/errors.clj` - Updated action-not-allowed error for withdrawal
-  - `test/alethfeld/proposal_test.clj` - Added 8 tests for withdrawal
+### Command Syntax
+```bash
+af withdraw <parent-id> --session TOKEN
+```
 
-**Implementation details:**
+### Files Modified
 
-1. **Command syntax:**
-   ```bash
-   af withdraw <parent-id> --session TOKEN
-   ```
+| File | Changes |
+|------|---------|
+| `src/alethfeld/cli.clj` | Added `withdraw` command definition (lines 349-353) |
+| `src/alethfeld/cmd.clj` | Added `cmd-withdraw!` function (lines 1127-1188) |
+| `src/alethfeld/proposal.clj` | Added `withdraw-proposal!` function (lines 314-384) |
+| `src/alethfeld/errors.clj` | Updated `:action-not-allowed` formatter for withdrawal case (lines 170-184) |
+| `test/alethfeld/proposal_test.clj` | Added 8 withdrawal tests (lines 525-635) |
 
-2. **Withdrawal logic:**
-   - Load proposal from parent mote
-   - Verify session agent matches proposal's `proposed-by`
-   - Verify proposal status is `:pending`
-   - Archive children to `archive/` with `:rejected` status
-   - Clear proposal from parent
-   - Add `:needs-decomposition` taint back
+### Implementation Details
 
-3. **New functions:**
-   - `proposal/withdraw-proposal!` - Core withdrawal implementation
-   - `cmd/cmd-withdraw!` - CLI command handler
+**Core Logic (`proposal/withdraw-proposal!`):**
+1. Load parent mote
+2. Validate proposal exists
+3. Validate proposal status is `:pending`
+4. Validate session agent matches `(:proposed-by proposal)`
+5. Archive proposed children (status becomes `:rejected`)
+6. Clear proposal from parent
+7. Add `:needs-decomposition` taint back to parent
+8. Git commit the changes
 
-4. **Error handling:**
-   - `:not-found` - Parent mote not found
-   - `:no-proposal` - No active proposal exists
-   - `:invalid-status` - Proposal not pending (already approved/rejected)
-   - `:action-not-allowed` - Agent is not the proposer
+**Error Cases:**
+| Error Type | Condition |
+|------------|-----------|
+| `:not-found` | Parent mote doesn't exist |
+| `:no-proposal` | Parent has no active proposal |
+| `:invalid-status` | Proposal already approved or rejected |
+| `:action-not-allowed` | Session agent is not the proposer |
 
-**Test coverage:**
-- Withdrawal tests: 8 tests added to proposal_test.clj
-- Full suite: 965 tests, 2587 assertions (all passing)
+**Return Value:**
+```clojure
+{:withdrawn-children ["1.1" "1.2"]  ; Vector of archived child IDs
+ :mote-id "1"}                       ; Parent mote ID
+```
 
----
+### Tests Added
 
-### Previous: Step C.2: Auto-Propagation (DONE)
-
-Implemented `--propagate` flag for `af vote` command:
-
-- **Issue:** `alethfeld-t52o` (now closed)
-- **Files created:**
-  - `test/alethfeld/propagation_test.clj` - New test file (14 tests, 32 assertions)
-- **Files modified:**
-  - `src/alethfeld/cli.clj` - Added --propagate flag to vote command
-  - `src/alethfeld/cmd.clj` - Updated cmd-vote! to handle propagation
-  - `src/alethfeld/verify.clj` - Added propagation functions
-
----
-
-### Previous: Step C.1: Batch Voting Command (DONE)
-
-Implemented `af vote-all` command for batch verification voting:
-
-- **Issue:** `alethfeld-2hdf` (now closed)
-- **Files created:**
-  - `test/alethfeld/cmd/vote_all_test.clj` - New test file (8 tests)
-- **Files modified:**
-  - `src/alethfeld/cli.clj` - Added vote-all command definition
-  - `src/alethfeld/cmd.clj` - Added cmd-vote-all! and helper function
+| Test | Purpose |
+|------|---------|
+| `withdraw-proposal-basic-test` | Proposer can withdraw, children archived |
+| `withdraw-proposal-updates-parent-test` | Parent taint/proposal updated correctly |
+| `withdraw-proposal-after-votes-test` | Can withdraw even with partial votes |
+| `withdraw-proposal-error-not-proposer-test` | Non-proposer rejected |
+| `withdraw-proposal-error-no-proposal-test` | No proposal = error |
+| `withdraw-proposal-error-not-pending-test` | Already resolved = error |
+| `withdraw-proposal-error-parent-not-found-test` | Missing parent = error |
+| `withdraw-proposal-creates-commit-test` | Git commit created |
 
 ---
 
-## Next Steps (Recommended Order)
-
-### Phase C: Tier 2 Quality/Safety (3/5 COMPLETE)
+## Phase C Progress
 
 | Step | Issue | Status | Description |
 |------|-------|--------|-------------|
-| C.1 | `alethfeld-2hdf` | ✅ DONE | Batch Voting |
-| C.2 | `alethfeld-t52o` | ✅ DONE | Auto-Propagation |
-| C.3 | `alethfeld-hc3w` | ✅ DONE | Proposal Withdrawal |
+| C.1 | `alethfeld-2hdf` | **DONE** | Batch Voting (`af vote-all`) |
+| C.2 | `alethfeld-t52o` | **DONE** | Auto-Propagation (`--propagate` flag) |
+| C.3 | `alethfeld-hc3w` | **DONE** | Proposal Withdrawal (`af withdraw`) |
 | C.4 | - | pending | Cross-References / Dependencies |
 | C.5 | - | pending | Atomic Markers on Creation |
 
 ---
 
-## Ready to Work
+## Next Steps: C.4 and C.5
 
-```bash
-bd ready
-```
+### Step C.4: Cross-References / Dependencies
 
-Currently unblocked:
-- **Phase C:** C.4, C.5 (all independent)
-- Various bug fixes and enhancements
+**Goal:** Express "mote X depends on mote Y".
+
+**Implementation plan from IMPLEMENTATION-PLAN.md:**
+- Add `:depends-on` field to Mote schema:
+  ```clojure
+  [:depends-on {:optional true}
+   [:vector [:map
+             [:ref MoteId]
+             [:reason {:optional true} :string]]]]
+  ```
+- Add `cmd-add-dep` in `cmd.clj`:
+  ```bash
+  af add-dep 1.4 --depends-on 1.3 --reason "Uses evenness lemma" --session <token>
+  ```
+- Update DAG validation in `dag.clj`:
+  - Check all `:depends-on` refs exist
+  - Detect cycles in dependency graph
+- Update verification logic:
+  - Cannot verify X if any dependency Y is not `:verified`
+
+### Step C.5: Atomic Markers on Creation
+
+**Goal:** Mark claims as atomic at proposal time.
+
+**Implementation plan from IMPLEMENTATION-PLAN.md:**
+- Add `--atomic` flag to `af propose`:
+  ```bash
+  af propose 1 --claim "Simple fact" --atomic --agent proposer-1 --session <token>
+  ```
+- When `--atomic` specified for a claim:
+  - Do NOT add `:needs-decomposition` taint
+  - Add `:needs-verification` taint instead
+- Can mix: some claims atomic, some not
 
 ---
 
-## Usage Examples
+## Ready Work Queue
 
-### Proposal Withdrawal
+Run `bd ready` to see available issues. Current unblocked work includes:
+- Phase C steps: C.4, C.5
+- Various bug fixes and enhancements
+- Documentation tasks
 
+---
+
+## Architecture Reference
+
+### Key Namespaces
+
+| Namespace | Purpose |
+|-----------|---------|
+| `alethfeld.cli` | CLI entry point, argument parsing, command definitions |
+| `alethfeld.cmd` | Command implementations (cmd-*! functions) |
+| `alethfeld.proposal` | Proposal workflow: create, approve, reject, withdraw |
+| `alethfeld.verify` | Verification voting, quorum logic, propagation |
+| `alethfeld.session` | Session management, role enforcement |
+| `alethfeld.mote` | Mote constructors and transformations |
+| `alethfeld.store` | File I/O, mote persistence |
+| `alethfeld.tx` | Transaction layer, atomic writes |
+| `alethfeld.errors` | Human-readable error formatting |
+
+### Directory Structure
+
+```
+.alethfeld/
+├── config.edn           # Project configuration
+├── motes/               # Active motes (fixed, verified, etc.)
+│   └── 1/               # Ancestor directories
+│       └── 1.2.edn
+├── proposed/            # Pending proposals
+│   └── 1.1.edn
+├── archive/             # Rejected/withdrawn motes
+│   └── 1/
+│       └── 1.2.edn
+└── sessions/
+    ├── active/          # Current sessions
+    └── completed/       # Ended sessions (audit trail)
+```
+
+### Mote Lifecycle
+
+```
+proposed → fixed → verified
+    ↓         ↓        ↓
+rejected  contested  refuted
+    ↓
+ archived
+```
+
+### Session-Based Commands
+
+All mutation commands require `--session TOKEN`:
+- `propose`, `approve`, `reject`, `withdraw`
+- `vote`, `vote-all`
+- `taint`, `add-ref`, `add-assumption`, `add-definition`
+- `claim`, `unclaim`, `done`
+
+Sessionless commands (read-only):
+- `init`, `show`, `ready`, `tree`, `status`, `check`, `log`, `config`, `help`
+
+---
+
+## Common Workflows
+
+### Starting Work
 ```bash
-# Withdraw your own proposal (before quorum is reached)
-af withdraw 1.2 --session TOKEN
+bd ready                              # Find available work
+bd show <issue-id>                    # Review issue details
+bd update <issue-id> --status=in_progress  # Claim it
 ```
 
-Returns:
-```clojure
-{:withdrawn-children ["1.2.1" "1.2.2"]
- :mote-id "1.2"}
-```
-
-### Auto-Propagation
-
+### Completing Work
 ```bash
-# Vote with auto-propagation (verifies ancestors when all siblings verified)
-af vote 1.3.3 --for --session TOKEN --propagate
-
-# Vote with propagation and custom reason
-af vote 1.3.3 --for --session TOKEN --propagate --reason "Verified via analysis"
+clj -M:test                           # Run all tests
+bd close <issue-id>                   # Close the issue
+git add . && git commit -m "..."      # Commit changes
+git push                              # Push to remote
 ```
 
-Returns:
-```clojure
-{:vote-cast {:agent "verifier-1" :vote :for :reason "..."}
- :quorum-status :verified
- :status-changed true
- :new-status :verified
- :propagated ["1.3" "1"]}  ; Auto-voted on parent and grandparent
-```
-
-### Batch Voting
-
+### Solo Development (quorum=1)
 ```bash
-# Preview what would be voted on (dry run)
-af vote-all --for --dry-run --agent verifier-1
-
-# Vote for all eligible motes
-af vote-all --for --session TOKEN --reason "Batch approved"
-
-# Vote against all eligible motes
-af vote-all --against --session TOKEN --reason "Batch rejected"
-```
-
-Returns:
-```clojure
-{:voted ["1.1" "1.2" "1.3"]
- :skipped []
- :total-voted 3
- :total-skipped 0
- :dry-run false}
-```
-
-### Error Messages
-
-All errors now include actionable hints:
-
-```bash
-# Example: trying to withdraw someone else's proposal
-Error: Only the proposer can withdraw a proposal.
-
-Your agent: alice
-Proposer: bob
-Mote: 1.2
-
-To fix: Only the agent who created the proposal can withdraw it.
-```
-
-### Status Summary
-
-```bash
-# View project status
-af status
-```
-
-Returns counts of motes by status, taints, sessions, and workable items.
-
-### Tree View
-
-```bash
-# View full tree from root
-af tree 1
-
-# View subtree from child
-af tree 1.3
-
-# Limit depth to 2 levels
-af tree 1 --depth 2
-```
-
-### Solo Workflow (quorum=1)
-
-```bash
-# Configure for solo work
 af config set proposal-quorum 1
 af config set vote-quorum 1
 ```
 
 ---
 
-## Known Issues
+## Troubleshooting
 
-1. **Concurrency tests flaky**: 3 tests in concurrency_test.clj marked `^:flaky` due to test fixture isolation issues
-2. **`alethfeld-gp1q`**: Flaky generate-id-test (occasional collision in 100 UUIDs)
+### Tests Failing
+```bash
+# Run specific namespace
+clj -M:test --namespace alethfeld.proposal-test
+
+# Check for test isolation issues
+clj -M:test --namespace alethfeld.concurrency-test
+```
+
+### Beads Issues
+```bash
+bd doctor                             # Check for sync problems
+bd sync --status                      # Check sync status
+```
+
+### Git Issues
+```bash
+git status                            # Check for uncommitted changes
+git log --oneline -5                  # Check recent commits
+git diff HEAD~1                       # See last commit changes
+```
 
 ---
 
-## Commands
+## Known Issues
 
-```bash
-# Development
-clj -M:test                                    # Run all tests
-clj -M:test --namespace alethfeld.proposal-test  # Run proposal tests only
+1. **Concurrency tests flaky** (`alethfeld-???`)
+   - 3 tests in `concurrency_test.clj` marked `^:flaky`
+   - Cause: Test fixture isolation issues
+   - Impact: Occasional CI failures, not production bugs
 
-# Issue tracking
-bd ready                              # Show unblocked issues
-bd show <id>                          # View issue details
-bd stats                              # Project statistics
-```
+2. **Flaky generate-id-test** (`alethfeld-gp1q`)
+   - Occasional UUID collision in 100 UUIDs
+   - Very rare, statistically expected
 
 ---
 
@@ -245,8 +291,17 @@ bd stats                              # Project statistics
 | Document | Purpose |
 |----------|---------|
 | `docs/IMPLEMENTATION-PLAN.md` | Full v0.2 spec with all step details |
-| `docs/TECH-SPEC.md` | v0.1 technical spec |
-| `src/alethfeld/cmd.clj` | Main command implementations |
-| `src/alethfeld/errors.clj` | Error formatting and hints |
-| `src/alethfeld/proposal.clj` | Proposal workflow including withdrawal |
-| `src/alethfeld/schema.clj` | All Malli schemas including Config |
+| `docs/TECH-SPEC.md` | v0.1 technical specification |
+| `docs/PRD.md` | Product requirements document |
+| `CLAUDE.md` | Development conventions |
+
+---
+
+## Environment
+
+- **Language:** Clojure
+- **Build tool:** deps.edn with aliases
+- **Test runner:** cognitect-labs/test-runner
+- **Schema validation:** Malli
+- **File format:** EDN
+- **VCS:** Git-backed (every CLI operation commits)
