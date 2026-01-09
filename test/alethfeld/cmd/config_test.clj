@@ -161,14 +161,14 @@
     (init-repo)
     (let [result (config-get "proposal-quorum")]
       (is (= :proposal-quorum (:key result)))
-      (is (= 2 (:value result))))))
+      (is (= 1 (:value result))))))
 
 (deftest config-get-vote-quorum-test
   (testing "config get returns vote-quorum"
     (init-repo)
     (let [result (config-get "vote-quorum")]
       (is (= :vote-quorum (:key result)))
-      (is (= 2 (:value result))))))
+      (is (= 1 (:value result))))))
 
 (deftest config-get-unknown-key-throws-test
   (testing "config get throws on unknown key"
@@ -191,13 +191,13 @@
 (deftest config-set-proposal-quorum-test
   (testing "config set updates proposal-quorum"
     (init-repo)
-    (let [result (config-set "proposal-quorum" "1")]
+    (let [result (config-set "proposal-quorum" "3")]
       (is (= :proposal-quorum (:key result)))
-      (is (= 1 (:value result)))
-      (is (= 2 (:previous result))))
+      (is (= 3 (:value result)))
+      (is (= 1 (:previous result))))
     ;; Verify persisted
     (let [config (store/load-config *temp-dir*)]
-      (is (= 1 (:proposal-quorum config))))))
+      (is (= 3 (:proposal-quorum config))))))
 
 (deftest config-set-vote-quorum-test
   (testing "config set updates vote-quorum"
@@ -213,7 +213,7 @@
   (testing "config set creates a git commit"
     (init-repo)
     (let [commits-before (count (git/git-log *temp-dir*))]
-      (config-set "proposal-quorum" "1")
+      (config-set "proposal-quorum" "3")
       (let [commits-after (count (git/git-log *temp-dir*))]
         (is (= (inc commits-before) commits-after))))))
 
@@ -278,17 +278,17 @@
 (deftest quorum-config-persistence-test
   (testing "Quorum settings persist correctly in config"
     (init-repo)
-    ;; Verify default values
-    (let [config (store/load-config *temp-dir*)]
-      (is (= 2 (:proposal-quorum config)))
-      (is (= 2 (:vote-quorum config))))
-    ;; Set to 1
-    (config-set "proposal-quorum" "1")
-    (config-set "vote-quorum" "1")
-    ;; Verify changed values persist
+    ;; Verify default values (v0.2: quorums default to 1)
     (let [config (store/load-config *temp-dir*)]
       (is (= 1 (:proposal-quorum config)))
-      (is (= 1 (:vote-quorum config))))))
+      (is (= 1 (:vote-quorum config))))
+    ;; Set to 3
+    (config-set "proposal-quorum" "3")
+    (config-set "vote-quorum" "3")
+    ;; Verify changed values persist
+    (let [config (store/load-config *temp-dir*)]
+      (is (= 3 (:proposal-quorum config)))
+      (is (= 3 (:vote-quorum config))))))
 
 ;; =============================================================================
 ;; CLI Registration Tests

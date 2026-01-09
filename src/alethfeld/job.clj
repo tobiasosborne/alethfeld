@@ -22,11 +22,11 @@
 (def ^:private role-priority
   "Priority order for roles when selecting primary role.
    Lower number = higher priority."
-  {:advisor        0  ; Review proposals first
-   :proposer       1  ; Then decompose
-   :prover         2  ; Then refine
-   :verifier       3  ; Then verify
-   :ref-checker    4  ; Then check refs
+  {:verifier       0  ; Verify FIRST (gatekeeper)
+   :proposer       1  ; Decompose (only after verifier demands)
+   :advisor        2  ; Review proposals
+   :prover         3  ; Refine details
+   :ref-checker    4  ; Check refs
    :counterexample 5}) ; Adversarial check last
 
 ;; -----------------------------------------------------------------------------
@@ -45,7 +45,7 @@
   "Derive the primary role for this mote based on taint flags.
 
    When multiple taints are present, returns the highest-priority role
-   (advisor > proposer > prover > verifier > ref-checker > counterexample).
+   (verifier > proposer > advisor > prover > ref-checker > counterexample).
 
    Returns nil if no role-mapped taints are present."
   [mote]

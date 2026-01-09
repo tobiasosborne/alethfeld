@@ -89,7 +89,7 @@
             current-votes (:votes mote)
             for-votes (count (filter #(= :for (:type %)) current-votes))
             against-votes (count (filter #(= :against (:type %)) current-votes))
-            quorum (:vote-quorum config 2)
+            quorum (:vote-quorum config 1)
             new-for (if for (inc for-votes) for-votes)
             new-against (if against (inc against-votes) against-votes)
             total-votes (+ new-for new-against)

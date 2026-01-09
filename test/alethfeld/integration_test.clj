@@ -45,12 +45,15 @@
 ;; =============================================================================
 
 (defn- init-repo!
-  "Initialize a test repository with git configured."
-  []
+  "Initialize a test repository with git configured.
+   Optional :vote-quorum and :proposal-quorum default to 1 (v0.2 defaults)."
+  [& {:keys [vote-quorum proposal-quorum] :or {vote-quorum 1 proposal-quorum 1}}]
   (git/git-init! *temp-dir*)
   (git/git-config! *temp-dir* "user.name" "test")
   (git/git-config! *temp-dir* "user.email" "test@test.com")
-  (store/init-repo! *temp-dir* :project-name "Integration Test Project")
+  (store/init-repo! *temp-dir* :project-name "Integration Test Project"
+                    :config {:vote-quorum vote-quorum
+                             :proposal-quorum proposal-quorum})
   (git/git-add-all! *temp-dir*)
   (git/git-commit! *temp-dir* "Initialize"))
 
@@ -99,7 +102,7 @@
 
 (deftest full-lifecycle-init-create-propose-approve-verify-test
   (testing "Complete workflow from init to verification"
-    (init-repo!)
+    (init-repo! :vote-quorum 2 :proposal-quorum 2)
 
     (testing "Step 1: Create root mote"
       (let [root (create-root-mote! "1" "Prove that P implies Q")]
@@ -167,7 +170,7 @@
 
 (deftest full-lifecycle-with-rejection-test
   (testing "Complete workflow with proposal rejection"
-    (init-repo!)
+    (init-repo! :vote-quorum 2 :proposal-quorum 2)
     (create-root-mote! "1" "Prove theorem X")
 
     (testing "Create and reject a proposal"
@@ -220,7 +223,7 @@
 
 (deftest full-lifecycle-contested-verification-test
   (testing "Workflow with contested verification votes"
-    (init-repo!)
+    (init-repo! :vote-quorum 2)
     (let [root (create-root-mote! "1" "Controversial claim")]
       ;; Create a child directly (skip proposal for this test)
       (create-child-mote! "1.1" "May or may not be true" "1"
@@ -280,7 +283,7 @@
 
 (deftest multi-agent-proposal-review-test
   (testing "Multiple agents reviewing proposals in parallel"
-    (init-repo!)
+    (init-repo! :proposal-quorum 2)
     (create-root-mote! "1" "Big theorem")
     (create-root-mote! "2" "Another theorem")
 
@@ -310,7 +313,7 @@
 
 (deftest multi-agent-verification-race-test
   (testing "Multiple agents verifying different motes simultaneously"
-    (init-repo!)
+    (init-repo! :vote-quorum 2)
     (create-root-mote! "1" "Theorem to verify")
     (create-child-mote! "1.1" "Lemma 1" "1")
     (create-child-mote! "1.2" "Lemma 2" "1")
@@ -391,7 +394,7 @@
 
 (deftest conflict-duplicate-vote-test
   (testing "Detecting duplicate votes from same agent"
-    (init-repo!)
+    (init-repo! :vote-quorum 2)
     (create-root-mote! "1" "Task to verify")
     (create-child-mote! "1.1" "Claim to verify" "1")
 
@@ -632,7 +635,7 @@
 
 (deftest e2e-dag-consistency-after-operations-test
   (testing "DAG remains consistent after complex operations"
-    (init-repo!)
+    (init-repo! :proposal-quorum 2)
 
     ;; Build a complex DAG
     (create-root-mote! "1" "Main theorem")

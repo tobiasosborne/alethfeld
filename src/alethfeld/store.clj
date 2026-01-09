@@ -179,8 +179,8 @@
   {:project-name "Unnamed Proof"
    :version "0.1"
    :default-difficulty 3
-   :vote-quorum 2
-   :proposal-quorum 2
+   :vote-quorum 1
+   :proposal-quorum 1
    :claim-timeout-minutes 30})
 
 (defn init-repo!

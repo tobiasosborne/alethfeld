@@ -164,7 +164,7 @@
              :output (str (core/format-would-create child-infos)
                           (core/format-would-update
                            [{:id id :change "set taint :needs-proposal-review"}])
-                          "\n\nWould require " (:proposal-quorum config 2) " advisor votes to approve.")
+                          "\n\nWould require " (:proposal-quorum config 1) " advisor votes to approve.")
              :would-create (vec child-infos)
              :would-update [{:id id :change "set taint :needs-proposal-review"}]
              :next-actions [(core/done-action (or session-id "<session>"))
@@ -244,7 +244,7 @@
                                  :mote-id id})))
             config (store/load-config repo-path)
             current-approvals (count (filter #(= :approve (:type %)) (:votes proposal)))
-            quorum (:proposal-quorum config 2)
+            quorum (:proposal-quorum config 1)
             would-reach-quorum? (>= (inc current-approvals) quorum)]
         (core/dry-run-result
          :output (str "Would record approval vote on " id
@@ -432,7 +432,7 @@
                                  :mote-id id})))
             config (store/load-config repo-path)
             current-rejections (count (filter #(= :reject (:type %)) (:votes proposal)))
-            quorum (:proposal-quorum config 2)
+            quorum (:proposal-quorum config 1)
             would-reach-quorum? (>= (inc current-rejections) quorum)]
         (core/dry-run-result
          :output (str "Would record rejection vote on " id

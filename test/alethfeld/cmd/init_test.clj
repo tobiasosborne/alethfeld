@@ -126,13 +126,13 @@
   (testing "init config has vote-quorum"
     (init-in-temp)
     (let [config (store/load-config *temp-dir*)]
-      (is (= 2 (:vote-quorum config))))))
+      (is (= 1 (:vote-quorum config))))))
 
 (deftest init-config-has-proposal-quorum-test
   (testing "init config has proposal-quorum"
     (init-in-temp)
     (let [config (store/load-config *temp-dir*)]
-      (is (= 2 (:proposal-quorum config))))))
+      (is (= 1 (:proposal-quorum config))))))
 
 (deftest init-config-has-claim-timeout-test
   (testing "init config has claim-timeout-minutes"

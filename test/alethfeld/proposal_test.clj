@@ -660,21 +660,21 @@
       (is (true? (:atomic child))))))
 
 (deftest non-atomic-claim-proposed-taint-test
-  (testing "non-atomic claim gets :needs-decomposition taint when proposed"
+  (testing "non-atomic claim gets :needs-verification taint when proposed (v0.2 verifier-first)"
     (create-test-mote! "1" "Root")
     (let [result (proposal/create-proposal!
                   *test-repo* "1"
                   [{:claim "Complex step"}]
                   "proposer-1")
           child (first (:children (:result result)))]
-      ;; Non-atomic claim should have :needs-decomposition
-      (is (contains? (:taint child) :needs-decomposition))
-      (is (not (contains? (:taint child) :needs-verification)))
+      ;; v0.2: All proposed claims get :needs-verification (verifier-first workflow)
+      (is (contains? (:taint child) :needs-verification))
+      (is (not (contains? (:taint child) :needs-decomposition)))
       ;; Atomic flag should not be set
       (is (nil? (:atomic child))))))
 
 (deftest mixed-atomic-claims-proposed-test
-  (testing "mixed atomic and non-atomic claims get correct taints"
+  (testing "all claims get :needs-verification taint (v0.2 verifier-first)"
     (create-test-mote! "1" "Root")
     (let [result (proposal/create-proposal!
                   *test-repo* "1"
@@ -684,14 +684,15 @@
                   "proposer-1")
           children (:children (:result result))
           [child1 child2 child3] children]
+      ;; v0.2: All proposed claims get :needs-verification regardless of atomic flag
       ;; First claim: non-atomic
-      (is (contains? (:taint child1) :needs-decomposition))
+      (is (contains? (:taint child1) :needs-verification))
       (is (nil? (:atomic child1)))
       ;; Second claim: atomic
       (is (contains? (:taint child2) :needs-verification))
       (is (true? (:atomic child2)))
       ;; Third claim: non-atomic
-      (is (contains? (:taint child3) :needs-decomposition))
+      (is (contains? (:taint child3) :needs-verification))
       (is (nil? (:atomic child3))))))
 
 (deftest atomic-claim-promoted-taint-test
@@ -715,7 +716,7 @@
       (is (true? (:atomic child))))))
 
 (deftest mixed-atomic-claims-promoted-test
-  (testing "mixed claims get correct taints after promotion"
+  (testing "all promoted claims get :needs-verification taint (v0.2 verifier-first)"
     (store/save-config! *test-repo* {:project-name "Test"
                                      :proposal-quorum 1})
     (create-test-mote! "1" "Root")
@@ -729,11 +730,12 @@
     ;; Check promoted children
     (let [child1 (store/load-mote *test-repo* "1.1")
           child2 (store/load-mote *test-repo* "1.2")]
-      ;; First: non-atomic, needs decomposition
+      ;; v0.2: All promoted children get :needs-verification
+      ;; First: non-atomic
       (is (= :fixed (:status child1)))
-      (is (contains? (:taint child1) :needs-decomposition))
-      (is (not (contains? (:taint child1) :needs-verification)))
-      ;; Second: atomic, needs verification
+      (is (contains? (:taint child1) :needs-verification))
+      (is (not (contains? (:taint child1) :needs-decomposition)))
+      ;; Second: atomic
       (is (= :fixed (:status child2)))
       (is (contains? (:taint child2) :needs-verification))
       (is (not (contains? (:taint child2) :needs-decomposition))))))

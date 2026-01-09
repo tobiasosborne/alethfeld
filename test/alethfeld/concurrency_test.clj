@@ -40,13 +40,15 @@
 
 (defn- init-repo!
   "Initialize a test repository with git configured.
-   Captures *temp-dir* at call time."
-  []
+   Captures *temp-dir* at call time.
+   Optional :vote-quorum defaults to 1 (v0.2 default)."
+  [& {:keys [vote-quorum] :or {vote-quorum 1}}]
   (let [repo-path *temp-dir*]
     (git/git-init! repo-path)
     (git/git-config! repo-path "user.name" "test")
     (git/git-config! repo-path "user.email" "test@test.com")
-    (store/init-repo! repo-path :project-name "Concurrency Test Project")
+    (store/init-repo! repo-path :project-name "Concurrency Test Project"
+                      :config {:vote-quorum vote-quorum})
     (git/git-add-all! repo-path)
     (git/git-commit! repo-path "Initialize")))
 
@@ -255,7 +257,7 @@
 
 (deftest concurrent-votes-reaching-quorum-test
   (testing "Multiple votes arriving concurrently - quorum is reached atomically"
-    (init-repo!)
+    (init-repo! :vote-quorum 2)
 
     (let [repo-path *temp-dir*]
       ;; Create a mote needing verification with quorum of 2

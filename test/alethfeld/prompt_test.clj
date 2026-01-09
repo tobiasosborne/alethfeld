@@ -442,12 +442,13 @@
       (is (str/includes? prompt "collectively exhaustive")))))
 
 (deftest render-prompt-verifier-task-test
-  (testing "Verifier prompt has validation task"
+  (testing "Verifier prompt has validation task (v0.2 verifier-first)"
     (let [job (test-job :role :verifier
                         :mote (test-mote :taint #{:needs-verification}))
           prompt (prompt/render-prompt job)]
-      (is (str/includes? prompt "Check if substeps logically entail"))
-      (is (str/includes? prompt "gaps, errors, unjustified leaps")))))
+      ;; v0.2: Verifier-first workflow with three options
+      (is (str/includes? prompt "GATEKEEPER"))
+      (is (str/includes? prompt "OPTION 1: CLAIM IS VERIFIABLE")))))
 
 (deftest render-prompt-counterexample-task-test
   (testing "Counterexample prompt has adversarial task"

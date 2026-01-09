@@ -35,12 +35,15 @@
 ;; -----------------------------------------------------------------------------
 
 (defn- init-repo!
-  "Initialize a test repository."
-  []
+  "Initialize a test repository.
+   Optional :proposal-quorum defaults to 1 (v0.2 default)."
+  [& {:keys [proposal-quorum] :or {proposal-quorum 1}}]
   (git/git-init! *temp-dir*)
   (git/git-config! *temp-dir* "user.name" "test")
   (git/git-config! *temp-dir* "user.email" "test@test.com")
-  (store/init-repo! *temp-dir* :project-name "Test Project")
+  (store/init-repo! *temp-dir* :project-name "Test Project"
+                    :config {:proposal-quorum proposal-quorum
+                             :vote-quorum 1})
   (git/git-add-all! *temp-dir*)
   (git/git-commit! *temp-dir* "Initialize"))
 
@@ -278,8 +281,8 @@
       (is (= :approve (get-in result [:vote-cast :vote]))))))
 
 (deftest approve-returns-pending-when-no-quorum-test
-  (testing "approve returns pending when quorum not reached"
-    (init-repo!)
+  (testing "approve returns pending when quorum not reached (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (let [result (cmd-approve-in-temp! "1")]
@@ -287,8 +290,8 @@
       (is (nil? (:promoted-children result))))))
 
 (deftest approve-second-vote-reaches-quorum-test
-  (testing "approve reaches quorum with two votes"
-    (init-repo!)
+  (testing "approve reaches quorum with two votes (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-approve-in-temp! "1" :agent "agent-1")
@@ -309,8 +312,8 @@
 ;; =============================================================================
 
 (deftest approve-quorum-promotes-children-test
-  (testing "approve quorum promotes children to motes/"
-    (init-repo!)
+  (testing "approve quorum promotes children to motes/ (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-approve-in-temp! "1" :agent "agent-1")
@@ -319,8 +322,8 @@
       (is (= :fixed (:status child))))))
 
 (deftest approve-quorum-clears-proposal-test
-  (testing "approve quorum clears parent proposal"
-    (init-repo!)
+  (testing "approve quorum clears parent proposal (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-approve-in-temp! "1" :agent "agent-1")
@@ -329,8 +332,8 @@
       (is (nil? (:proposal parent))))))
 
 (deftest approve-quorum-updates-parent-children-test
-  (testing "approve quorum adds children to parent"
-    (init-repo!)
+  (testing "approve quorum adds children to parent (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["First" "Second"])
     (cmd-approve-in-temp! "1" :agent "agent-1")
@@ -339,8 +342,8 @@
       (is (= ["1.1" "1.2"] (:children parent))))))
 
 (deftest approve-quorum-removes-needs-proposal-review-test
-  (testing "approve quorum removes needs-proposal-review taint"
-    (init-repo!)
+  (testing "approve quorum removes needs-proposal-review taint (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim" :taint #{:needs-decomposition})
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-approve-in-temp! "1" :agent "agent-1")
@@ -381,8 +384,8 @@
                           (cmd-approve-in-temp! "1")))))
 
 (deftest approve-already-voted-test
-  (testing "approve fails when agent already voted"
-    (init-repo!)
+  (testing "approve fails when agent already voted (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-approve-in-temp! "1" :agent "same-agent")
@@ -403,8 +406,8 @@
       (is (= :reject (get-in result [:vote-cast :vote]))))))
 
 (deftest reject-returns-pending-when-no-quorum-test
-  (testing "reject returns pending when quorum not reached"
-    (init-repo!)
+  (testing "reject returns pending when quorum not reached (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (let [result (cmd-reject-in-temp! "1")]
@@ -412,8 +415,8 @@
       (is (nil? (:archived-children result))))))
 
 (deftest reject-second-vote-reaches-quorum-test
-  (testing "reject reaches quorum with two votes"
-    (init-repo!)
+  (testing "reject reaches quorum with two votes (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-reject-in-temp! "1" :agent "agent-1")
@@ -434,8 +437,8 @@
 ;; =============================================================================
 
 (deftest reject-quorum-archives-children-test
-  (testing "reject quorum archives children"
-    (init-repo!)
+  (testing "reject quorum archives children (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-reject-in-temp! "1" :agent "agent-1")
@@ -444,8 +447,8 @@
       (is (= :rejected (:status child))))))
 
 (deftest reject-quorum-clears-proposal-test
-  (testing "reject quorum clears parent proposal"
-    (init-repo!)
+  (testing "reject quorum clears parent proposal (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-reject-in-temp! "1" :agent "agent-1")
@@ -454,8 +457,8 @@
       (is (nil? (:proposal parent))))))
 
 (deftest reject-quorum-restores-needs-decomposition-test
-  (testing "reject quorum restores needs-decomposition taint"
-    (init-repo!)
+  (testing "reject quorum restores needs-decomposition taint (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim" :taint #{:needs-decomposition})
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-reject-in-temp! "1" :agent "agent-1")
@@ -497,8 +500,8 @@
                           (cmd-reject-in-temp! "1")))))
 
 (deftest reject-already-voted-test
-  (testing "reject fails when agent already voted"
-    (init-repo!)
+  (testing "reject fails when agent already voted (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-reject-in-temp! "1" :agent "same-agent")
@@ -511,8 +514,8 @@
 ;; =============================================================================
 
 (deftest mixed-votes-keeps-pending-test
-  (testing "mixed approve and reject keeps proposal pending"
-    (init-repo!)
+  (testing "mixed approve and reject keeps proposal pending (quorum=3)"
+    (init-repo! :proposal-quorum 3)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (let [r1 (cmd-approve-in-temp! "1" :agent "agent-1")
@@ -524,8 +527,8 @@
         (is (= :proposed (:status child)))))))
 
 (deftest approve-after-reject-test
-  (testing "approve vote after reject vote works"
-    (init-repo!)
+  (testing "approve vote after reject vote works (quorum=3)"
+    (init-repo! :proposal-quorum 3)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-reject-in-temp! "1" :agent "agent-1")
@@ -533,8 +536,8 @@
       (is (= :pending (:quorum-status result))))))
 
 (deftest reject-after-approve-test
-  (testing "reject vote after approve vote works"
-    (init-repo!)
+  (testing "reject vote after approve vote works (quorum=3)"
+    (init-repo! :proposal-quorum 3)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Child claim"])
     (cmd-approve-in-temp! "1" :agent "agent-1")
@@ -586,8 +589,8 @@
 ;; =============================================================================
 
 (deftest full-approve-lifecycle-test
-  (testing "full proposal lifecycle: create, approve, approve"
-    (init-repo!)
+  (testing "full proposal lifecycle: create, approve, approve (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     ;; Create proposal
     (let [propose-result (cmd-propose-in-temp! "1" ["Child 1" "Child 2"])]
@@ -609,8 +612,8 @@
             (is (= :fixed (:status child2)))))))))
 
 (deftest full-reject-lifecycle-test
-  (testing "full proposal lifecycle: create, reject, reject"
-    (init-repo!)
+  (testing "full proposal lifecycle: create, reject, reject (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim" :taint #{:needs-decomposition})
     ;; Create proposal
     (let [propose-result (cmd-propose-in-temp! "1" ["Child claim"])]
@@ -714,35 +717,37 @@
       (is (true? (:atomic child))))))
 
 (deftest propose-non-atomic-claim-has-correct-taint-test
-  (testing "propose with non-atomic claim sets :needs-decomposition taint"
+  (testing "propose with non-atomic claim sets :needs-verification taint (v0.2 verifier-first)"
     (init-repo!)
     (create-mote! "1" "Parent claim")
     (let [result (cmd-propose-in-temp! "1" ["Complex step"])
           child (first (:children result))]
-      (is (contains? (:taint child) :needs-decomposition))
-      (is (not (contains? (:taint child) :needs-verification)))
+      ;; v0.2: All proposed children get :needs-verification (verifier-first workflow)
+      (is (contains? (:taint child) :needs-verification))
+      (is (not (contains? (:taint child) :needs-decomposition)))
       (is (nil? (:atomic child))))))
 
 (deftest propose-mixed-atomic-claims-test
-  (testing "propose with mixed claims sets correct taints"
+  (testing "propose with mixed claims all get :needs-verification (v0.2 verifier-first)"
     (init-repo!)
     (create-mote! "1" "Parent claim")
     (let [result (cmd-propose-in-temp! "1" ["Complex step" "Simple fact!" "Hard step @4"])
           [child1 child2 child3] (:children result)]
+      ;; v0.2: All proposed children get :needs-verification regardless of atomic flag
       ;; First: non-atomic
-      (is (contains? (:taint child1) :needs-decomposition))
+      (is (contains? (:taint child1) :needs-verification))
       (is (nil? (:atomic child1)))
       ;; Second: atomic
       (is (contains? (:taint child2) :needs-verification))
       (is (true? (:atomic child2)))
       ;; Third: non-atomic with difficulty
-      (is (contains? (:taint child3) :needs-decomposition))
+      (is (contains? (:taint child3) :needs-verification))
       (is (nil? (:atomic child3)))
       (is (= 4 (:difficulty child3))))))
 
 (deftest approve-atomic-claim-preserves-taint-test
-  (testing "approved atomic claim has :needs-verification taint"
-    (init-repo!)
+  (testing "approved atomic claim has :needs-verification taint (quorum=2)"
+    (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
     (cmd-propose-in-temp! "1" ["Simple fact!"])
     (cmd-approve-in-temp! "1" :agent "agent-1")

@@ -84,7 +84,7 @@
       (is (= "For all e > 0..." (:claim mote)))
       (is (= "prover-1" (:created-by mote)))
       (is (= :fixed (:status mote)))
-      (is (= #{:needs-decomposition} (:taint mote)))
+      (is (= #{:needs-verification} (:taint mote)))
       (is (= :p2 (:priority mote)))
       (is (= 3 (:difficulty mote)))
       (is (= [] (:children mote)))

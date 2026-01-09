@@ -216,7 +216,7 @@
   (testing "create root sets initial taint"
     (init-repo!)
     (let [result (cmd-create-root! "Test claim")]
-      (is (contains? (:taint result) :needs-decomposition)))))
+      (is (contains? (:taint result) :needs-verification)))))
 
 (deftest create-root-no-parent-test
   (testing "create root has no parent"

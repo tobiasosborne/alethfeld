@@ -58,9 +58,7 @@
    Returns the child mote with :proposed status."
   [parent agent claim-spec child-id]
   (let [atomic? (:atomic claim-spec)
-        taint (if atomic?
-                #{:needs-verification}
-                #{:needs-decomposition})]
+        taint #{:needs-verification}]
     (cond-> (mote/make-child-mote
              child-id
              (:claim claim-spec)
@@ -81,7 +79,7 @@
    - agent: The proposing agent
 
    Returns vector of child motes with :proposed status.
-   Atomic claims get :needs-verification taint, non-atomic get :needs-decomposition."
+   All proposed children get :needs-verification taint."
   [parent claims agent]
   (let [parent-id (:id parent)
         existing-children (:children parent [])
@@ -155,15 +153,15 @@
 ;; -----------------------------------------------------------------------------
 
 (defn- get-quorum
-  "Get proposal quorum from config, defaulting to 2."
+  "Get proposal quorum from config, defaulting to 1."
   [repo-path]
   (let [config (store/load-config repo-path)]
-    (or (:proposal-quorum config) 2)))
+    (or (:proposal-quorum config) 1)))
 
 (defn- promote-children!
   "Promote proposed children to fixed status.
    Moves files from proposed/ to motes/.
-   Atomic children get :needs-verification taint, others get :needs-decomposition.
+   All promoted children get :needs-verification taint.
    Throws if any child cannot be loaded - this indicates data corruption."
   [repo-path parent child-ids]
   (doseq [child-id child-ids]
@@ -174,9 +172,7 @@
                          :parent-id (:id parent)
                          :child-id child-id})))
       (let [atomic? (:atomic child)
-            taint-to-add (if atomic?
-                           :needs-verification
-                           :needs-decomposition)
+            taint-to-add :needs-verification
             promoted (-> child
                          (mote/set-status :fixed)
                          (mote/add-taint taint-to-add))]

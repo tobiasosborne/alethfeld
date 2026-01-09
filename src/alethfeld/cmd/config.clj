@@ -14,8 +14,8 @@
   {:project-name {:type :string :default "Unnamed Proof"}
    :version {:type :string :default "0.1"}
    :default-difficulty {:type :int :min 1 :max 5 :default 3}
-   :proposal-quorum {:type :int :min 1 :default 2}
-   :vote-quorum {:type :int :min 1 :default 2}
+   :proposal-quorum {:type :int :min 1 :default 1}
+   :vote-quorum {:type :int :min 1 :default 1}
    :claim-timeout-minutes {:type :int :min 1 :default 30}})
 
 ;; -----------------------------------------------------------------------------

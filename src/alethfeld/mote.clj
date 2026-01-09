@@ -107,7 +107,7 @@
 
    Options:
    - :status - Defaults to :fixed
-   - :taint - Defaults to #{:needs-decomposition}
+   - :taint - Defaults to #{:needs-verification}
    - :priority - Defaults to :p2
    - :difficulty - Defaults to 3
    - :parent - Parent mote ID (nil for roots)
@@ -133,7 +133,7 @@
     (cond-> {:id id
              :claim claim
              :status (or status :fixed)
-             :taint (or taint #{:needs-decomposition})
+             :taint (or taint #{:needs-verification})
              :priority (or priority :p2)
              :difficulty (or difficulty 3)
              :children (or children [])

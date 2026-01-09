@@ -94,19 +94,19 @@
 
 (deftest mote->role-priority-order-test
   (testing "Returns highest priority role when multiple taints present"
-    ;; Priority: advisor > proposer > prover > verifier > ref-checker > counterexample
+    ;; Priority: verifier > proposer > advisor > prover > ref-checker > counterexample
 
-    (testing "Advisor takes priority over proposer"
+    (testing "Proposer takes priority over advisor"
       (let [m (test-mote :taint #{:needs-decomposition :needs-proposal-review})]
-        (is (= :advisor (job/mote->role m)))))
+        (is (= :proposer (job/mote->role m)))))
 
     (testing "Proposer takes priority over prover"
       (let [m (test-mote :taint #{:needs-decomposition :needs-refinement})]
         (is (= :proposer (job/mote->role m)))))
 
-    (testing "Prover takes priority over verifier"
+    (testing "Verifier takes priority over prover"
       (let [m (test-mote :taint #{:needs-refinement :needs-verification})]
-        (is (= :prover (job/mote->role m)))))
+        (is (= :verifier (job/mote->role m)))))
 
     (testing "Verifier takes priority over ref-checker"
       (let [m (test-mote :taint #{:needs-verification :needs-refs})]
@@ -116,14 +116,14 @@
       (let [m (test-mote :taint #{:needs-refs :needs-counterexample})]
         (is (= :ref-checker (job/mote->role m)))))
 
-    (testing "All roles returns advisor (highest priority)"
+    (testing "All roles returns verifier (highest priority)"
       (let [m (test-mote :taint #{:needs-decomposition
                                   :needs-proposal-review
                                   :needs-refinement
                                   :needs-verification
                                   :needs-refs
                                   :needs-counterexample})]
-        (is (= :advisor (job/mote->role m)))))))
+        (is (= :verifier (job/mote->role m)))))))
 
 ;; =============================================================================
 ;; workable? Tests

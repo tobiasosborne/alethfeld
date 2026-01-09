@@ -36,12 +36,15 @@
 ;; -----------------------------------------------------------------------------
 
 (defn- init-repo!
-  "Initialize a test repository."
-  []
+  "Initialize a test repository.
+   Optional :vote-quorum defaults to 1 (v0.2 default)."
+  [& {:keys [vote-quorum] :or {vote-quorum 1}}]
   (git/git-init! *temp-dir*)
   (git/git-config! *temp-dir* "user.name" "test")
   (git/git-config! *temp-dir* "user.email" "test@test.com")
-  (store/init-repo! *temp-dir* :project-name "Test Project")
+  (store/init-repo! *temp-dir* :project-name "Test Project"
+                    :config {:vote-quorum vote-quorum
+                             :proposal-quorum 1})
   (git/git-add-all! *temp-dir*)
   (git/git-commit! *temp-dir* "Initialize"))
 
@@ -316,15 +319,15 @@
       (is (= "Proof is correct" (get-in result [:vote-cast :reason]))))))
 
 (deftest vote-returns-pending-initially-test
-  (testing "first vote returns pending status"
-    (init-repo!)
+  (testing "first vote returns pending status (quorum=2)"
+    (init-repo! :vote-quorum 2)
     (create-mote! "1" "Test claim" :status :fixed)
     (let [result (cmd-vote-in-temp! "1" :for true)]
       (is (= :pending (:quorum-status result))))))
 
 (deftest vote-for-quorum-verified-test
-  (testing "unanimous for votes lead to verified status"
-    (init-repo!)
+  (testing "unanimous for votes lead to verified status (quorum=2)"
+    (init-repo! :vote-quorum 2)
     (create-mote! "1" "Test claim" :status :fixed :taint #{:needs-verification})
     (cmd-vote-in-temp! "1" :for true :agent "agent-1")
     (let [result (cmd-vote-in-temp! "1" :for true :agent "agent-2")]
@@ -333,8 +336,8 @@
       (is (:status-changed result)))))
 
 (deftest vote-against-quorum-refuted-test
-  (testing "unanimous against votes lead to refuted status"
-    (init-repo!)
+  (testing "unanimous against votes lead to refuted status (quorum=2)"
+    (init-repo! :vote-quorum 2)
     (create-mote! "1" "Test claim" :status :fixed :taint #{:needs-verification})
     (cmd-vote-in-temp! "1" :against true :agent "agent-1")
     (let [result (cmd-vote-in-temp! "1" :against true :agent "agent-2")]
@@ -342,8 +345,8 @@
       (is (= :refuted (:new-status result))))))
 
 (deftest vote-mixed-contested-test
-  (testing "mixed votes lead to contested status"
-    (init-repo!)
+  (testing "mixed votes lead to contested status (quorum=2)"
+    (init-repo! :vote-quorum 2)
     (create-mote! "1" "Test claim" :status :fixed :taint #{:needs-verification})
     (cmd-vote-in-temp! "1" :for true :agent "agent-1")
     (let [result (cmd-vote-in-temp! "1" :against true :agent "agent-2")]
@@ -399,8 +402,8 @@
                           (cmd-vote-in-temp! "1" :for true)))))
 
 (deftest vote-already-voted-test
-  (testing "cannot vote twice"
-    (init-repo!)
+  (testing "cannot vote twice (quorum=2)"
+    (init-repo! :vote-quorum 2)
     (create-mote! "1" "Test claim" :status :fixed)
     (cmd-vote-in-temp! "1" :for true :agent "same-agent")
     (is (thrown-with-msg? clojure.lang.ExceptionInfo

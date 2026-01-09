@@ -129,10 +129,10 @@
 ;; -----------------------------------------------------------------------------
 
 (defn- get-vote-quorum
-  "Get verification vote quorum from config, defaulting to 2."
+  "Get verification vote quorum from config, defaulting to 1."
   [repo-path]
   (let [config (store/load-config repo-path)]
-    (or (:vote-quorum config) 2)))
+    (or (:vote-quorum config) 1)))
 
 (defn- update-status-and-taint
   "Update mote status and taints based on quorum result.
