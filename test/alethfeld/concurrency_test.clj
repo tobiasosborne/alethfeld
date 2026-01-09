@@ -105,7 +105,7 @@
   "Vote on a mote (wrapper that uses *temp-dir*)."
   [id vote-type agent]
   (let [repo-path *temp-dir*]
-    (verify/cast-vote! repo-path id vote-type agent)))
+    (verify/cast-vote! repo-path id agent vote-type)))
 
 ;; =============================================================================
 ;; Concurrent Claiming Tests
@@ -253,11 +253,7 @@
 ;; Concurrent Voting Tests
 ;; =============================================================================
 
-(deftest ^:flaky concurrent-votes-reaching-quorum-test
-  ;; KNOWN ISSUE: This test occasionally fails due to test fixture isolation
-  ;; issues when run as part of the full test suite. The underlying
-  ;; vote serialization via tx/with-validation locking works correctly.
-  ;; See alethfeld-nupa for tracking.
+(deftest concurrent-votes-reaching-quorum-test
   (testing "Multiple votes arriving concurrently - quorum is reached atomically"
     (init-repo!)
 
@@ -281,7 +277,7 @@
         (let [f1 (future
                    @barrier
                    (try
-                     (verify/cast-vote! repo-path "1" :for "verifier-1")
+                     (verify/cast-vote! repo-path "1" "verifier-1" :for)
                      (swap! results conj {:agent "verifier-1" :success true})
                      (catch Exception e
                        (swap! results conj {:agent "verifier-1" :success false
@@ -289,7 +285,7 @@
               f2 (future
                    @barrier
                    (try
-                     (verify/cast-vote! repo-path "1" :for "verifier-2")
+                     (verify/cast-vote! repo-path "1" "verifier-2" :for)
                      (swap! results conj {:agent "verifier-2" :success true})
                      (catch Exception e
                        (swap! results conj {:agent "verifier-2" :success false
@@ -361,11 +357,7 @@
         (is (= "Updated by agent 1" (:claim m1)))
         (is (= "Updated by agent 2" (:claim m2)))))))
 
-(deftest ^:flaky sequential-writes-preserve-order-test
-  ;; KNOWN ISSUE: This test occasionally fails due to test fixture isolation
-  ;; issues when run as part of the full test suite. The underlying
-  ;; atomic-update! with locking works correctly when tested in isolation.
-  ;; See alethfeld-nupa for tracking.
+(deftest sequential-writes-preserve-order-test
   (testing "Sequential writes preserve data integrity"
     (init-repo!)
     (create-workable-mote! "1")
@@ -376,17 +368,18 @@
           "Mote should exist after creation")
 
       ;; Apply 10 sequential updates using atomic-update! for proper locking
+      ;; Use :meta field since :difficulty is constrained to 1-5
       (dotimes [i 10]
         (tx/atomic-update! repo-path
                            (str "Update " i)
                            "1"
-                           (fn [m] (assoc m :difficulty (inc i)))
+                           (fn [m] (assoc-in m [:meta :counter] (inc i)))
                            :validate false))
 
-      ;; Final state should have difficulty 10
+      ;; Final state should have counter 10
       (let [final (store/load-mote repo-path "1")]
-        (is (= 10 (:difficulty final))
-            "Final difficulty should be 10")))))
+        (is (= 10 (get-in final [:meta :counter]))
+            "Final counter should be 10")))))
 
 ;; =============================================================================
 ;; Transaction Isolation Tests
