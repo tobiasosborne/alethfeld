@@ -452,3 +452,34 @@
   (testing "parse-priority-spec returns nil for invalid input"
     (is (nil? (@#'cmd/parse-priority-spec "p5")))
     (is (nil? (@#'cmd/parse-priority-spec "high")))))
+
+;; =============================================================================
+;; Role Detection Hint Tests
+;; =============================================================================
+
+(deftest name-looks-like-role-test
+  (testing "name-looks-like-role? detects role names"
+    (is (= "advisor" (@#'cmd/name-looks-like-role? "advisor")))
+    (is (= "proposer" (@#'cmd/name-looks-like-role? "proposer")))
+    (is (= "verifier" (@#'cmd/name-looks-like-role? "verifier")))
+    (is (= "prover" (@#'cmd/name-looks-like-role? "prover")))
+    (is (= "ref-checker" (@#'cmd/name-looks-like-role? "ref-checker")))
+    (is (= "counterexample" (@#'cmd/name-looks-like-role? "counterexample")))))
+
+(deftest name-looks-like-role-case-insensitive-test
+  (testing "name-looks-like-role? is case insensitive"
+    (is (= "advisor" (@#'cmd/name-looks-like-role? "Advisor")))
+    (is (= "proposer" (@#'cmd/name-looks-like-role? "PROPOSER")))))
+
+(deftest name-looks-like-role-negative-test
+  (testing "name-looks-like-role? returns nil for non-role names"
+    (is (nil? (@#'cmd/name-looks-like-role? "claude")))
+    (is (nil? (@#'cmd/name-looks-like-role? "alice")))
+    (is (nil? (@#'cmd/name-looks-like-role? nil)))))
+
+(deftest format-role-hint-test
+  (testing "format-role-hint produces correct message"
+    (let [hint (@#'cmd/format-role-hint "advisor")]
+      (is (str/includes? hint "looks like a role name"))
+      (is (str/includes? hint "Did you mean"))
+      (is (str/includes? hint "--role advisor")))))

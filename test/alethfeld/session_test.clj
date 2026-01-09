@@ -1257,3 +1257,80 @@
           result (session/resolve-session *temp-dir* {:agent "triple-agent"})]
       (is (= :multiple-sessions (:error result)))
       (is (= 3 (count (:sessions result)))))))
+
+;; =============================================================================
+;; Reservation Tests
+;; =============================================================================
+
+(deftest create-reservation-test
+  (testing "create-reservation! creates a valid reservation"
+    (init-session-dirs)
+    (let [reservation (session/create-reservation! *temp-dir* "1.1" :proposer)]
+      (is (string? (:token reservation)))
+      (is (= 6 (count (:token reservation))))
+      (is (= "1.1" (:mote-id reservation)))
+      (is (= :proposer (:role reservation)))
+      (is (some? (:created-at reservation)))
+      (is (some? (:expires-at reservation))))))
+
+(deftest load-reservation-test
+  (testing "load-reservation loads a valid reservation"
+    (init-session-dirs)
+    (let [created (session/create-reservation! *temp-dir* "1.1" :proposer)
+          loaded (session/load-reservation *temp-dir* (:token created))]
+      (is (= (:token created) (:token loaded)))
+      (is (= "1.1" (:mote-id loaded)))
+      (is (= :proposer (:role loaded))))))
+
+(deftest load-reservation-missing-test
+  (testing "load-reservation returns nil for missing token"
+    (init-session-dirs)
+    (is (nil? (session/load-reservation *temp-dir* "nonexistent")))))
+
+(deftest delete-reservation-test
+  (testing "delete-reservation! removes the reservation"
+    (init-session-dirs)
+    (let [created (session/create-reservation! *temp-dir* "1.1" :proposer)]
+      (is (some? (session/load-reservation *temp-dir* (:token created))))
+      (session/delete-reservation! *temp-dir* (:token created))
+      (is (nil? (session/load-reservation *temp-dir* (:token created)))))))
+
+(deftest claim-reservation-test
+  (testing "claim-reservation! creates a session from reservation"
+    (init-session-dirs)
+    (let [reservation (session/create-reservation! *temp-dir* "1.2" :advisor)
+          sess (session/claim-reservation! *temp-dir* (:token reservation) "my-agent")]
+      (is (some? (:session-id sess)))
+      (is (= "1.2" (:mote-id sess)))
+      (is (= :advisor (:role sess)))
+      (is (= "my-agent" (:agent sess)))
+      ;; Reservation should be deleted after claiming
+      (is (nil? (session/load-reservation *temp-dir* (:token reservation)))))))
+
+(deftest claim-reservation-invalid-test
+  (testing "claim-reservation! throws for invalid token"
+    (init-session-dirs)
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Invalid or expired reservation"
+          (session/claim-reservation! *temp-dir* "nonexistent" "my-agent")))))
+
+(deftest list-active-reservations-test
+  (testing "list-active-reservations returns active reservations"
+    (init-session-dirs)
+    (let [_r1 (session/create-reservation! *temp-dir* "1.1" :proposer)
+          _r2 (session/create-reservation! *temp-dir* "1.2" :advisor)
+          active (session/list-active-reservations *temp-dir*)]
+      (is (= 2 (count active))))))
+
+(deftest list-active-reservations-empty-test
+  (testing "list-active-reservations returns empty when none"
+    (init-session-dirs)
+    (is (empty? (session/list-active-reservations *temp-dir*)))))
+
+(deftest mote-has-reservation-test
+  (testing "mote-has-reservation? detects reservations"
+    (init-session-dirs)
+    (let [_r1 (session/create-reservation! *temp-dir* "1.1" :proposer)]
+      (is (session/mote-has-reservation? *temp-dir* "1.1"))
+      (is (session/mote-has-reservation? *temp-dir* "1.1" :proposer))
+      (is (not (session/mote-has-reservation? *temp-dir* "1.1" :advisor)))
+      (is (not (session/mote-has-reservation? *temp-dir* "1.2"))))))

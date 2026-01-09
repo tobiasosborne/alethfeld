@@ -25,6 +25,29 @@
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
+;; Role Detection Helpers
+;; -----------------------------------------------------------------------------
+
+(def ^:private role-names
+  "Set of known role names as strings (lowercase)."
+  #{"proposer" "advisor" "prover" "verifier" "ref-checker" "counterexample"})
+
+(defn- name-looks-like-role?
+  "Check if a name matches a known role name.
+   Returns the matching role name if found, nil otherwise."
+  [name]
+  (when name
+    (let [lower-name (str/lower-case (str name))]
+      (when (contains? role-names lower-name)
+        lower-name))))
+
+(defn- format-role-hint
+  "Format a hint message when --name matches a role name."
+  [name]
+  (str "Note: \"" name "\" looks like a role name.\n"
+       "Did you mean: af ready --name <your-name> --role " name "?\n\n"))
+
+;; -----------------------------------------------------------------------------
 ;; Next Actions Helpers
 ;; -----------------------------------------------------------------------------
 
@@ -713,30 +736,38 @@
   "Get next job(s) for an agent.
 
    Modes:
-   1. List mode (no --agent): Shows available jobs numbered, no claiming
-   2. Claim mode (--agent NAME): Claims highest priority job (or specific with --job)
-   3. Preview mode (--agent NAME --no-claim): Like claim mode but doesn't claim
+   1. List mode (no --name): Shows available jobs numbered, no claiming
+   2. Claim mode (--name NAME): Claims highest priority job (or specific with --job)
+   3. Preview mode (--name NAME --no-claim): Like claim mode but doesn't claim
+   4. Reserve mode (--reserve): Create a reservation without claiming (for orchestrators)
+   5. Claim-reservation mode (--claim-reservation TOKEN): Claim a previously reserved job
 
    Options:
-   - :agent - Agent name (auto-claims jobs unless --no-claim)
+   - :name - Agent name (auto-claims jobs unless --no-claim)
    - :role - Filter by role (:proposer, :advisor, :prover, :verifier, :ref-checker, :counterexample)
    - :difficulty - Difficulty filter (\"N\" for exact, \"N-M\" for range)
    - :priority - Priority filter (\"pN\" for exact, \"pN-pM\" for range)
    - :max - Maximum jobs to return (default: 10 for list mode, 1 for claim mode)
    - :no-claim - Don't auto-claim jobs
    - :job - Specific job number to claim (1-indexed, from list mode output)
+   - :reserve - Create a reservation instead of claiming (expires in 60s)
+   - :claim-reservation - Token from a previous --reserve call
 
    Returns:
    - In list mode: A map with :mode :list and :output (formatted string)
    - In claim mode: A map with :mode :claimed and :output (formatted string with prompt)
-     plus the full job data
+   - In reserve mode: A map with :mode :reserved and :reservation (with :token)
+   - In claim-reservation mode: A map with :mode :claimed (like normal claim)
 
    Note: Automatically cleans up stale sessions (expired or crashed)
    before selecting jobs."
   [{:keys [options]}]
   (let [repo-path "."
-        {:keys [name role difficulty priority max no-claim job]} options
+        {:keys [name role difficulty priority max no-claim job reserve claim-reservation]} options
         agent name  ;; Renamed from --agent to --name, but keep 'agent' var for session compat
+        ;; Check if --name looks like a role name (common mistake)
+        role-hint (when-let [matched-role (name-looks-like-role? name)]
+                    (format-role-hint matched-role))
         ;; Default max depends on mode: list mode shows more, claim mode shows 1
         list-mode? (nil? agent)
         max-jobs (or max (if list-mode? 10 1))]
@@ -747,12 +778,53 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Clean up stale sessions (expired or crashed agents)
-    (cleanup-stale-sessions-and-claims! repo-path)
+    ;; Handle --claim-reservation mode first (claims existing reservation)
+    (if claim-reservation
+      (do
+        (when-not agent
+          (throw (ex-info "Must provide --name when claiming a reservation"
+                          {:type :validation-error
+                           :message "Use: af ready --name <your-name> --claim-reservation TOKEN"})))
+        (let [config (store/load-config repo-path)
+              session-timeout (or (:session-timeout-minutes config) 30)
+              sess (session/claim-reservation! repo-path claim-reservation agent
+                                               :duration-minutes session-timeout)
+              mote-id (:mote-id sess)
+              mote (store/load-mote repo-path mote-id)
+              job-role (:role sess)
+              ;; Update mote with claim
+              updated-mote (mote/set-claimed-by mote agent)
+              motes (store/load-all-motes repo-path)
+              resolved-children (resolve-children mote motes)
+              session-prompt (prompt/render-prompt {:role job-role :mote mote}
+                                                   :resolved-children resolved-children
+                                                   :session sess)]
+          ;; Save the claimed mote
+          (tx/atomic-write! repo-path (str "Claim reserved job for " agent ": " mote-id)
+                            [updated-mote] :validate false)
+          {:mode :claimed
+           :jobs [{:mote-id mote-id
+                   :mote updated-mote
+                   :role job-role
+                   :claimed-by agent
+                   :session-id (:session-id sess)
+                   :session sess
+                   :prompt session-prompt}]
+           :output (str role-hint
+                        "Claimed reserved job: " mote-id "\n"
+                        "Role: " (name job-role) "\n"
+                        "Session: " (:session-id sess) "\n\n"
+                        session-prompt)
+           :next-actions [(done-action (:session-id sess))]}))
 
-    ;; Parse difficulty/priority specs
-    (let [difficulty-filter (parse-difficulty-spec difficulty)
-          priority-filter (parse-priority-spec priority)
+      ;; Normal flow (no claim-reservation)
+      (do
+        ;; Clean up stale sessions (expired or crashed agents)
+        (cleanup-stale-sessions-and-claims! repo-path)
+
+        ;; Parse difficulty/priority specs
+        (let [difficulty-filter (parse-difficulty-spec difficulty)
+              priority-filter (parse-priority-spec priority)
 
           ;; Load config and motes
           config (store/load-config repo-path)
@@ -777,11 +849,36 @@
                                   jobs)]
 
       (cond
+        ;; Reserve mode: create reservation without claiming (for orchestrators)
+        reserve
+        (if (empty? jobs-with-prompts)
+          {:mode :no-jobs
+           :jobs []
+           :output (str role-hint
+                        "No jobs available to reserve.\n"
+                        "Run 'af ready' to see current state.")
+           :next-actions [(status-action)]}
+          (let [first-job (first jobs-with-prompts)
+                mote-id (:mote-id first-job)
+                job-role (:role first-job)
+                reservation (session/create-reservation! repo-path mote-id job-role)]
+            {:mode :reserved
+             :reservation reservation
+             :jobs [first-job]
+             :output (str role-hint
+                          "Reserved: " mote-id " for " (name job-role) "\n"
+                          "Token: " (:token reservation) "\n"
+                          "Expires in 60 seconds\n\n"
+                          "Claim with:\n"
+                          "  af ready --name <your-name> --claim-reservation " (:token reservation))
+             :next-actions [(make-action (str "af ready --name <name> --claim-reservation " (:token reservation))
+                                         "Claim this reservation")]}))
+
         ;; List mode: no agent provided - show numbered list
         list-mode?
         {:mode :list
          :jobs jobs-with-prompts
-         :output (format-job-list jobs-with-prompts)
+         :output (str role-hint (format-job-list jobs-with-prompts))
          :next-actions (if (empty? jobs-with-prompts)
                          [(status-action)]
                          [(make-action "af ready --agent <name>" "Claim highest priority job")
@@ -800,11 +897,12 @@
                               (take max-jobs jobs-with-prompts))]
           {:mode :preview
            :jobs (vec selected-jobs)
-           :output (if (empty? selected-jobs)
-                     (if job
-                       (str "Job #" job " not found. Run 'af ready' to see available jobs.")
-                       "No jobs available matching your criteria.")
-                     (format-job-list selected-jobs))
+           :output (str role-hint
+                        (if (empty? selected-jobs)
+                          (if job
+                            (str "Job #" job " not found. Run 'af ready' to see available jobs.")
+                            "No jobs available matching your criteria.")
+                          (format-job-list selected-jobs)))
            :next-actions [(make-action (str "af ready --agent " agent) "Claim this job")
                           (status-action)]})
 
@@ -883,21 +981,22 @@
                                    [])]
                 {:mode :claimed
                  :jobs claimed-jobs
-                 :output (str/join "\n\n" (map format-claimed-job-output claimed-jobs))
+                 :output (str role-hint (str/join "\n\n" (map format-claimed-job-output claimed-jobs)))
                  :next-actions (conj (vec role-actions) (done-action session-id))}))))
 
         ;; No jobs available when trying to claim
         :else
         {:mode :no-jobs
          :jobs []
-         :output (str "No jobs available.\n\n"
+         :output (str role-hint
+                      "No jobs available.\n\n"
                       "All motes are either:\n"
                       "  - Already claimed by another agent\n"
                       "  - In a terminal state (verified, rejected, refuted)\n"
                       "  - Not in need of work (no taints)\n"
                       "\n"
                       "Run 'af status' to see project overview.")
-         :next-actions [(status-action)]}))))
+         :next-actions [(status-action)]}))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Propose Command

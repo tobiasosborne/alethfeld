@@ -18,6 +18,7 @@
 (def ^:const sessions-dir "sessions")
 (def ^:const active-sessions-dir "active")
 (def ^:const completed-sessions-dir "completed")
+(def ^:const reservations-dir "reservations")
 (def ^:const config-file "config.edn")
 
 ;; -----------------------------------------------------------------------------
@@ -204,3 +205,18 @@
                :active (active-sessions-path)
                :completed (completed-sessions-path))]
     (str base "/" session-id ".edn")))
+
+(defn reservations-path
+  "Return the path to the reservations directory.
+
+   Example: (reservations-path) => \".alethfeld/sessions/reservations\""
+  []
+  (str (sessions-base-path) "/" reservations-dir))
+
+(defn reservation-path
+  "Return the file path for a reservation.
+
+   Example:
+     (reservation-path \"abc123\") => \".alethfeld/sessions/reservations/abc123.edn\""
+  [reservation-token]
+  (str (reservations-path) "/" reservation-token ".edn"))

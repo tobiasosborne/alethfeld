@@ -325,6 +325,8 @@
                        :parse-fn #(Integer/parseInt %)
                        :validate [pos? "Must be positive"]]
                       [nil "--no-claim" "Don't auto-claim jobs"]
+                      [nil "--reserve" "Reserve job without claiming (for orchestrators)"]
+                      [nil "--claim-reservation TOKEN" "Claim a previously reserved job"]
                       (deprecated-agent-option "Agent name")]}
 
    "propose" {:description "Propose decomposition into children"
