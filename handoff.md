@@ -1,20 +1,32 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-09
-**Last session:** Drift Cleanup & cmd.clj Refactoring Planning
-**Session status:** PLANNING COMPLETE - READY FOR IMPLEMENTATION
+**Last session:** cmd.clj Refactoring Complete
+**Session status:** REFACTORING COMPLETE - ALL TESTS PASSING
 
 ---
 
 ## Session Summary
 
-This session:
-1. **Analyzed drift** between beads issues, V02-REVISION-PLAN.md, and codebase
-2. **Closed stale issues:**
-   - `alethfeld-umt5` - Contradicted Phase 7.10 (--atomic removal)
-   - `alethfeld-zrw7` - Obsolete v0.1 epic with missing spec file
-   - `alethfeld-ock9` - Superseded by new cmd.clj refactoring plan
-3. **Created 16 beads issues** for cmd.clj refactoring
+This session completed the cmd.clj refactoring:
+
+1. **Created 12 module files** under `src/alethfeld/cmd/`:
+   - `core.clj` - Shared helpers (actions, dry-run)
+   - `init.clj` - Repository initialization
+   - `show.clj` - Mote display
+   - `create.clj` - Mote creation
+   - `ready.clj` - Job discovery and claiming
+   - `proposal.clj` - Propose, approve, reject workflows
+   - `update.clj` - Mote field updates
+   - `voting.clj` - Verification voting and taints
+   - `session.clj` - Session lifecycle (claim, unclaim, done)
+   - `reference.clj` - References, assumptions, dependencies
+   - `utility.clj` - Check, repair, log, sync, tree, status
+   - `config.clj` - Configuration management
+
+2. **Refactored cmd.clj** to 161-line aggregator with re-exports
+
+3. **Closed 16 beads issues** related to the refactoring
 
 ---
 
@@ -24,40 +36,26 @@ This session:
 
 | Source | State |
 |--------|-------|
-| **`docs/V02-REVISION-PLAN.md`** | Canonical plan (internally consistent) |
-| **Beads issues** | Cleaned up - stale issues closed |
-| **Codebase** | v0.1 workflow (implementation pending) |
+| **`docs/V02-REVISION-PLAN.md`** | Canonical plan |
+| **Beads issues** | Updated - cmd.clj refactoring closed |
+| **Codebase** | cmd.clj refactoring complete |
 
 ### Issue Stats
 
 ```
-Open:           50
-Ready to work:  47
-Blocked:        3
+Closed this session:  16 (cmd.clj refactoring)
+Open:                 ~34
+Ready to work:        ~31
+Blocked:              3
 ```
 
 ---
 
 ## Priority Work Queues
 
-### 1. cmd.clj Refactoring (NEW - Do First)
+### 1. Phase 7 Workflow Refactoring (Next Priority)
 
-The 3,448-line `cmd.clj` needs splitting into 12 files under `cmd/`.
-
-**Epic:** `alethfeld-d8qu` [P0]
-
-**Execution order (with dependencies):**
-1. `alethfeld-bz96` [P1] - Create cmd/core.clj (shared helpers)
-2. 11 module files [P2] - All depend on core.clj
-3. `alethfeld-5g74` [P1] - Refactor cmd.clj to aggregator
-4. `alethfeld-s4m1` [P2] - Update tests
-5. `alethfeld-msjx` [P1] - Verify full test suite
-
-**Plan file:** `.claude/plans/optimized-forging-koala.md`
-
-### 2. Phase 7 Workflow Refactoring
-
-After cmd.clj refactoring, implement verifier-first workflow:
+Now that cmd.clj is split, implement verifier-first workflow:
 
 **P0 Critical:**
 - `alethfeld-j3s7` - 7.1 Default taint to :needs-verification
@@ -85,10 +83,8 @@ clj -M:test              # ~1098 tests, all passing
 bd stats                 # Issue counts
 bd ready                 # Available work
 
-# Start cmd.clj refactoring
-bd update alethfeld-bz96 --status=in_progress
-mkdir -p src/alethfeld/cmd
-# Follow plan in .claude/plans/optimized-forging-koala.md
+# Start Phase 7 work
+bd update alethfeld-j3s7 --status=in_progress
 ```
 
 ---
@@ -98,8 +94,8 @@ mkdir -p src/alethfeld/cmd
 | File | Purpose |
 |------|---------|
 | `docs/V02-REVISION-PLAN.md` | Canonical v0.2 plan |
-| `.claude/plans/optimized-forging-koala.md` | cmd.clj refactoring plan |
-| `src/alethfeld/cmd.clj` | 3,448 lines to split |
+| `src/alethfeld/cmd.clj` | 161-line aggregator |
+| `src/alethfeld/cmd/*.clj` | 12 focused modules |
 
 ---
 
@@ -107,13 +103,13 @@ mkdir -p src/alethfeld/cmd
 
 1. `alethfeld-iqsd` [P0] - 7.12 tests (blocked by 6 Phase 7 issues)
 2. `alethfeld-4ntd` [P2] - Auto-infer session (blocked by `alethfeld-mjlt`)
-3. `alethfeld-5g74` [P1] - Aggregator (blocked by 11 cmd/ module issues)
+3. (cmd.clj aggregator unblocked - now completed)
 
 ---
 
 ## Test Health
 
-- **Total tests:** ~1,098
-- **Total assertions:** ~6,520
+- **Total tests:** 1,098
+- **Total assertions:** 6,535
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
