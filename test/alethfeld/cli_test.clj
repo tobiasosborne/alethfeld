@@ -302,8 +302,12 @@
       (is (= "bot" (:agent (:options result)))))))
 
 (deftest parse-args-format-option-test
-  (testing "format defaults to edn"
+  (testing "format defaults to text (human-readable)"
     (let [result (cli/parse-args ["show" "1"])]
+      (is (= :text (:format (:options result))))))
+
+  (testing "format can be edn"
+    (let [result (cli/parse-args ["show" "1" "--format" "edn"])]
       (is (= :edn (:format (:options result))))))
 
   (testing "format can be json"

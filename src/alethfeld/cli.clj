@@ -113,19 +113,53 @@
   [data]
   (json/write-str data :escape-slash false))
 
+(defn format-next-actions
+  "Format next-actions for human-readable output."
+  [next-actions]
+  (when (seq next-actions)
+    (str "\nNext steps:\n"
+         (str/join "\n"
+                   (map (fn [{:keys [command description]}]
+                          (str "  → " command (when description (str "    " description))))
+                        next-actions)))))
+
+(defn format-human
+  "Format data for human-readable output.
+
+   Extracts :output or :message from the result, and appends
+   formatted :next-actions if present.
+
+   Returns nil if no human-readable content is available."
+  [data]
+  (when (map? data)
+    (let [main-output (or (:output data) (:message data))
+          next-actions (:next-actions data)
+          terminate-msg (:terminate-message data)]
+      (when (or main-output next-actions terminate-msg)
+        (str/join "\n"
+                  (remove nil?
+                          [main-output
+                           terminate-msg
+                           (format-next-actions next-actions)]))))))
+
 (defn format-output
   "Format data according to specified format.
 
    Arguments:
    - data: The data to format
-   - fmt: :edn or :json (default :edn)
+   - fmt: :text, :edn, or :json (default :text)
+
+   For :text format, extracts human-readable :output/:message and
+   :next-actions. Falls back to EDN if no human content available.
 
    Returns formatted string."
   [data fmt]
   (case fmt
     :json (format-json data)
     :edn (format-edn data)
-    (format-edn data)))
+    :text (or (format-human data) (format-edn data))
+    ;; Default to text (human-readable)
+    (or (format-human data) (format-edn data))))
 
 ;; -----------------------------------------------------------------------------
 ;; Exit Handling
@@ -213,10 +247,10 @@
 
 (def global-options
   "Global CLI options available to all commands."
-  [["-f" "--format FORMAT" "Output format (edn or json)"
-    :default :edn
+  [["-f" "--format FORMAT" "Output format: text (default), edn, or json"
+    :default :text
     :parse-fn keyword
-    :validate [#{:edn :json} "Must be 'edn' or 'json'"]]
+    :validate [#{:text :edn :json} "Must be 'text', 'edn', or 'json'"]]
    [nil "--verbose" "Show detailed error messages with stack traces"]
    ["-h" "--help" "Show help"]
    ["-v" "--version" "Show version"]])
@@ -791,7 +825,7 @@
   [args & {:keys [exit?] :or {exit? true}}]
   (let [parsed (parse-args args)
         {:keys [options]} parsed
-        fmt (:format options :edn)
+        fmt (:format options :text)
         verbose (:verbose options false)
         result (dispatch parsed)]
     (cond
