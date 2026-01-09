@@ -57,42 +57,91 @@
                  [(make-test-mote "1" :children [])  ; Does not list 1.1 as child
                   (make-test-mote "1.1" :parent "1")])]  ; Claims 1 as parent
       (let [result (dag/validate-parent-child motes)]
-        (is (some? result))
-        (is (= :orphan-child (:type result)))
-        (is (= "1.1" (:child-id result)))
-        (is (= "1" (:claimed-parent result))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (let [err (first result)]
+          (is (= :orphan-child (:type err)))
+          (is (= "1.1" (:child-id err)))
+          (is (= "1" (:claimed-parent err)))))))
 
   (testing "phantom child detected - parent lists non-existent child"
     (let [motes (motes->map
                  [(make-test-mote "1" :children ["1.1"])])]  ; Lists 1.1 but it doesn't exist
       (let [result (dag/validate-parent-child motes)]
-        (is (some? result))
-        (is (= :phantom-child (:type result)))
-        (is (= "1" (:parent-id result)))
-        (is (= "1.1" (:child-id result))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (let [err (first result)]
+          (is (= :phantom-child (:type err)))
+          (is (= "1" (:parent-id err)))
+          (is (= "1.1" (:child-id err)))))))
 
   (testing "mismatched parent detected - child exists but has wrong/no parent"
     (let [motes (motes->map
                  [(make-test-mote "1" :children ["1.1"])
                   (make-test-mote "1.1")])]  ; No parent field
       (let [result (dag/validate-parent-child motes)]
-        (is (some? result))
-        (is (= :mismatched-parent (:type result)))
-        (is (= "1.1" (:child-id result)))
-        (is (= "1" (:expected-parent result)))
-        (is (nil? (:actual-parent result))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (let [err (first result)]
+          (is (= :mismatched-parent (:type err)))
+          (is (= "1.1" (:child-id err)))
+          (is (= "1" (:expected-parent err)))
+          (is (nil? (:actual-parent err)))))))
 
-  (testing "wrong parent detected"
+  (testing "wrong parent detected - produces both mismatched-parent and orphan-child"
+    ;; This scenario: "1" lists "1.1" as child, but "1.1" claims "2" as parent
+    ;; This produces TWO errors:
+    ;; 1. mismatched-parent: "1" expects "1.1" to point back to "1"
+    ;; 2. orphan-child: "1.1" claims "2" as parent but "2" doesn't list "1.1"
     (let [motes (motes->map
                  [(make-test-mote "1" :children ["1.1"])
                   (make-test-mote "2")
                   (make-test-mote "1.1" :parent "2")])]  ; Claims different parent
       (let [result (dag/validate-parent-child motes)]
-        (is (some? result))
-        (is (= :mismatched-parent (:type result)))
-        (is (= "1.1" (:child-id result)))
-        (is (= "1" (:expected-parent result)))
-        (is (= "2" (:actual-parent result)))))))
+        (is (vector? result))
+        (is (= 2 (count result)))
+        ;; Should have both a mismatched-parent and orphan-child error
+        (is (some #(= :mismatched-parent (:type %)) result))
+        (is (some #(= :orphan-child (:type %)) result))
+        ;; Verify the mismatched-parent error details
+        (let [mismatch-err (first (filter #(= :mismatched-parent (:type %)) result))]
+          (is (= "1.1" (:child-id mismatch-err)))
+          (is (= "1" (:expected-parent mismatch-err)))
+          (is (= "2" (:actual-parent mismatch-err)))))))
+
+  (testing "multiple errors collected - phantom and orphan"
+    (let [motes (motes->map
+                 [(make-test-mote "1" :children ["1.1" "missing"])  ; 1.1 exists, missing doesn't
+                  (make-test-mote "1.1" :parent "1")
+                  (make-test-mote "orphan" :parent "1")])]  ; Claims 1 but not listed
+      (let [result (dag/validate-parent-child motes)]
+        (is (vector? result))
+        (is (= 2 (count result)))
+        (is (some #(= :phantom-child (:type %)) result))
+        (is (some #(= :orphan-child (:type %)) result)))))
+
+  (testing "multiple phantom children collected"
+    (let [motes (motes->map
+                 [(make-test-mote "1" :children ["missing1" "missing2" "missing3"])])]
+      (let [result (dag/validate-parent-child motes)]
+        (is (vector? result))
+        (is (= 3 (count result)))
+        (is (every? #(= :phantom-child (:type %)) result))
+        (is (= #{"missing1" "missing2" "missing3"}
+               (set (map :child-id result)))))))
+
+  (testing "multiple orphan children collected"
+    (let [motes (motes->map
+                 [(make-test-mote "1" :children [])
+                  (make-test-mote "1.1" :parent "1")
+                  (make-test-mote "1.2" :parent "1")
+                  (make-test-mote "1.3" :parent "1")])]
+      (let [result (dag/validate-parent-child motes)]
+        (is (vector? result))
+        (is (= 3 (count result)))
+        (is (every? #(= :orphan-child (:type %)) result))
+        (is (= #{"1.1" "1.2" "1.3"}
+               (set (map :child-id result))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; find-cycles Tests
@@ -274,10 +323,12 @@
                   (make-test-mote "1.1" :parent "1" :status :fixed)
                   (make-test-mote "1.2" :parent "1" :status :proposed)])]
       (let [result (dag/validate-proposal-atomicity motes)]
-        (is (some? result))
-        (is (= :atomicity-violation (:type result)))
-        (is (= "1" (:parent-id result)))
-        (is (some? (:children-statuses result))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (let [err (first result)]
+          (is (= :atomicity-violation (:type err)))
+          (is (= "1" (:parent-id err)))
+          (is (some? (:children-statuses err)))))))
 
   (testing "proposal with missing child detected"
     (let [proposal (m/make-proposal "proposer" ["1.1" "1.2"])
@@ -287,8 +338,9 @@
                   (make-test-mote "1.1" :parent "1" :status :proposed)])]
       ;; Missing 1.2 - this should be caught
       (let [result (dag/validate-proposal-atomicity motes)]
-        (is (some? result))
-        (is (= :missing-proposal-child (:type result))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (is (= :missing-proposal-child (:type (first result)))))))
 
   (testing "pending proposal with non-proposed children fails"
     (let [proposal (m/make-proposal "proposer" ["1.1" "1.2"])
@@ -298,11 +350,13 @@
                   (make-test-mote "1.1" :parent "1" :status :fixed)
                   (make-test-mote "1.2" :parent "1" :status :fixed)])]
       (let [result (dag/validate-proposal-atomicity motes)]
-        (is (some? result))
-        (is (= :non-proposed-children (:type result)))
-        (is (= "1" (:parent-id result)))
-        (is (= :proposed (:expected-status result)))
-        (is (some? (:children-statuses result))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (let [err (first result)]
+          (is (= :non-proposed-children (:type err)))
+          (is (= "1" (:parent-id err)))
+          (is (= :proposed (:expected-status err)))
+          (is (some? (:children-statuses err)))))))
 
   (testing "approved proposal with proposed children fails"
     (let [proposal (assoc (m/make-proposal "proposer" ["1.1" "1.2"])
@@ -313,9 +367,11 @@
                   (make-test-mote "1.1" :parent "1" :status :proposed)
                   (make-test-mote "1.2" :parent "1" :status :proposed)])]
       (let [result (dag/validate-proposal-atomicity motes)]
-        (is (some? result))
-        (is (= :non-proposed-children (:type result)))
-        (is (= :fixed (:expected-status result))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (let [err (first result)]
+          (is (= :non-proposed-children (:type err)))
+          (is (= :fixed (:expected-status err)))))))
 
   (testing "rejected proposal with fixed children fails"
     (let [proposal (assoc (m/make-proposal "proposer" ["1.1" "1.2"])
@@ -326,9 +382,38 @@
                   (make-test-mote "1.1" :parent "1" :status :fixed)
                   (make-test-mote "1.2" :parent "1" :status :fixed)])]
       (let [result (dag/validate-proposal-atomicity motes)]
-        (is (some? result))
-        (is (= :non-proposed-children (:type result)))
-        (is (= :rejected (:expected-status result)))))))
+        (is (vector? result))
+        (is (= 1 (count result)))
+        (let [err (first result)]
+          (is (= :non-proposed-children (:type err)))
+          (is (= :rejected (:expected-status err)))))))
+
+  (testing "multiple missing children collected"
+    (let [proposal (m/make-proposal "proposer" ["1.1" "1.2" "1.3"])
+          motes (motes->map
+                 [(make-test-mote "1" :children ["1.1" "1.2" "1.3"]
+                                  :proposal proposal)])]
+      ;; All three children are missing
+      (let [result (dag/validate-proposal-atomicity motes)]
+        (is (vector? result))
+        (is (= 3 (count result)))
+        (is (every? #(= :missing-proposal-child (:type %)) result))
+        (is (= #{"1.1" "1.2" "1.3"}
+               (set (map :missing-child result)))))))
+
+  (testing "errors from multiple proposals collected"
+    (let [proposal1 (m/make-proposal "proposer" ["1.1"])
+          proposal2 (m/make-proposal "proposer" ["2.1"])
+          motes (motes->map
+                 [(make-test-mote "1" :children ["1.1"] :proposal proposal1)
+                  ;; 1.1 is missing
+                  (make-test-mote "2" :children ["2.1"] :proposal proposal2)])]
+                  ;; 2.1 is also missing
+      (let [result (dag/validate-proposal-atomicity motes)]
+        (is (vector? result))
+        (is (= 2 (count result)))
+        (is (every? #(= :missing-proposal-child (:type %)) result))
+        (is (= #{"1" "2"} (set (map :parent-id result))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; validate-mote-graph Tests

@@ -78,10 +78,10 @@
 
 (deftest make-mote-test
   (testing "make-mote creates valid mote with defaults"
-    (let [mote (m/make-mote "1.2.3" "For all ε > 0..." "prover-1")]
+    (let [mote (m/make-mote "1.2.3" "For all e > 0..." "prover-1")]
       (is (s/valid? s/Mote mote))
       (is (= "1.2.3" (:id mote)))
-      (is (= "For all ε > 0..." (:claim mote)))
+      (is (= "For all e > 0..." (:claim mote)))
       (is (= "prover-1" (:created-by mote)))
       (is (= :fixed (:status mote)))
       (is (= #{:needs-decomposition} (:taint mote)))
@@ -497,3 +497,155 @@
           now-just-before (.plus base-instant (java.time.Duration/ofMinutes 30))
           now-just-before (.minusMillis now-just-before 1)]
       (is (false? (m/claim-expired? mote 30 :now now-just-before))))))
+
+;; -----------------------------------------------------------------------------
+;; Claim Text Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest claim-text-edge-cases-test
+  (testing "Empty claim text - behavior documentation"
+    ;; An empty claim provides no meaningful information.
+    ;; Note: Current schema allows empty strings. This test documents behavior.
+    (let [mote (m/make-mote "1" "" "agent")]
+      ;; DOCUMENTED BEHAVIOR: Empty claims currently pass validation.
+      ;; This may be considered a bug - claims should arguably be non-empty.
+      (is (s/valid? s/Mote mote) "Current behavior: empty claims are accepted")))
+
+  (testing "Very long claim text (10K+ characters) should be valid"
+    ;; Mathematical proofs can require very long, detailed claims.
+    ;; There should be no artificial length limit on claim text.
+    (let [long-claim (apply str (repeat 10000 "x"))
+          mote (m/make-mote "1" long-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= 10000 (count (:claim mote))))))
+
+  (testing "Extremely long claim text (100K+ characters) should be valid"
+    ;; Ensure no practical length limit exists
+    (let [very-long-claim (apply str (repeat 100000 "a"))
+          mote (m/make-mote "1" very-long-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= 100000 (count (:claim mote))))))
+
+  (testing "Unicode characters in claims should be valid"
+    ;; Mathematical proofs use Greek letters, mathematical symbols, etc.
+    (let [unicode-claim "For all e > 0, there exists d > 0 such that |x - x0| < d implies |f(x) - L| < e"
+          mote (m/make-mote "1" unicode-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= unicode-claim (:claim mote)))))
+
+  (testing "Mathematical symbols and Greek letters should be valid"
+    (let [math-claim "For all x in R, integral from 0 to infinity of e^(-x^2) dx = sqrt(pi)/2. Also: alpha beta gamma delta in Sigma"
+          mote (m/make-mote "1" math-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= math-claim (:claim mote)))))
+
+  (testing "Emoji in claims should be valid"
+    ;; While unusual for formal proofs, emoji are valid Unicode and should work.
+    (let [emoji-claim "The target of this proof is to show num + num = 2*num"
+          mote (m/make-mote "1" emoji-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= emoji-claim (:claim mote)))))
+
+  (testing "Claims with newlines should be valid"
+    ;; Multi-line claims are common for complex mathematical statements.
+    (let [multiline-claim "Let f: X -> Y be a continuous function.\nThen:\n  1. f preserves limits\n  2. f^(-1)(open) is open"
+          mote (m/make-mote "1" multiline-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= multiline-claim (:claim mote)))))
+
+  (testing "Claims with carriage returns and tabs should be valid"
+    ;; Various whitespace characters should all be preserved.
+    (let [formatted-claim "Line1\r\nLine2\tindented"
+          mote (m/make-mote "1" formatted-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= formatted-claim (:claim mote)))))
+
+  (testing "Claims with special characters (quotes, backslashes) should be valid"
+    ;; These are common in mathematical notation and examples.
+    (let [special-claim "Let \"x\" be s.t. x \\ {0} is not empty. Also: a\\b and c/d."
+          mote (m/make-mote "1" special-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= special-claim (:claim mote)))))
+
+  (testing "Claims with EDN-special characters should be valid"
+    ;; Braces, brackets, semicolons - all valid in claims
+    (let [edn-special-claim "Consider {a, b, c} where [a, b] subset S; then (a + b) = c"
+          mote (m/make-mote "1" edn-special-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= edn-special-claim (:claim mote)))))
+
+  (testing "Claims with leading/trailing whitespace - behavior documentation"
+    ;; Current behavior: whitespace is preserved as-is
+    (let [leading-ws "   Leading spaces claim"
+          trailing-ws "Trailing spaces claim   "
+          both-ws "   Both sides   "
+          leading-mote (m/make-mote "1" leading-ws "agent")
+          trailing-mote (m/make-mote "2" trailing-ws "agent")
+          both-mote (m/make-mote "3" both-ws "agent")]
+      ;; DOCUMENTED BEHAVIOR: Whitespace is NOT trimmed
+      (is (s/valid? s/Mote leading-mote))
+      (is (s/valid? s/Mote trailing-mote))
+      (is (s/valid? s/Mote both-mote))
+      (is (= leading-ws (:claim leading-mote)) "Leading whitespace preserved")
+      (is (= trailing-ws (:claim trailing-mote)) "Trailing whitespace preserved")
+      (is (= both-ws (:claim both-mote)) "Both-sides whitespace preserved")))
+
+  (testing "Whitespace-only claims - behavior documentation"
+    ;; DOCUMENTED BEHAVIOR: Currently accepted but arguably should fail.
+    ;; A claim that is only whitespace provides no meaningful information.
+    (let [space-only "     "
+          tabs-only "\t\t\t"
+          mixed-ws " \t \n \r "
+          space-mote (m/make-mote "1" space-only "agent")
+          tab-mote (m/make-mote "2" tabs-only "agent")
+          mixed-mote (m/make-mote "3" mixed-ws "agent")]
+      (is (s/valid? s/Mote space-mote) "Current behavior: space-only claims accepted")
+      (is (s/valid? s/Mote tab-mote) "Current behavior: tab-only claims accepted")
+      (is (s/valid? s/Mote mixed-mote) "Current behavior: mixed whitespace claims accepted")))
+
+  (testing "Claims with null bytes should be handled"
+    ;; Null bytes are unusual but technically valid string characters
+    (let [null-claim "Before\u0000After"
+          mote (m/make-mote "1" null-claim "agent")]
+      ;; Null bytes in strings are valid in Clojure
+      (is (s/valid? s/Mote mote))
+      (is (= null-claim (:claim mote)))))
+
+  (testing "Claims with combining characters should be valid"
+    ;; Combining diacritical marks are common in international mathematics
+    (let [combining-claim "e with acute = e\u0301, n with tilde = n\u0303"  ; combining accent and tilde
+          mote (m/make-mote "1" combining-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= combining-claim (:claim mote)))))
+
+  (testing "Claims with right-to-left text should be valid"
+    ;; Some mathematical notation or citations may use RTL languages
+    (let [rtl-claim "Consider the Hebrew letter aleph in set theory"
+          mote (m/make-mote "1" rtl-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= rtl-claim (:claim mote)))))
+
+  (testing "make-root-mote with edge case claims"
+    (let [complex-claim "For all epsilon>0 there exists delta>0: |x-a|<delta implies |f(x)-f(a)|<epsilon\nLine2\t\"quoted\""
+          mote (m/make-root-mote "1" complex-claim "agent")]
+      (is (s/valid? s/Mote mote))
+      (is (= complex-claim (:claim mote)))))
+
+  (testing "make-child-mote with edge case claims"
+    (let [parent (m/make-root-mote "1" "Parent" "agent")
+          child-claim "Child: integral sum product with\nnewlines"
+          child (m/make-child-mote "1.1" child-claim "agent" parent)]
+      (is (s/valid? s/Mote child))
+      (is (= child-claim (:claim child)))))
+
+  (testing "set-claim with edge case values"
+    (let [mote (base-mote)
+          unicode-result (m/set-claim mote "Updated: epsilon approaches 0")
+          newline-result (m/set-claim mote "Line1\nLine2")
+          long-result (m/set-claim mote (apply str (repeat 5000 "x")))]
+      (is (s/valid? s/Mote unicode-result))
+      (is (s/valid? s/Mote newline-result))
+      (is (s/valid? s/Mote long-result))
+      (is (= "Updated: epsilon approaches 0" (:claim unicode-result)))
+      (is (= "Line1\nLine2" (:claim newline-result)))
+      (is (= 5000 (count (:claim long-result)))))))

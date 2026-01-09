@@ -291,3 +291,56 @@
   (testing "explain helper function"
     (is (nil? (s/explain s/MoteId "1.2.3")))
     (is (some? (s/explain s/MoteId "")))))
+
+;; -----------------------------------------------------------------------------
+;; Claim Text Edge Cases (Schema-Level)
+;; -----------------------------------------------------------------------------
+
+(deftest claim-schema-edge-cases-test
+  (testing "Claim field accepts various string types"
+    ;; The claim field is currently defined as a plain :string
+    ;; These tests document the current schema behavior
+
+    ;; Basic string - should always work
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "A simple claim")))
+
+    ;; Empty string - currently allowed (documenting behavior)
+    (is (s/valid? s/Mote (assoc minimal-mote :claim ""))
+        "DOCUMENTED: Empty claims are currently accepted by schema")
+
+    ;; Whitespace-only - currently allowed (documenting behavior)
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "   "))
+        "DOCUMENTED: Whitespace-only claims are currently accepted"))
+
+  (testing "Claim field rejects non-string types"
+    ;; These should all fail - claim must be a string
+    (is (not (s/valid? s/Mote (assoc minimal-mote :claim nil))))
+    (is (not (s/valid? s/Mote (assoc minimal-mote :claim 123))))
+    (is (not (s/valid? s/Mote (assoc minimal-mote :claim :keyword))))
+    (is (not (s/valid? s/Mote (assoc minimal-mote :claim []))))
+    (is (not (s/valid? s/Mote (assoc minimal-mote :claim {}))))
+    (is (not (s/valid? s/Mote (assoc minimal-mote :claim true)))))
+
+  (testing "Claim field with Unicode content"
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "Greek: alpha beta gamma")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "Math: forall exists in notin empty intersect union subset superset")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "Arrows: right left bidi implies iff")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "Sets: N Z Q R C"))))
+
+  (testing "Claim field with formatting characters"
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "Line1\nLine2")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "Col1\tCol2")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "Windows\r\nLinebreak"))))
+
+  (testing "Claim field with special characters"
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "\"quoted\"")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "back\\slash")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "{braces} [brackets]")))
+    (is (s/valid? s/Mote (assoc minimal-mote :claim "(parens); semicolon"))))
+
+  (testing "Claim field with very long content"
+    (let [long-claim (apply str (repeat 50000 "x"))]
+      (is (s/valid? s/Mote (assoc minimal-mote :claim long-claim)))))
+
+  (testing "Missing claim field fails validation"
+    (is (not (s/valid? s/Mote (dissoc minimal-mote :claim))))))

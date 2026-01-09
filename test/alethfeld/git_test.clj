@@ -88,7 +88,7 @@
     (git/git-add! *temp-dir* "test.txt")
     (git/git-commit! *temp-dir* "Initial commit")
     ;; Check we're on trunk branch
-    (let [config (git/git-config *temp-dir* "init.defaultBranch")]
+    (let [_config (git/git-config *temp-dir* "init.defaultBranch")]
       ;; The branch name should be trunk (visible in git branch output)
       (is (fs/exists? (str *temp-dir* "/.git/refs/heads/trunk"))))))
 
@@ -249,7 +249,7 @@
     (git/git-commit! *temp-dir* "First")
     ;; Try to commit again with no changes
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
-          (git/git-commit! *temp-dir* "Second")))))
+                          (git/git-commit! *temp-dir* "Second")))))
 
 (deftest git-commit-allow-empty-test
   (testing "Allow empty commits"
@@ -387,7 +387,7 @@
   (testing "Throws when no remote configured"
     (init-test-repo)
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No remote configured"
-          (git/git-pull! *temp-dir*)))))
+                          (git/git-pull! *temp-dir*)))))
 
 ;; =============================================================================
 ;; git-push! Tests
@@ -397,7 +397,7 @@
   (testing "Throws when no remote configured"
     (init-test-repo)
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No remote configured"
-          (git/git-push! *temp-dir*)))))
+                          (git/git-push! *temp-dir*)))))
 
 ;; =============================================================================
 ;; Integration Tests
@@ -448,3 +448,251 @@
       (is (some #(= "readme.md" %) (:untracked status)))
       ;; .alethfeld files should be committed
       (is (not (some #(str/includes? % ".alethfeld") (:staged status)))))))
+
+;; =============================================================================
+;; Error/Failure Scenario Tests
+;; =============================================================================
+
+;; -----------------------------------------------------------------------------
+;; Non-Git Directory Failures
+;; -----------------------------------------------------------------------------
+
+(deftest git-status-non-git-dir-throws-test
+  (testing "git-status on non-git directory throws"
+    ;; *temp-dir* is NOT initialized as a git repo
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-status *temp-dir*)))
+    ;; Verify the exception info contains useful data
+    (try
+      (git/git-status *temp-dir*)
+      (catch clojure.lang.ExceptionInfo e
+        (let [data (ex-data e)]
+          (is (= :git-error (:type data)))
+          (is (string? (:stderr data)))
+          (is (not= 0 (:exit data))))))))
+
+(deftest git-add-non-git-dir-throws-test
+  (testing "git-add! on non-git directory throws"
+    ;; Create a file but don't init git
+    (create-file "test.txt" {:data "test"})
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-add! *temp-dir* "test.txt")))))
+
+(deftest git-add-all-non-git-dir-throws-test
+  (testing "git-add-all! on non-git directory throws"
+    ;; Create .alethfeld directory but don't init git
+    (create-alethfeld-file "config.edn" {:project "Test"})
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-add-all! *temp-dir*)))))
+
+(deftest git-commit-non-git-dir-throws-test
+  (testing "git-commit! on non-git directory throws"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-commit! *temp-dir* "Test commit")))))
+
+(deftest git-log-non-git-dir-returns-nil-test
+  (testing "git-log on non-git directory returns nil (not throws)"
+    ;; Note: git-log calls git-has-commits? first with :check false
+    ;; So on a non-git directory, git-has-commits? returns false
+    ;; and git-log returns nil without calling git log
+    ;; Documenting the actual behavior
+    (is (nil? (git/git-log *temp-dir*)))))
+
+(deftest git-has-commits-non-git-dir-returns-false-test
+  (testing "git-has-commits? on non-git directory returns false"
+    ;; Note: This uses :check false internally, so it returns false instead of throwing
+    ;; Documenting the actual behavior
+    (is (false? (git/git-has-commits? *temp-dir*)))))
+
+(deftest git-config-set-non-git-dir-throws-test
+  (testing "git-config! on non-git directory throws"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-config! *temp-dir* "user.name" "Test")))))
+
+(deftest git-config-get-non-git-dir-returns-global-test
+  (testing "git-config (get) on non-git directory returns global config or nil"
+    ;; Note: Uses :check false, so it doesn't throw
+    ;; Git will return global config values if they exist
+    ;; The behavior depends on whether global git config is set
+    ;; We just verify it doesn't throw and returns something (or nil)
+    (let [result (git/git-config *temp-dir* "user.name")]
+      (is (or (nil? result) (string? result))))))
+
+;; -----------------------------------------------------------------------------
+;; git-commit! Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest git-commit-no-staged-changes-throws-test
+  (testing "git-commit! with unstaged changes but nothing staged throws"
+    (init-test-repo)
+    ;; Create initial commit
+    (create-file "test.txt" {:data "test"})
+    (git/git-add! *temp-dir* "test.txt")
+    (git/git-commit! *temp-dir* "Initial")
+    ;; Create changes but don't stage them
+    (create-file "new.txt" {:data "new"})
+    ;; Verify unstaged changes exist
+    (let [status (git/git-status *temp-dir*)]
+      (is (seq (:untracked status))))
+    ;; Commit should fail - nothing staged
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-commit! *temp-dir* "Should fail")))))
+
+(deftest git-commit-allow-empty-on-fresh-repo-test
+  (testing "git-commit! with :allow-empty on fresh repo (no prior commits)"
+    (init-test-repo)
+    ;; Empty commit on repo with no commits should work
+    (let [result (git/git-commit! *temp-dir* "Empty initial" :allow-empty true)]
+      (is (string? (:sha result)))
+      (is (= "Empty initial" (:message result)))
+      ;; Verify commit exists
+      (is (true? (git/git-has-commits? *temp-dir*))))))
+
+(deftest git-commit-allow-empty-multiple-times-test
+  (testing "Multiple :allow-empty commits in sequence"
+    (init-test-repo)
+    (git/git-commit! *temp-dir* "Empty 1" :allow-empty true)
+    (git/git-commit! *temp-dir* "Empty 2" :allow-empty true)
+    (git/git-commit! *temp-dir* "Empty 3" :allow-empty true)
+    (let [log (git/git-log *temp-dir*)]
+      (is (= 3 (count log)))
+      (is (= "Empty 3" (:message (first log))))
+      (is (= "Empty 1" (:message (last log)))))))
+
+(deftest git-commit-empty-message-throws-test
+  (testing "git-commit! with empty message string throws"
+    (init-test-repo)
+    (create-file "test.txt" {:data "test"})
+    (git/git-add! *temp-dir* "test.txt")
+    ;; Git rejects empty commit messages
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-commit! *temp-dir* "")))))
+
+;; -----------------------------------------------------------------------------
+;; git-init! Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest git-init-double-init-preserves-state-test
+  (testing "Double git-init! preserves existing commits and config"
+    (git/git-init! *temp-dir*)
+    (git/git-config! *temp-dir* "user.name" "First User")
+    (git/git-config! *temp-dir* "user.email" "first@example.com")
+    (create-file "test.txt" {:data "test"})
+    (git/git-add! *temp-dir* "test.txt")
+    (git/git-commit! *temp-dir* "First commit")
+    ;; Call init again - should be no-op
+    (git/git-init! *temp-dir*)
+    ;; Verify state preserved
+    (is (= "First User" (git/git-config *temp-dir* "user.name")))
+    (is (true? (git/git-has-commits? *temp-dir*)))
+    (let [log (git/git-log *temp-dir*)]
+      (is (= 1 (count log)))
+      (is (= "First commit" (:message (first log)))))))
+
+(deftest git-init-on-nested-non-existent-path-test
+  (testing "git-init! creates parent directories if needed"
+    (let [nested-path (str *temp-dir* "/deep/nested/repo")]
+      (git/git-init! nested-path)
+      (is (fs/directory? (str nested-path "/.git"))))))
+
+(deftest git-init-different-branch-names-test
+  (testing "git-init! with various branch names"
+    (doseq [branch-name ["main" "master" "trunk" "develop" "my-branch"]]
+      (let [repo-path (str (fs/create-temp-dir {:prefix "git-init-branch-"}))]
+        (try
+          (git/git-init! repo-path :initial-branch branch-name)
+          (git/git-config! repo-path "user.name" "Test")
+          (git/git-config! repo-path "user.email" "test@example.com")
+          ;; Write file directly using spit (not our create-file helper which uses a different path)
+          (spit (str repo-path "/test.txt") "{:data \"test\"}")
+          ;; Use relative path for git add
+          (git/git-add! repo-path "test.txt")
+          (git/git-commit! repo-path "Initial")
+          ;; Verify branch was created
+          (is (fs/exists? (str repo-path "/.git/refs/heads/" branch-name))
+              (str "Branch " branch-name " should exist"))
+          (finally
+            (fs/delete-tree repo-path)))))))
+
+;; -----------------------------------------------------------------------------
+;; git-log Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest git-log-on-repo-with-no-commits-returns-nil-test
+  (testing "git-log returns nil on initialized repo with no commits"
+    (init-test-repo)
+    ;; Repo is initialized but has no commits
+    (is (nil? (git/git-log *temp-dir*)))
+    ;; Also verify git-has-commits? returns false
+    (is (false? (git/git-has-commits? *temp-dir*)))))
+
+(deftest git-log-path-filter-nonexistent-file-test
+  (testing "git-log with path filter for non-existent file returns empty"
+    (init-test-repo)
+    (create-file "test.txt" {:data "test"})
+    (git/git-add! *temp-dir* "test.txt")
+    (git/git-commit! *temp-dir* "Initial")
+    ;; Filter by path that was never committed
+    (let [log (git/git-log *temp-dir* :path "nonexistent.txt")]
+      (is (empty? log)))))
+
+(deftest git-log-max-count-zero-test
+  (testing "git-log with max-count 0 returns empty"
+    (init-test-repo)
+    (create-file "test.txt" {:data "test"})
+    (git/git-add! *temp-dir* "test.txt")
+    (git/git-commit! *temp-dir* "Initial")
+    (let [log (git/git-log *temp-dir* :max-count 0)]
+      (is (empty? log)))))
+
+;; -----------------------------------------------------------------------------
+;; git-add! Edge Cases
+;; -----------------------------------------------------------------------------
+
+(deftest git-add-empty-paths-vector-test
+  (testing "git-add! with empty paths vector is no-op"
+    (init-test-repo)
+    ;; Should not throw
+    (is (= *temp-dir* (git/git-add! *temp-dir* [])))))
+
+(deftest git-add-nonexistent-file-throws-test
+  (testing "git-add! with non-existent file throws"
+    (init-test-repo)
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-add! *temp-dir* "does-not-exist.txt")))))
+
+(deftest git-add-all-empty-alethfeld-dir-test
+  (testing "git-add-all! with empty .alethfeld directory"
+    (init-test-repo)
+    ;; Create empty .alethfeld directory
+    (fs/create-dirs (str *temp-dir* "/.alethfeld"))
+    ;; Should not throw, but there's nothing to add
+    (is (= *temp-dir* (git/git-add-all! *temp-dir*)))))
+
+(deftest git-add-all-no-alethfeld-dir-throws-test
+  (testing "git-add-all! with no .alethfeld directory throws"
+    (init-test-repo)
+    ;; No .alethfeld directory exists
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Git command failed"
+                          (git/git-add-all! *temp-dir*)))))
+
+;; -----------------------------------------------------------------------------
+;; Exception Data Verification
+;; -----------------------------------------------------------------------------
+
+(deftest git-error-exception-data-test
+  (testing "Git errors include useful exception data"
+    (init-test-repo)
+    (try
+      ;; Try to add a non-existent file
+      (git/git-add! *temp-dir* "nonexistent.txt")
+      (is false "Should have thrown")
+      (catch clojure.lang.ExceptionInfo e
+        (let [data (ex-data e)]
+          (is (= :git-error (:type data)))
+          (is (string? (:command data)))
+          (is (str/includes? (:command data) "git add"))
+          (is (integer? (:exit data)))
+          (is (not= 0 (:exit data)))
+          (is (string? (:stderr data)))
+          (is (string? (:stdout data))))))))

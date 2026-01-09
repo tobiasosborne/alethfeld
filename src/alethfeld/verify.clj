@@ -33,6 +33,51 @@
     {positive-key (count (filter #(= positive-key (:vote %)) votes))
      negative-key (count (filter #(= negative-key (:vote %)) votes))}))
 
+(defn check-quorum-generic
+  "Generic quorum checker that can be parameterized for different voting contexts.
+
+   Arguments:
+   - votes: Map with vote counts keyed by the positive/negative keys
+   - quorum: Number of votes needed to reach quorum
+   - opts: Map with keys:
+     - :positive-key - The key for positive votes (e.g., :for, :approve)
+     - :negative-key - The key for negative votes (e.g., :against, :reject)
+     - :positive-result - Result when positive votes reach quorum (e.g., :verified, :approved)
+     - :negative-result - Result when negative votes reach quorum (e.g., :refuted, :rejected)
+     - :contested-result - Result when mixed votes reach quorum (nil if no contested state)
+     - :pending-result - Result when quorum not yet reached (default :pending)
+
+   Returns the appropriate result keyword based on vote counts and quorum.
+
+   Behavior:
+   - If positive >= quorum AND negative == 0: returns positive-result
+   - If negative >= quorum AND positive == 0: returns negative-result
+   - If total >= quorum AND both positive and negative > 0:
+     - Returns contested-result if provided
+     - Returns pending-result if contested-result is nil
+   - If total < quorum: returns pending-result"
+  [votes quorum {:keys [positive-key negative-key
+                        positive-result negative-result
+                        contested-result pending-result]
+                 :or {pending-result :pending}}]
+  (let [positive (get votes positive-key 0)
+        negative (get votes negative-key 0)
+        total (+ positive negative)]
+    (cond
+      ;; Not enough votes yet
+      (< total quorum) pending-result
+      ;; Unanimous positive
+      (and (>= positive quorum) (zero? negative)) positive-result
+      ;; Unanimous negative
+      (and (>= negative quorum) (zero? positive)) negative-result
+      ;; Mixed votes with enough total
+      (and (>= total quorum) contested-result) contested-result
+      ;; Mixed votes but no contested state - check if either side has quorum
+      (>= positive quorum) positive-result
+      (>= negative quorum) negative-result
+      ;; Default pending
+      :else pending-result)))
+
 (defn count-verification-votes
   "Count for and against votes on a mote.
    Returns {:for n :against m}."
@@ -52,19 +97,15 @@
    - :contested if both for AND against votes exist AND total >= quorum
    - :pending if total votes < quorum"
   [mote quorum]
-  (let [{:keys [for against]} (count-verification-votes mote)
-        total (+ for against)]
-    (cond
-      ;; Not enough votes yet
-      (< total quorum) :pending
-      ;; Unanimous for
-      (and (>= for quorum) (zero? against)) :verified
-      ;; Unanimous against
-      (and (>= against quorum) (zero? for)) :refuted
-      ;; Mixed votes with enough total
-      (>= total quorum) :contested
-      ;; Default pending
-      :else :pending)))
+  (check-quorum-generic
+   (count-verification-votes mote)
+   quorum
+   {:positive-key :for
+    :negative-key :against
+    :positive-result :verified
+    :negative-result :refuted
+    :contested-result :contested
+    :pending-result :pending}))
 
 (defn has-voted?
   "Check if an agent has already voted on this mote."

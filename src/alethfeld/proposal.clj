@@ -32,13 +32,17 @@
    Returns:
    - :approved if approve votes >= quorum
    - :rejected if reject votes >= quorum
-   - :pending if neither"
+   - :pending if neither (no contested state for proposals)"
   [proposal quorum]
-  (let [{:keys [approve reject]} (count-votes proposal)]
-    (cond
-      (>= approve quorum) :approved
-      (>= reject quorum) :rejected
-      :else :pending)))
+  (verify/check-quorum-generic
+   (count-votes proposal)
+   quorum
+   {:positive-key :approve
+    :negative-key :reject
+    :positive-result :approved
+    :negative-result :rejected
+    :contested-result nil  ; proposals don't have contested state
+    :pending-result :pending}))
 
 (defn has-voted?
   "Check if an agent has already voted on a proposal."
