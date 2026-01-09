@@ -362,6 +362,17 @@
                           :missing "Session token is required"]]
                :requires-id true}
 
+   "tree" {:description "Display mote tree"
+           :usage "af tree <id> [--depth N]"
+           :options [["-d" "--depth N" "Maximum depth to display"
+                      :parse-fn #(Integer/parseInt %)
+                      :validate [pos? "Must be positive"]]]
+           :requires-id true}
+
+   "status" {:description "Display project status summary"
+             :usage "af status"
+             :options []}
+
    "help" {:description "Show help"
            :usage "af help [command]"
            :options []}})
