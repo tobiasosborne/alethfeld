@@ -1,43 +1,29 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Parallel Subagent Swarming
-**Session status:** 3 issues closed via parallel agents - ALL TESTS PASSING
+**Last session:** o137 Completion (Post-Swarming)
+**Session status:** o137 completed - 4 issues total from swarming session - ALL TESTS PASSING
 
 ---
 
 ## Session Summary
 
-This session attempted parallel subagent swarming on 4 issues with branch isolation:
+Completed the remaining o137 task that was lost during parallel subagent swarming:
 
-### Completed
+### Completed This Session
+4. **alethfeld-o137** (7.10) - Remove --atomic flag from propose command
+   - Removed `!` notation parsing from `parse-claims`
+   - Removed `--atomic` CLI option (already done on main)
+   - Simplified `merge-option-claims` to not handle atomics
+   - Updated tests to not use atomic notation
+   - Commit: `a1eb96b`
+
+### Previously Completed (Swarming Session)
 1. **alethfeld-jtsz** (v0.2-6.1) - Make `af help` show same output as `af --help`
-   - Modified `cli.clj` and `cli_test.clj`
-   - Commit: `3332115`
-
 2. **alethfeld-q02u** (7.8) - Add `:taint-remove` permission to verifier role
-   - Verifiers can now remove taints for workflow control
-   - Modified `session.clj`, `session_test.clj`, `enforce_test.clj`
-   - Commit: `dae9cd7`
+3. **alethfeld-sowp** - Add comprehensive error path testing
 
-3. **alethfeld-sowp** - Add comprehensive error path testing (~30% gap)
-   - Created `error_paths_test.clj` with 35 tests, 789 lines
-   - Commit: `199fcdf`
-
-### Not Completed (Race Condition Interference)
-- **alethfeld-o137** (7.10) - Remove --atomic flag
-  - Agent work was lost due to git branch interference between parallel agents
-
-### Race Condition Analysis
-When 4 subagents ran simultaneously on separate branches, they experienced:
-- `git checkout` operations interfering with each other's working directory
-- Commits going to wrong branches
-- Branch state becoming inconsistent
-- Work needing manual recovery
-
-**Lesson:** Parallel git operations are NOT safe without true isolation (separate worktrees or repos).
-
-**Tests:** 1,126 tests, 6,614 assertions, 0 failures
+**Tests:** 1,130 tests, 6,691 assertions, 0 failures
 
 ---
 
@@ -48,17 +34,8 @@ When 4 subagents ran simultaneously on separate branches, they experienced:
 | Source | State |
 |--------|-------|
 | **`docs/V02-REVISION-PLAN.md`** | Canonical plan |
-| **Beads issues** | Phase 7 core (7.1-7.6) CLOSED |
+| **Beads issues** | Phase 7 core (7.1-7.6, 7.8, 7.10) CLOSED |
 | **Codebase** | Verifier-first workflow implemented |
-
-### Issue Stats
-
-```
-Closed this session:  6 (Phase 7.1-7.6)
-Open:                 ~28
-Ready to work:        ~25
-Blocked:              ~3
-```
 
 ---
 
@@ -67,12 +44,7 @@ Blocked:              ~3
 ### Phase 7 Remaining (P2 Medium)
 
 - `alethfeld-b5wf` - 7.7 Verifier CLI commands
-- `alethfeld-q02u` - 7.8 Permission boundaries
-- `alethfeld-o137` - 7.10 Remove --atomic flag (touches CLI + tests)
-
-### Phase 7 Test Updates
-
-- `alethfeld-iqsd` - 7.12 tests may now be unblocked
+- `alethfeld-iqsd` - 7.12 tests (may now be unblocked)
 
 ### Other Ready Work
 
@@ -84,7 +56,7 @@ Run `bd ready` for current unblocked issues.
 
 ```bash
 # Check project health
-clj -M:test              # 1098 tests, all passing
+clj -M:test              # 1130 tests, all passing
 bd stats                 # Issue counts
 bd ready                 # Available work
 
@@ -104,7 +76,7 @@ bd list --status=open | grep "7\."
 | `src/alethfeld/store.clj` | Quorums default to 1 |
 | `src/alethfeld/verify.clj` | Vote quorum fallback to 1 |
 | `src/alethfeld/cmd/config.clj` | Config defaults to 1 |
-| `src/alethfeld/cmd/proposal.clj` | Proposal quorum fallback to 1 |
+| `src/alethfeld/cmd/proposal.clj` | Removed atomic notation, quorum fallback to 1 |
 | `src/alethfeld/cmd/voting.clj` | Dry-run quorum to 1 |
 | `prompts/verifier.md` | Three-option decision structure |
 
@@ -112,8 +84,8 @@ bd list --status=open | grep "7\."
 
 ## Test Health
 
-- **Total tests:** 1,098
-- **Total assertions:** 6,556
+- **Total tests:** 1,130
+- **Total assertions:** 6,691
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
@@ -125,10 +97,12 @@ Before (v0.1):
 - Decomposition-first: proposers break down claims, then advisors approve
 - Default quorum: 2 (requires consensus)
 - Verifiers act last (verify decomposed atomic claims)
+- `--atomic` flag marked claims as atomic (skip decomposition)
 
 After (v0.2):
 - Verification-first: verifiers evaluate claims first as gatekeepers
 - Default quorum: 1 (single-agent can approve)
+- No `--atomic` flag - all claims get :needs-verification by default
 - Verifiers have three options:
   1. Claim is verifiable as-is (vote for/against)
   2. Claim needs decomposition (request proposer work)
