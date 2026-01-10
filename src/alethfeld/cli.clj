@@ -511,6 +511,14 @@
             :usage "af roles"
             :options []}
 
+   "workflow" {:description "Display the proof workflow steps"
+               :usage "af workflow"
+               :options []}
+
+   "sessions" {:description "List all active sessions"
+               :usage "af sessions [--verbose]"
+               :options [["-v" "--verbose" "Show additional session details"]]}
+
    "help" {:description "Show help"
            :usage "af help [command]"
            :options []}})

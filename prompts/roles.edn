@@ -2,31 +2,37 @@
 ;; Each role has a specific purpose and set of allowed actions
 
 {:proposer
- {:description "Break claims into sub-claims"
+ {:description "Break claims into sub-claims (decomposition)"
   :long-description "Decompose motes into 2-5 substeps that together prove the claim. Each substep must be independently verifiable."
+  :use-when "Mote has 'needs-decomposition' taint"
   :actions #{:propose :add-definition :add-assumption :add-ref :done}}
 
  :advisor
  {:description "Review and approve/reject proposals"
   :long-description "Evaluate proposed decompositions for completeness, exhaustiveness, and mutual exclusivity. Vote to approve or reject."
+  :use-when "Proposal pending approval"
   :actions #{:approve :reject :done}}
 
  :prover
- {:description "Add references and refine claims"
+ {:description "Add references, definitions, assumptions"
   :long-description "Add missing assumptions, external references, and definitions. Ensure claims are precisely stated."
+  :use-when "Mote needs more supporting detail"
   :actions #{:propose :add-definition :add-assumption :add-ref :taint-remove :done}}
 
  :verifier
- {:description "Vote on claim validity"
+ {:description "Vote on whether claims are valid"
   :long-description "Validate that substeps logically entail claims. Check assumptions are justified. Vote for or against."
+  :use-when "Mote has 'needs-verification' taint"
   :actions #{:vote :taint-add :done}}
 
  :ref-checker
- {:description "Validate external references"
+ {:description "Validate external references exist and apply"
   :long-description "Verify external references exist and support claims as stated. Flag misquotations or misattributions."
+  :use-when "Mote has references to check"
   :actions #{:add-ref :taint-remove :done}}
 
  :counterexample
  {:description "Find flaws and counterexamples"
   :long-description "Construct counterexamples and find edge cases where claims fail. Check boundary conditions."
+  :use-when "Adversarial review needed"
   :actions #{:vote :update-status :done}}}

@@ -36,7 +36,9 @@
             [alethfeld.cmd.session :as session]
             [alethfeld.cmd.reference :as reference]
             [alethfeld.cmd.utility :as utility]
-            [alethfeld.cmd.config :as config]))
+            [alethfeld.cmd.config :as config]
+            [alethfeld.cmd.workflow :as workflow]
+            [alethfeld.cmd.sessions :as sessions]))
 
 ;; -----------------------------------------------------------------------------
 ;; Re-exported Commands (for backward compatibility)
@@ -90,6 +92,12 @@
 
 ;; Config
 (def cmd-config config/cmd-config)
+
+;; Workflow
+(def cmd-workflow workflow/cmd-workflow)
+
+;; Sessions
+(def cmd-sessions sessions/cmd-sessions)
 
 ;; -----------------------------------------------------------------------------
 ;; Private helpers re-exported for tests
@@ -155,7 +163,9 @@
   (cli/register-handler! "sync" cmd-sync!)
   (cli/register-handler! "config" cmd-config)
   (cli/register-handler! "tree" cmd-tree)
-  (cli/register-handler! "status" cmd-status))
+  (cli/register-handler! "status" cmd-status)
+  (cli/register-handler! "workflow" cmd-workflow)
+  (cli/register-handler! "sessions" cmd-sessions))
 
 ;; Auto-register handlers when namespace is loaded
 (register-handlers!)

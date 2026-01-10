@@ -924,3 +924,148 @@
     (is (= :verified (:status (store/load-mote *test-repo* "1"))))
     (is (= :verified (:status (store/load-mote *test-repo* "2"))))
     (is (= :verified (:status (store/load-mote *test-repo* "3"))))))
+
+;; -----------------------------------------------------------------------------
+;; Non-Standard Vote Quorum Configuration Tests
+;; -----------------------------------------------------------------------------
+
+(deftest vote-quorum-1-single-verifier-test
+  (testing "vote-quorum=1 verifies with single vote"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    (create-test-mote! "1" "Simple claim")
+    (let [result (verify/cast-vote! *test-repo* "1" "solo-verifier" :for)
+          {:keys [quorum-status new-status]} (:result result)]
+      (is (= :verified quorum-status))
+      (is (= :verified new-status))
+      ;; Verify mote state
+      (let [m (store/load-mote *test-repo* "1")]
+        (is (= :verified (:status m)))
+        (is (= 1 (count (:votes m))))))))
+
+(deftest vote-quorum-1-single-refutation-test
+  (testing "vote-quorum=1 refutes with single against vote"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 1})
+    (create-test-mote! "1" "Flawed claim")
+    (let [result (verify/cast-vote! *test-repo* "1" "solo-verifier" :against
+                                     :reason "Found error")
+          {:keys [quorum-status new-status]} (:result result)]
+      (is (= :refuted quorum-status))
+      (is (= :refuted new-status))
+      (let [m (store/load-mote *test-repo* "1")]
+        (is (= :refuted (:status m)))))))
+
+(deftest vote-quorum-3-requires-three-votes-test
+  (testing "vote-quorum=3 requires three matching votes"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 3})
+    (create-test-mote! "1" "Needs three verifiers")
+    ;; First two votes are pending
+    (let [r1 (verify/cast-vote! *test-repo* "1" "verifier-1" :for)]
+      (is (= :pending (:quorum-status (:result r1))))
+      (is (= :fixed (:new-status (:result r1)))))
+    (let [r2 (verify/cast-vote! *test-repo* "1" "verifier-2" :for)]
+      (is (= :pending (:quorum-status (:result r2)))))
+    ;; Third vote reaches quorum
+    (let [r3 (verify/cast-vote! *test-repo* "1" "verifier-3" :for)]
+      (is (= :verified (:quorum-status (:result r3))))
+      (is (= :verified (:new-status (:result r3)))))
+    ;; Verify final state
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :verified (:status m)))
+      (is (= 3 (count (:votes m)))))))
+
+(deftest vote-quorum-5-requires-five-votes-test
+  (testing "vote-quorum=5 requires five matching votes for verification"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 5})
+    (create-test-mote! "1" "High-stakes claim")
+    ;; First four votes are pending
+    (doseq [i (range 1 5)]
+      (let [result (verify/cast-vote! *test-repo* "1" (str "verifier-" i) :for)]
+        (is (= :pending (:quorum-status (:result result)))
+            (str "Vote " i " should be pending"))))
+    ;; Fifth vote reaches quorum
+    (let [r5 (verify/cast-vote! *test-repo* "1" "verifier-5" :for)]
+      (is (= :verified (:quorum-status (:result r5)))))
+    ;; Verify final state
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :verified (:status m)))
+      (is (= 5 (count (:votes m)))))))
+
+(deftest vote-quorum-10-requires-ten-votes-test
+  (testing "vote-quorum=10 requires ten matching votes"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 10})
+    (create-test-mote! "1" "Critical theorem")
+    ;; First nine votes are pending
+    (doseq [i (range 1 10)]
+      (let [result (verify/cast-vote! *test-repo* "1" (str "verifier-" i) :for)]
+        (is (= :pending (:quorum-status (:result result)))
+            (str "Vote " i " should be pending"))))
+    ;; Tenth vote reaches quorum
+    (let [r10 (verify/cast-vote! *test-repo* "1" "verifier-10" :for)]
+      (is (= :verified (:quorum-status (:result r10)))))
+    (is (= :verified (:status (store/load-mote *test-repo* "1"))))))
+
+(deftest vote-quorum-3-refutation-test
+  (testing "vote-quorum=3 refutation requires three against votes"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 3})
+    (create-test-mote! "1" "Incorrect claim")
+    ;; First two against votes are pending
+    (let [r1 (verify/cast-vote! *test-repo* "1" "verifier-1" :against)]
+      (is (= :pending (:quorum-status (:result r1)))))
+    (let [r2 (verify/cast-vote! *test-repo* "1" "verifier-2" :against)]
+      (is (= :pending (:quorum-status (:result r2)))))
+    ;; Third vote reaches quorum for refutation
+    (let [r3 (verify/cast-vote! *test-repo* "1" "verifier-3" :against)]
+      (is (= :refuted (:quorum-status (:result r3))))
+      (is (= :refuted (:new-status (:result r3)))))
+    (is (= :refuted (:status (store/load-mote *test-repo* "1"))))))
+
+(deftest vote-quorum-exact-boundary-for-test
+  (testing "quorum boundary - verified at exact quorum"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 4})
+    (create-test-mote! "1" "Test claim")
+    ;; Cast exactly 4 votes
+    (doseq [i (range 1 4)]
+      (verify/cast-vote! *test-repo* "1" (str "verifier-" i) :for))
+    (let [r4 (verify/cast-vote! *test-repo* "1" "verifier-4" :for)]
+      (is (= :verified (:quorum-status (:result r4))))
+      (is (= 0 (:votes-needed (verify/verification-status *test-repo* "1")))))))
+
+(deftest vote-quorum-exact-boundary-against-test
+  (testing "quorum boundary - refuted at exact quorum"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 4})
+    (create-test-mote! "1" "Test claim")
+    ;; Cast exactly 4 against votes
+    (doseq [i (range 1 4)]
+      (verify/cast-vote! *test-repo* "1" (str "verifier-" i) :against))
+    (let [r4 (verify/cast-vote! *test-repo* "1" "verifier-4" :against)]
+      (is (= :refuted (:quorum-status (:result r4)))))))
+
+(deftest vote-quorum-cannot-vote-after-quorum-test
+  (testing "cannot vote after quorum is reached - verified"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 2})
+    (create-test-mote! "1" "Test claim")
+    ;; Reach quorum
+    (verify/cast-vote! *test-repo* "1" "verifier-1" :for)
+    (verify/cast-vote! *test-repo* "1" "verifier-2" :for)
+    ;; Try to vote after quorum - should fail because status is now :verified
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"Can only vote on fixed motes"
+                          (verify/cast-vote! *test-repo* "1" "verifier-3" :for)))))
+
+(deftest vote-quorum-5-contested-with-mixed-votes-test
+  (testing "vote-quorum=5 with mixed votes leads to contested"
+    (store/save-config! *test-repo* {:project-name "Test" :vote-quorum 5})
+    (create-test-mote! "1" "Debatable claim")
+    ;; 3 for votes
+    (doseq [i (range 1 4)]
+      (verify/cast-vote! *test-repo* "1" (str "pro-" i) :for))
+    ;; 2 against votes to reach quorum
+    (verify/cast-vote! *test-repo* "1" "con-1" :against)
+    (let [r5 (verify/cast-vote! *test-repo* "1" "con-2" :against)]
+      (is (= :contested (:quorum-status (:result r5))))
+      (is (= :contested (:new-status (:result r5)))))
+    ;; Verify final state
+    (let [m (store/load-mote *test-repo* "1")]
+      (is (= :contested (:status m)))
+      (is (= 5 (count (:votes m))))
+      (is (contains? (:taint m) :needs-votes)))))

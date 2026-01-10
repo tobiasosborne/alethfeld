@@ -900,3 +900,216 @@
       (let [motes (load-all-motes)
             validation (dag/validate-mote-graph motes)]
         (is (:valid? validation))))))
+
+;; =============================================================================
+;; Non-Standard Quorum Configuration Integration Tests
+;; =============================================================================
+
+(deftest mismatched-quorums-proposal-1-vote-5-test
+  (testing "Mismatched quorums: proposal-quorum=1, vote-quorum=5"
+    (init-repo! :proposal-quorum 1 :vote-quorum 5)
+
+    (testing "Create and approve proposal with single vote"
+      (create-root-mote! "1" "Quick approval theorem")
+      (proposal/create-proposal! *temp-dir* "1"
+                                  [{:claim "Child needing heavy verification"}]
+                                  "proposer")
+      ;; Single approval vote promotes immediately
+      (let [result (proposal/approve-proposal! *temp-dir* "1" "solo-advisor")]
+        (is (= :approved (:quorum-status (:result result))))
+        (is (= :fixed (:status (load-mote "1.1"))))))
+
+    (testing "Verification requires 5 votes"
+      ;; Add verification taint
+      (let [mote (load-mote "1.1")
+            updated (mote/add-taint mote :needs-verification)]
+        (store/save-mote! *temp-dir* updated)
+        (git/git-add-all! *temp-dir*)
+        (git/git-commit! *temp-dir* "Add verification taint"))
+
+      ;; First 4 votes are pending
+      (doseq [i (range 1 5)]
+        (let [result (verify/cast-vote! *temp-dir* "1.1" (str "verifier-" i) :for)]
+          (is (= :pending (:quorum-status (:result result)))
+              (str "Vote " i " should be pending"))))
+
+      ;; Fifth vote completes verification
+      (let [result (verify/cast-vote! *temp-dir* "1.1" "verifier-5" :for)]
+        (is (= :verified (:quorum-status (:result result)))))
+
+      (is (= :verified (:status (load-mote "1.1")))))))
+
+(deftest mismatched-quorums-proposal-5-vote-1-test
+  (testing "Mismatched quorums: proposal-quorum=5, vote-quorum=1"
+    (init-repo! :proposal-quorum 5 :vote-quorum 1)
+
+    (testing "Proposal requires 5 votes to approve"
+      (create-root-mote! "1" "Heavy approval theorem")
+      (proposal/create-proposal! *temp-dir* "1"
+                                  [{:claim "Child with quick verification"}]
+                                  "proposer")
+      ;; First 4 votes are pending
+      (doseq [i (range 1 5)]
+        (let [result (proposal/approve-proposal! *temp-dir* "1" (str "advisor-" i))]
+          (is (= :pending (:quorum-status (:result result)))
+              (str "Vote " i " should be pending"))))
+
+      ;; Fifth vote approves
+      (let [result (proposal/approve-proposal! *temp-dir* "1" "advisor-5")]
+        (is (= :approved (:quorum-status (:result result)))))
+
+      (is (= :fixed (:status (load-mote "1.1")))))
+
+    (testing "Verification completes with single vote"
+      ;; Add verification taint
+      (let [mote (load-mote "1.1")
+            updated (mote/add-taint mote :needs-verification)]
+        (store/save-mote! *temp-dir* updated)
+        (git/git-add-all! *temp-dir*)
+        (git/git-commit! *temp-dir* "Add verification taint"))
+
+      (let [result (verify/cast-vote! *temp-dir* "1.1" "solo-verifier" :for)]
+        (is (= :verified (:quorum-status (:result result)))))
+
+      (is (= :verified (:status (load-mote "1.1")))))))
+
+(deftest high-quorum-full-lifecycle-test
+  (testing "Full lifecycle with high quorums (proposal=3, vote=3)"
+    (init-repo! :proposal-quorum 3 :vote-quorum 3)
+
+    (testing "Step 1: Create and propose"
+      (create-root-mote! "1" "Major theorem")
+      (proposal/create-proposal! *temp-dir* "1"
+                                  [{:claim "Lemma A"}
+                                   {:claim "Lemma B"}]
+                                  "proposer")
+      (is (= :proposed (:status (load-mote "1.1"))))
+      (is (= :proposed (:status (load-mote "1.2")))))
+
+    (testing "Step 2: Three advisors approve"
+      (proposal/approve-proposal! *temp-dir* "1" "advisor-1")
+      (proposal/approve-proposal! *temp-dir* "1" "advisor-2")
+      (let [result (proposal/approve-proposal! *temp-dir* "1" "advisor-3")]
+        (is (= :approved (:quorum-status (:result result)))))
+
+      (is (= :fixed (:status (load-mote "1.1"))))
+      (is (= :fixed (:status (load-mote "1.2")))))
+
+    (testing "Step 3: Three verifiers verify each child"
+      ;; Add verification taints
+      (doseq [id ["1.1" "1.2"]]
+        (let [mote (load-mote id)
+              updated (mote/add-taint mote :needs-verification)]
+          (store/save-mote! *temp-dir* updated)))
+      (git/git-add-all! *temp-dir*)
+      (git/git-commit! *temp-dir* "Add verification taints")
+
+      ;; Verify child 1.1 with 3 votes
+      (verify/cast-vote! *temp-dir* "1.1" "verifier-A" :for)
+      (verify/cast-vote! *temp-dir* "1.1" "verifier-B" :for)
+      (let [result (verify/cast-vote! *temp-dir* "1.1" "verifier-C" :for)]
+        (is (= :verified (:quorum-status (:result result)))))
+
+      ;; Verify child 1.2 with 3 votes
+      (verify/cast-vote! *temp-dir* "1.2" "verifier-X" :for)
+      (verify/cast-vote! *temp-dir* "1.2" "verifier-Y" :for)
+      (let [result (verify/cast-vote! *temp-dir* "1.2" "verifier-Z" :for)]
+        (is (= :verified (:quorum-status (:result result)))))
+
+      (is (= :verified (:status (load-mote "1.1"))))
+      (is (= :verified (:status (load-mote "1.2")))))))
+
+(deftest quorum-10-both-types-test
+  (testing "Very high quorum (10) for both proposal and vote"
+    (init-repo! :proposal-quorum 10 :vote-quorum 10)
+
+    (testing "Proposal requires 10 approvals"
+      (create-root-mote! "1" "Critical theorem")
+      (proposal/create-proposal! *temp-dir* "1"
+                                  [{:claim "Mission-critical lemma"}]
+                                  "proposer")
+
+      (doseq [i (range 1 10)]
+        (let [result (proposal/approve-proposal! *temp-dir* "1" (str "advisor-" i))]
+          (is (= :pending (:quorum-status (:result result))))))
+
+      (let [result (proposal/approve-proposal! *temp-dir* "1" "advisor-10")]
+        (is (= :approved (:quorum-status (:result result)))))
+
+      (is (= :fixed (:status (load-mote "1.1")))))
+
+    (testing "Verification requires 10 votes"
+      (let [mote (load-mote "1.1")
+            updated (mote/add-taint mote :needs-verification)]
+        (store/save-mote! *temp-dir* updated)
+        (git/git-add-all! *temp-dir*)
+        (git/git-commit! *temp-dir* "Add verification taint"))
+
+      (doseq [i (range 1 10)]
+        (let [result (verify/cast-vote! *temp-dir* "1.1" (str "verifier-" i) :for)]
+          (is (= :pending (:quorum-status (:result result))))))
+
+      (let [result (verify/cast-vote! *temp-dir* "1.1" "verifier-10" :for)]
+        (is (= :verified (:quorum-status (:result result)))))
+
+      (is (= :verified (:status (load-mote "1.1")))))))
+
+(deftest quorum-exact-equals-vote-count-integration-test
+  (testing "Quorum equals exact vote count in full workflow"
+    (init-repo! :proposal-quorum 3 :vote-quorum 3)
+
+    (testing "Proposal with exactly 3 votes"
+      (create-root-mote! "1" "Theorem")
+      (proposal/create-proposal! *temp-dir* "1" [{:claim "Lemma"}] "proposer")
+
+      (proposal/approve-proposal! *temp-dir* "1" "advisor-1")
+      (proposal/approve-proposal! *temp-dir* "1" "advisor-2")
+      (let [result (proposal/approve-proposal! *temp-dir* "1" "advisor-3")]
+        (is (= :approved (:quorum-status (:result result))))
+        ;; Parent should have no active proposal
+        (is (nil? (:proposal (load-mote "1")))))
+
+      (is (= :fixed (:status (load-mote "1.1")))))
+
+    (testing "Verification with exactly 3 votes"
+      (let [mote (load-mote "1.1")
+            updated (mote/add-taint mote :needs-verification)]
+        (store/save-mote! *temp-dir* updated)
+        (git/git-add-all! *temp-dir*)
+        (git/git-commit! *temp-dir* "Add verification taint"))
+
+      (verify/cast-vote! *temp-dir* "1.1" "verifier-1" :for)
+      (verify/cast-vote! *temp-dir* "1.1" "verifier-2" :for)
+      (let [result (verify/cast-vote! *temp-dir* "1.1" "verifier-3" :for)]
+        (is (= :verified (:quorum-status (:result result))))
+        (is (= 0 (:votes-needed (verify/verification-status *temp-dir* "1.1")))))
+
+      (is (= :verified (:status (load-mote "1.1")))))))
+
+(deftest votes-exceed-quorum-edge-case-test
+  (testing "Edge case: attempting votes after quorum reached"
+    (init-repo! :proposal-quorum 2 :vote-quorum 2)
+
+    (testing "Proposal votes cannot exceed quorum (proposal is resolved)"
+      (create-root-mote! "1" "Test theorem")
+      (proposal/create-proposal! *temp-dir* "1" [{:claim "Lemma"}] "proposer")
+      (proposal/approve-proposal! *temp-dir* "1" "advisor-1")
+      (proposal/approve-proposal! *temp-dir* "1" "advisor-2")
+      ;; Proposal is now resolved
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"No active proposal"
+                            (proposal/approve-proposal! *temp-dir* "1" "advisor-3"))))
+
+    (testing "Verification votes cannot exceed quorum (status changes)"
+      (let [mote (load-mote "1.1")
+            updated (mote/add-taint mote :needs-verification)]
+        (store/save-mote! *temp-dir* updated)
+        (git/git-add-all! *temp-dir*)
+        (git/git-commit! *temp-dir* "Add verification taint"))
+
+      (verify/cast-vote! *temp-dir* "1.1" "verifier-1" :for)
+      (verify/cast-vote! *temp-dir* "1.1" "verifier-2" :for)
+      ;; Now verified, can't vote anymore
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Can only vote on fixed motes"
+                            (verify/cast-vote! *temp-dir* "1.1" "verifier-3" :for))))))

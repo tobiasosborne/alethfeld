@@ -642,6 +642,122 @@
       (let [final-count (count (git/git-log *temp-dir*))]
         (is (> final-count initial-count))))))
 
+;; =============================================================================
+;; Non-Standard Quorum Configuration Tests
+;; =============================================================================
+
+(deftest proposal-quorum-1-single-approval-test
+  (testing "proposal-quorum=1 approves with single vote"
+    (init-repo! :proposal-quorum 1)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child claim"])
+    (let [result (cmd-approve-in-temp! "1" :agent "solo-advisor")]
+      (is (= :approved (:quorum-status result)))
+      (is (= ["1.1"] (:promoted-children result)))
+      ;; Verify child is promoted
+      (let [child (store/load-mote *temp-dir* "1.1")]
+        (is (= :fixed (:status child)))))))
+
+(deftest proposal-quorum-1-single-rejection-test
+  (testing "proposal-quorum=1 rejects with single vote"
+    (init-repo! :proposal-quorum 1)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child claim"])
+    (let [result (cmd-reject-in-temp! "1" :agent "solo-advisor")]
+      (is (= :rejected (:quorum-status result)))
+      (is (= ["1.1"] (:archived-children result)))
+      ;; Verify child is archived
+      (let [child (store/load-mote *temp-dir* "1.1")]
+        (is (= :rejected (:status child)))))))
+
+(deftest proposal-quorum-3-requires-three-approvals-test
+  (testing "proposal-quorum=3 requires three approval votes"
+    (init-repo! :proposal-quorum 3)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child claim"])
+    ;; First two votes are pending
+    (let [r1 (cmd-approve-in-temp! "1" :agent "advisor-1")]
+      (is (= :pending (:quorum-status r1))))
+    (let [r2 (cmd-approve-in-temp! "1" :agent "advisor-2")]
+      (is (= :pending (:quorum-status r2))))
+    ;; Third vote reaches quorum
+    (let [r3 (cmd-approve-in-temp! "1" :agent "advisor-3")]
+      (is (= :approved (:quorum-status r3)))
+      (is (= ["1.1"] (:promoted-children r3))))))
+
+(deftest proposal-quorum-5-requires-five-approvals-test
+  (testing "proposal-quorum=5 requires five approval votes"
+    (init-repo! :proposal-quorum 5)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child 1" "Child 2"])
+    ;; First four votes are pending
+    (doseq [i (range 1 5)]
+      (let [result (cmd-approve-in-temp! "1" :agent (str "advisor-" i))]
+        (is (= :pending (:quorum-status result))
+            (str "Vote " i " should be pending"))))
+    ;; Fifth vote reaches quorum
+    (let [r5 (cmd-approve-in-temp! "1" :agent "advisor-5")]
+      (is (= :approved (:quorum-status r5)))
+      (is (= #{"1.1" "1.2"} (set (:promoted-children r5)))))))
+
+(deftest proposal-quorum-10-requires-ten-approvals-test
+  (testing "proposal-quorum=10 requires ten approval votes"
+    (init-repo! :proposal-quorum 10)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child claim"])
+    ;; First nine votes are pending
+    (doseq [i (range 1 10)]
+      (let [result (cmd-approve-in-temp! "1" :agent (str "advisor-" i))]
+        (is (= :pending (:quorum-status result))
+            (str "Vote " i " should be pending"))))
+    ;; Tenth vote reaches quorum
+    (let [r10 (cmd-approve-in-temp! "1" :agent "advisor-10")]
+      (is (= :approved (:quorum-status r10))))))
+
+(deftest proposal-quorum-3-rejections-test
+  (testing "proposal-quorum=3 rejection requires three votes"
+    (init-repo! :proposal-quorum 3)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child claim"])
+    ;; First two reject votes are pending
+    (let [r1 (cmd-reject-in-temp! "1" :agent "advisor-1")]
+      (is (= :pending (:quorum-status r1))))
+    (let [r2 (cmd-reject-in-temp! "1" :agent "advisor-2")]
+      (is (= :pending (:quorum-status r2))))
+    ;; Third reject vote reaches quorum
+    (let [r3 (cmd-reject-in-temp! "1" :agent "advisor-3")]
+      (is (= :rejected (:quorum-status r3)))
+      (is (= ["1.1"] (:archived-children r3))))))
+
+(deftest proposal-quorum-exact-vote-count-test
+  (testing "quorum equals exact vote count (quorum=4, 4 votes)"
+    (init-repo! :proposal-quorum 4)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child claim"])
+    ;; Cast exactly 4 votes
+    (doseq [i (range 1 4)]
+      (cmd-approve-in-temp! "1" :agent (str "advisor-" i)))
+    (let [r4 (cmd-approve-in-temp! "1" :agent "advisor-4")]
+      (is (= :approved (:quorum-status r4)))
+      ;; Parent should have proposal cleared
+      (let [parent (store/load-mote *temp-dir* "1")]
+        (is (nil? (:proposal parent)))))))
+
+(deftest proposal-quorum-votes-can-exceed-test
+  (testing "votes can exceed quorum threshold - extra votes after quorum"
+    ;; Note: This test verifies behavior when trying to vote after quorum is reached
+    (init-repo! :proposal-quorum 2)
+    (create-mote! "1" "Parent claim")
+    (cmd-propose-in-temp! "1" ["Child claim"])
+    ;; Reach quorum with 2 votes
+    (cmd-approve-in-temp! "1" :agent "advisor-1")
+    (cmd-approve-in-temp! "1" :agent "advisor-2")
+    ;; Proposal is now resolved, further voting should fail
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"No active proposal"
+                          (cmd-approve-in-temp! "1" :agent "advisor-3"))
+        "Cannot vote after quorum is reached and proposal resolved")))
+
 (deftest approve-creates-git-commit-test
   (testing "approve creates git commit"
     (init-repo!)
