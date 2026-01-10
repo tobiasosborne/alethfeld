@@ -316,22 +316,26 @@
    - :max - Maximum number of jobs to return (default: 1)
    - :claim-timeout - Minutes after which claims expire (enables reclaiming stale jobs)
    - :claim-timeout-hours - Hours after which claims expire (takes precedence over :claim-timeout)
+   - :active-reservations - Set of mote IDs to exclude (e.g., reserved motes)
    - :now - Optional java.time.Instant for current time (for testing)
 
    Selection algorithm:
    1. Filter to workable motes (non-terminal status, unclaimed/expired, has role taint)
-   2. Apply role/difficulty/priority filters
-   3. Sort by priority (p0 first), then difficulty (lower first)
-   4. Take first N jobs
-   5. Build Job records for each
+   2. Exclude motes with active reservations
+   3. Apply role/difficulty/priority filters
+   4. Sort by priority (p0 first), then difficulty (lower first)
+   5. Take first N jobs
+   6. Build Job records for each
 
    Returns a vector of Job maps."
-  [motes & {:keys [role difficulty priority max claim-timeout claim-timeout-hours now]
-            :or {max 1}}]
+  [motes & {:keys [role difficulty priority max claim-timeout claim-timeout-hours
+                   active-reservations now]
+            :or {max 1 active-reservations #{}}}]
   (->> (vals motes)
        (filter #(workable? % :claim-timeout claim-timeout
                              :claim-timeout-hours claim-timeout-hours
                              :now now))
+       (remove #(contains? active-reservations (:id %)))
        (filter #(matches-filter? % {:role role :difficulty difficulty :priority priority}))
        (sort job-comparator)
        (take max)

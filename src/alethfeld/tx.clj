@@ -9,7 +9,9 @@
             [alethfeld.io :as io]
             [babashka.fs :as fs])
   (:import [java.util.concurrent.locks ReentrantLock]
-           [java.util.concurrent ConcurrentHashMap]))
+           [java.util.concurrent ConcurrentHashMap]
+           [java.nio.channels FileChannel FileLock]
+           [java.io RandomAccessFile]))
 
 ;; -----------------------------------------------------------------------------
 ;; Repository Locking
@@ -79,25 +81,115 @@
                       (reify java.util.function.Function
                         (apply [_ _] (ReentrantLock.))))))
 
-(defn- with-repo-lock
-  "Execute f while holding the repository lock.
-   Ensures only one transaction runs at a time per repository."
-  [repo-path f]
-  (let [lock (get-repo-lock repo-path)]
-    (.lock lock)
-    (try
-      (f)
-      (finally
-        (.unlock lock)))))
-
 ;; -----------------------------------------------------------------------------
-;; Internal Helpers
+;; Path Helpers (needed before lock functions)
 ;; -----------------------------------------------------------------------------
 
 (defn- alethfeld-dir
   "Get the .alethfeld directory path."
   [repo-path]
   (str repo-path "/.alethfeld"))
+
+(defn- lock-file-path
+  "Get the path to the repository lock file.
+   Returns path to `.alethfeld/lock` for cross-process synchronization."
+  [repo-path]
+  (str (alethfeld-dir repo-path) "/lock"))
+
+;; -----------------------------------------------------------------------------
+;; File Lock Implementation
+;; -----------------------------------------------------------------------------
+
+(defn- ensure-lock-file-parent!
+  "Ensure the parent directory of the lock file exists."
+  [repo-path]
+  (let [dir (alethfeld-dir repo-path)]
+    (when-not (fs/exists? dir)
+      (fs/create-dirs dir))))
+
+(defn- acquire-file-lock!
+  "Acquire a file-based lock for cross-process synchronization.
+
+   Uses tryLock first to check immediate availability. If not available
+   within try-timeout-ms, prints feedback to stderr, then blocks waiting.
+
+   Returns a map with:
+   - :channel - The FileChannel (must be closed to release lock)
+   - :lock - The FileLock object
+   - :raf - The RandomAccessFile
+
+   Throws IOException on filesystem errors."
+  [lock-path try-timeout-ms]
+  (let [lock-file (java.io.File. ^String lock-path)
+        _ (when-let [parent (.getParentFile lock-file)]
+            (when-not (.exists parent)
+              (.mkdirs parent)))
+        raf (RandomAccessFile. lock-file "rw")
+        channel (.getChannel raf)]
+    (try
+      (if-let [file-lock (.tryLock channel)]
+        {:channel channel :raf raf :lock file-lock}
+        (let [start-time (System/currentTimeMillis)
+              deadline (+ start-time try-timeout-ms)]
+          (loop []
+            (if-let [file-lock (.tryLock channel)]
+              {:channel channel :raf raf :lock file-lock}
+              (if (< (System/currentTimeMillis) deadline)
+                (do
+                  (Thread/sleep 10)
+                  (recur))
+                (do
+                  (binding [*out* *err*]
+                    (println "Waiting for repository lock..."))
+                  (let [file-lock (.lock channel)]
+                    {:channel channel :raf raf :lock file-lock})))))))
+      (catch Exception e
+        (try (.close channel) (catch Exception _))
+        (try (.close raf) (catch Exception _))
+        (throw e)))))
+
+(defn- release-file-lock!
+  "Release a file lock and close associated resources."
+  [{:keys [lock channel raf]}]
+  (try
+    (when lock (.release lock))
+    (catch Exception _))
+  (try
+    (when channel (.close channel))
+    (catch Exception _))
+  (try
+    (when raf (.close raf))
+    (catch Exception _)))
+
+(defn- with-repo-lock
+  "Execute f while holding the repository lock.
+
+   Ensures only one transaction runs at a time per repository, both:
+   - Within the same JVM (via ReentrantLock)
+   - Across processes (via OS-level FileLock)
+
+   The ReentrantLock is acquired first to prevent JVM thread contention,
+   then the FileLock is acquired for cross-process safety.
+
+   If the lock cannot be acquired immediately (within 200ms), prints
+   'Waiting for repository lock...' to stderr before blocking."
+  [repo-path f]
+  (let [thread-lock (get-repo-lock repo-path)
+        lock-path (lock-file-path repo-path)]
+    (.lock thread-lock)
+    (try
+      (ensure-lock-file-parent! repo-path)
+      (let [file-lock-info (acquire-file-lock! lock-path 200)]
+        (try
+          (f)
+          (finally
+            (release-file-lock! file-lock-info))))
+      (finally
+        (.unlock thread-lock)))))
+
+;; -----------------------------------------------------------------------------
+;; Internal Helpers
+;; -----------------------------------------------------------------------------
 
 (defn- snapshot-files
   "Take a snapshot of all .edn files in .alethfeld/ for potential rollback.

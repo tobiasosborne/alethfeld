@@ -1,47 +1,63 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Middleware Refactor (Round 9)
-**Session status:** 10 issues closed - ALL TESTS PASSING
+**Last session:** Race Condition Fix (Round 10)
+**Session status:** 12 issues closed - ALL TESTS PASSING
 
 ---
 
 ## Session Summary
 
-Completed the session enforcement middleware refactor (ka8d):
-- Created `alethfeld.middleware` module with `wrap-session-enforcement`
-- Added `command-actions` metadata map defining session requirements
-- Integrated middleware into CLI dispatch layer
-- Migrated 11 `enforce-session!` calls across 4 handler files
-- Added 7 middleware unit tests
+Implemented comprehensive race condition fixes for multi-agent deployments:
+- Added OS-level FileLock for cross-process mutual exclusion
+- Implemented atomic claim flow with retry-on-conflict
+- Added atomic reservation creation using `CREATE_NEW` semantics
+- Integrated reservation filtering into job selection
 
-### Completed This Session (Round 9)
+### Root Cause (Fixed)
 
-30. **alethfeld-ka8d** (P1) - Centralize session enforcement to middleware
-    - Created `src/alethfeld/middleware.clj`
-    - Added `command-actions` map in `cli.clj`
-    - Integrated middleware into dispatch
-    - Migrated handlers: proposal.clj (3), voting.clj (1), reference.clj (4), session.clj (1)
-    - Note: taint command retains own enforcement for dual-action support
+Two critical issues caused race conditions:
 
-31-38. Sub-issues for ka8d (all closed):
-    - 4qbr: Define command-action metadata
-    - njyw: Create middleware module
-    - gpjr: Integrate into dispatch
-    - eaev, 7eoi, siaz, 6kw0: Handler migrations
-    - 1013: Regression tests
+1. **JVM-local locking**: `ReentrantLock` in `tx.clj` only coordinated threads within a single JVM. Each `af` CLI invocation spawned a new JVM with its own lock map - zero cross-process coordination.
 
-**Commit:** `f67d557`
+2. **Lock scope too narrow**: The claim flow performed read/check/session-creation OUTSIDE the lock, with only the final `atomic-write!` protected. Classic TOCTOU (time-of-check-time-of-use) race.
 
-### Previously Completed (Round 8)
-28-29. EPIC v0.2 closed, mote.clj refactor (2 issues)
+### Solution Implemented
+
+**5-Layer Hybrid Approach:**
+
+| Layer | Description | Files |
+|-------|-------------|-------|
+| 1 | OS FileLock (cross-process) | `tx.clj` |
+| 2 | Atomic claim with retry | `cmd/ready.clj` |
+| 3 | Atomic reservation creation | `io.clj`, `session.clj` |
+| 4 | Filter reserved from jobs | `job.clj`, `cmd/ready.clj` |
+
+### Completed This Session (Round 10)
+
+| Issue | Description |
+|-------|-------------|
+| alethfeld-8pdl | Add FileLock imports to tx.clj |
+| alethfeld-0bfn | Implement FileLock-based with-repo-lock |
+| alethfeld-5zzb | Add lock wait feedback (200ms timeout) |
+| alethfeld-r9cw | Create claim-job-atomic! helper |
+| alethfeld-440g | Refactor claim mode to use atomic claim |
+| alethfeld-w1p1 | Move session creation after claim |
+| alethfeld-77kv | Add create-file-exclusive! to io.clj |
+| alethfeld-lu5r | Implement create-reservation-atomic! |
+| alethfeld-pmzl | Update create-reservation! to use atomic version |
+| alethfeld-96lu | Add reservation filtering to select-jobs |
+| alethfeld-r4fi | Load reservations in cmd-ready |
+| alethfeld-7nsq | Add reservation cleanup to stale cleanup |
+
+**Method:** Parallel agent drafting (5 agents, ~5 min) + serialized edits (~10 min)
 
 ---
 
 ## Test Health
 
 - **Total tests:** 1,296
-- **Total assertions:** 7,406
+- **Total assertions:** 7,333
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
@@ -51,17 +67,25 @@ Completed the session enforcement middleware refactor (ka8d):
 
 | Source | State |
 |--------|-------|
-| **`docs/V02-REVISION-PLAN.md`** | Complete (EPIC closed) |
-| **Beads issues** | 0 open, 396 closed |
-| **Codebase** | v0.2 complete + all refactors done |
+| **Race condition fix** | Layers 1-4 complete |
+| **Beads issues** | 3 open (P3 tests/docs), 408 closed |
+| **Codebase** | v0.1.0 with race condition fixes |
 
 ---
 
-## Ready Work
+## Remaining Work (P3)
 
-Run `bd ready` for current unblocked issues.
+```bash
+bd ready
+```
 
-**No open issues!** All planned v0.2 work is complete.
+3 test/documentation issues remain (not blocking):
+
+| Issue | Description |
+|-------|-------------|
+| alethfeld-h21w | Add multi-process claim test |
+| alethfeld-psog | Add atomic reservation tests |
+| alethfeld-okh0 | Update documentation |
 
 ---
 
@@ -69,55 +93,114 @@ Run `bd ready` for current unblocked issues.
 
 ```bash
 clj -M:test              # 1296 tests, all passing
+clj -M:run --version     # Alethfeld v0.1.0
 bd stats                 # Issue counts
-bd ready                 # Available work
+bd ready                 # Available work (3 P3 issues)
 ```
 
 ---
 
-## New Files This Session
+## Files Modified This Session
 
-| File | Purpose |
+| File | Changes |
 |------|---------|
-| `src/alethfeld/middleware.clj` | Session enforcement middleware |
-| `test/alethfeld/middleware_test.clj` | Middleware unit tests |
+| `src/alethfeld/tx.clj` | FileLock implementation, `acquire-file-lock!`, `release-file-lock!`, 200ms wait feedback |
+| `src/alethfeld/io.clj` | `create-file-exclusive!` using `StandardOpenOption/CREATE_NEW` |
+| `src/alethfeld/session.clj` | `create-reservation-atomic!`, lock file per mote |
+| `src/alethfeld/job.clj` | `:active-reservations` parameter to `select-jobs` |
+| `src/alethfeld/cmd/ready.clj` | `claim-job-atomic!`, retry loop, reservation loading |
 
 ---
 
-## Middleware Architecture
+## Architecture: Race Condition Fix
 
-Session enforcement is now "pull-based" (middleware-driven):
+### Locking Strategy (Dual-Lock)
 
-1. **Command metadata** (`cli.clj:command-actions`):
-   - Maps commands to their required action (e.g., "propose" -> :propose)
-   - Supports dynamic actions (e.g., taint --add vs --remove)
-   - Supports validate-only mode (e.g., unclaim)
+```
+┌─────────────────────────────────────────────────────┐
+│                  with-repo-lock                      │
+├─────────────────────────────────────────────────────┤
+│  1. Acquire ReentrantLock (thread safety in JVM)    │
+│  2. Acquire FileLock on .alethfeld/lock (OS-level)  │
+│  3. Execute transaction                              │
+│  4. Release FileLock                                 │
+│  5. Release ReentrantLock                            │
+└─────────────────────────────────────────────────────┘
+```
 
-2. **Middleware wrapper** (`middleware.clj:wrap-session-enforcement`):
-   - Validates session BEFORE handler runs
-   - Passes `:validated-session` in context
-   - Throws on invalid/expired/unauthorized session
+- **ReentrantLock**: Prevents thread contention within same JVM
+- **FileLock**: Provides cross-process mutual exclusion
+- **Lock wait feedback**: Prints "Waiting for repository lock..." after 200ms
 
-3. **Dispatch integration** (`cli.clj:dispatch`):
-   - Automatically wraps handlers for commands in `command-actions`
-   - Handlers receive pre-validated session
+### Atomic Claim Flow
 
-Security benefits:
-- Impossible to add handler that bypasses permissions
-- Single place to audit all permission checks
-- Handlers focus on business logic
+```
+┌─────────────────────────────────────────────────────┐
+│                  cmd-ready (claim mode)              │
+├─────────────────────────────────────────────────────┤
+│  for each job candidate:                            │
+│    1. claim-job-atomic! (re-checks inside lock)     │
+│       ├─ Success → Create session, return          │
+│       └─ :already-claimed → Try next candidate     │
+│  if all claimed → "Run af ready to see available"  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Atomic Reservations
+
+```
+┌─────────────────────────────────────────────────────┐
+│            create-reservation-atomic!                │
+├─────────────────────────────────────────────────────┤
+│  Lock file: .alethfeld/sessions/reservations/       │
+│             lock-{mote-id}.edn                      │
+│                                                     │
+│  1. Try create-file-exclusive! (CREATE_NEW)         │
+│     ├─ Success → Write reservation, return          │
+│     └─ Exists → Check if expired                    │
+│        ├─ Expired → Delete, retry                   │
+│        └─ Active → Return {:success false}          │
+└─────────────────────────────────────────────────────┘
+```
 
 ---
 
-## v0.2 Feature Completeness
+## Known Limitations (Updated)
+
+### Transaction Race Window (Unchanged)
+
+~100ms window between validation and git commit. See `tx.clj` docstring.
+
+### FileLock Limitations
+
+- **NFS**: Advisory locks may not work reliably on NFS mounts
+- **Same machine only**: FileLock coordinates processes on same machine
+- **Git sync**: Distributed agents must still coordinate via git pull/push
+
+### Reservation TTL
+
+- Default: 60 seconds
+- Lock files cleaned up by `cleanup-expired-reservations!`
+- Called automatically at start of `cmd-ready`
+
+---
+
+## Review Documents
+
+Race condition analysis documents in `review/`:
+- `RACE_CONDITION_ANALYSIS.md` - Original analysis
+- `multi-agent-race-condition-report.md` - Comprehensive 7-solution comparison
+
+Plan file: `~/.claude/plans/polished-brewing-nest.md`
+
+---
+
+## v0.1.0 Status
 
 | Feature | Status |
 |---------|--------|
-| Verifier-first workflow | Done |
+| Core CLI | Done |
 | Session management | Done |
-| Batch operations | Done |
-| Auto-propagation | Done |
-| Cross-references | Done |
-| Documentation | Done |
-| mote.clj refactor | Done |
-| Middleware refactor | Done |
+| Transaction layer | Done + Race fixes |
+| Multi-agent safety | Done (Layers 1-4) |
+| Multi-process tests | P3 (not blocking) |

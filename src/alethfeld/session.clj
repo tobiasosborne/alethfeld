@@ -14,6 +14,7 @@
             [alethfeld.path :as path]
             [alethfeld.schema :as schema]
             [babashka.process :as proc]
+            [clojure.string :as str]
             [malli.core :as m])
   (:import [java.time Instant Duration]))
 
@@ -730,6 +731,12 @@
   [repo-path token]
   (io/full-path repo-path (path/reservation-path token)))
 
+(defn- reservation-lock-path
+  "Get full path to a mote reservation lock file.
+   Lock files are used for atomic reservation creation."
+  [repo-path mote-id]
+  (io/full-path repo-path (str (path/reservations-path) "/lock-" mote-id ".edn")))
+
 (defn reservation-expired?
   "Check if a reservation has expired.
 
@@ -744,13 +751,13 @@
     (when expires-at
       (.isAfter now (.toInstant expires-at)))))
 
-(defn create-reservation!
-  "Create a reservation for a mote/role combination.
+(defn create-reservation-atomic!
+  "Atomically create a reservation for a mote/role combination.
 
-   Reservations are lightweight pre-claims that:
-   - Lock a mote for a specific role
-   - Expire quickly (60 seconds by default)
-   - Must be explicitly claimed to create a session
+   Uses a per-mote lock file to prevent race conditions when multiple
+   agents try to reserve the same mote simultaneously.
+
+   Lock files are stored at: .alethfeld/sessions/reservations/lock-{mote-id}.edn
 
    Arguments:
    - repo-path: Path to the repository root
@@ -760,22 +767,77 @@
    Options:
    - :duration-seconds - Reservation duration (default: 60)
 
-   Returns the reservation map with :token for claiming."
+   Returns a map with one of:
+   - {:success true :token token :reservation reservation-map}
+   - {:success false :held-by existing-reservation-map}"
   [repo-path mote-id role & {:keys [duration-seconds]
                               :or {duration-seconds default-reservation-duration-seconds}}]
-  (let [token (generate-reservation-token)
-        now (Instant/now)
-        expires (.plusSeconds now duration-seconds)
-        reservation {:token token
-                     :mote-id mote-id
-                     :role role
-                     :created-at (java.util.Date/from now)
-                     :expires-at (java.util.Date/from expires)}
-        file-path (reservation-file-path repo-path token)]
+  (let [lock-path (reservation-lock-path repo-path mote-id)]
     ;; Ensure reservations directory exists
     (io/ensure-dir (io/full-path repo-path (path/reservations-path)))
-    (io/write-edn file-path reservation)
-    reservation))
+
+    (let [token (generate-reservation-token)
+          now (Instant/now)
+          expires (.plusSeconds now duration-seconds)
+          reservation {:token token
+                       :mote-id mote-id
+                       :role role
+                       :created-at (java.util.Date/from now)
+                       :expires-at (java.util.Date/from expires)}]
+
+      ;; Try to create lock file atomically
+      (if (io/create-file-exclusive! lock-path reservation)
+        ;; Success - lock file created, also write the standard reservation file
+        (let [res-path (reservation-file-path repo-path token)]
+          (io/write-edn res-path reservation)
+          {:success true
+           :token token
+           :reservation reservation})
+
+        ;; Lock file already exists - check if expired
+        (let [existing (io/read-edn lock-path)]
+          (if (reservation-expired? existing :now now)
+            ;; Expired - delete lock and retry
+            (do
+              (io/delete-file lock-path)
+              (create-reservation-atomic! repo-path mote-id role
+                                          :duration-seconds duration-seconds))
+            ;; Active reservation held by another agent
+            {:success false
+             :held-by existing}))))))
+
+(defn create-reservation!
+  "Create a reservation for a mote/role combination.
+
+   Reservations are lightweight pre-claims that:
+   - Lock a mote for a specific role
+   - Expire quickly (60 seconds by default)
+   - Must be explicitly claimed to create a session
+
+   This function uses atomic file creation to prevent race conditions
+   when multiple agents try to reserve the same mote simultaneously.
+
+   Arguments:
+   - repo-path: Path to the repository root
+   - mote-id: The mote to reserve
+   - role: The role for the reservation
+
+   Options:
+   - :duration-seconds - Reservation duration (default: 60)
+
+   Returns the reservation map with :token for claiming.
+   Throws ExceptionInfo with :type :reservation-conflict if already reserved."
+  [repo-path mote-id role & {:keys [duration-seconds]
+                              :or {duration-seconds default-reservation-duration-seconds}}]
+  (let [result (create-reservation-atomic! repo-path mote-id role
+                                            :duration-seconds duration-seconds)]
+    (if (:success result)
+      (:reservation result)
+      (throw (ex-info "Mote already reserved"
+                      {:type :reservation-conflict
+                       :mote-id mote-id
+                       :role role
+                       :held-by (:held-by result)})))))
 
 (defn load-reservation
   "Load a reservation by token.
@@ -851,13 +913,16 @@
    Arguments:
    - repo-path: Path to the repository root
 
-   Returns a vector of reservation maps."
+   Returns a vector of reservation maps.
+   Note: Excludes lock files (lock-*.edn) which are used for atomic reservation creation."
   [repo-path]
   (let [res-dir (io/full-path repo-path (path/reservations-path))]
     (if (io/dir-exists? res-dir)
       (let [files (io/list-edn-files res-dir)
+            ;; Filter out lock files (used for atomic reservation creation)
+            reservation-files (remove #(str/includes? % "/lock-") files)
             now (Instant/now)]
-        (->> files
+        (->> reservation-files
              (map io/read-edn)
              (remove #(reservation-expired? % :now now))
              vec))

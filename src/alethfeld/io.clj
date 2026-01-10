@@ -66,6 +66,42 @@
     (spit f (pr-str data))
     (str path)))
 
+(defn create-file-exclusive!
+  "Create a file atomically, failing if it already exists.
+
+   Uses StandardOpenOption/CREATE_NEW which is atomic on POSIX filesystems.
+   This is essential for implementing lock files and preventing race
+   conditions in concurrent scenarios.
+
+   Arguments:
+   - path: String or Path to the file to create
+   - data: EDN-serializable data to write
+
+   Returns:
+   - true if file was created successfully
+   - false if file already exists
+
+   Throws on other I/O errors (permissions, disk full, etc.)
+
+   Note: Parent directories are created if they don't exist."
+  [path data]
+  (let [f (fs/file path)
+        parent (fs/parent f)]
+    (when (and parent (not (fs/exists? parent)))
+      (fs/create-dirs parent))
+    (try
+      (with-open [writer (java.io.BufferedWriter.
+                          (java.io.OutputStreamWriter.
+                           (java.nio.file.Files/newOutputStream
+                            (.toPath f)
+                            (into-array java.nio.file.OpenOption
+                                        [java.nio.file.StandardOpenOption/CREATE_NEW
+                                         java.nio.file.StandardOpenOption/WRITE]))))]
+        (.write writer (pr-str data)))
+      true
+      (catch java.nio.file.FileAlreadyExistsException _
+        false))))
+
 ;; -----------------------------------------------------------------------------
 ;; Delete Operations
 ;; -----------------------------------------------------------------------------

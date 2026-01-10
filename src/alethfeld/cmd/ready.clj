@@ -14,15 +14,19 @@
 ;; -----------------------------------------------------------------------------
 
 (defn- cleanup-stale-sessions-and-claims!
-  "Clean up stale sessions and release associated mote claims.
+  "Clean up stale sessions, associated mote claims, and expired reservations.
 
-   Called at the start of cmd-ready to recover from crashed agents.
+   Called at the start of cmd-ready to recover from crashed agents
+   and remove expired reservations.
 
    Arguments:
    - repo-path: Path to the repository root
 
    Returns a vector of cleaned-up session info (or empty vector if none)."
   [repo-path]
+  ;; Issue 4.3: Clean up expired reservations first
+  (session/cleanup-expired-reservations! repo-path)
+
   (let [cleaned-up (session/cleanup-stale-sessions! repo-path)]
     (when (seq cleaned-up)
       ;; Clear mote claims for each cleaned-up session
@@ -38,6 +42,51 @@
                                  (str/join ", " (map :mote-id cleaned-up)))
                             (vec motes-to-update)))))
     cleaned-up))
+
+(defn- claim-job-atomic!
+  "Atomically claim a mote for an agent with race condition protection.
+
+   Uses tx/atomic-update! to re-check claim status inside the repository lock,
+   preventing TOCTOU race conditions where two agents try to claim the same mote.
+
+   Arguments:
+   - repo-path: Path to the repository root
+   - mote-id: ID of the mote to claim
+   - agent: Agent identifier string
+   - claim-timeout: Optional claim timeout in minutes
+
+   Returns the result map from tx/atomic-update! containing :result with updated mote.
+
+   Throws ExceptionInfo with :type :already-claimed if:
+   - The mote is already claimed by a different agent
+   - The claim has not expired"
+  [repo-path mote-id agent claim-timeout]
+  (tx/atomic-update!
+   repo-path
+   (str "Claim mote " mote-id " for " agent)
+   mote-id
+   (fn [current-mote]
+     (let [current-claimer (:claimed-by current-mote)
+           claim-expired? (and current-claimer
+                               claim-timeout
+                               (mote/claim-expired? current-mote claim-timeout))]
+       (cond
+         ;; No current claim or claim has expired - proceed with claim
+         (or (nil? current-claimer) claim-expired?)
+         (mote/set-claimed-by current-mote agent)
+
+         ;; Same agent already has claim - idempotent success
+         (= current-claimer agent)
+         current-mote
+
+         ;; Different agent has active claim - reject
+         :else
+         (throw (ex-info "Mote already claimed by another agent"
+                         {:type :already-claimed
+                          :mote-id mote-id
+                          :claimed-by current-claimer
+                          :requested-by agent})))))
+   :validate false))
 
 ;; -----------------------------------------------------------------------------
 ;; Ready Command Parsing
@@ -358,7 +407,11 @@
           claim-timeout (:claim-timeout-minutes config)
           motes (store/load-all-motes repo-path)
 
-          ;; Select jobs (with claim timeout enforcement)
+          ;; Issue 4.2: Load active reservations and build exclusion set
+          active-reservations (session/list-active-reservations repo-path)
+          reserved-mote-ids (into #{} (map :mote-id active-reservations))
+
+          ;; Select jobs (with claim timeout enforcement and reservation filtering)
           ;; For list mode or when --job is specified, get more jobs
           jobs-to-fetch (if (or list-mode? job) (clojure.core/max max-jobs 10) max-jobs)
           jobs (job/select-jobs motes
@@ -366,7 +419,8 @@
                                 :difficulty difficulty-filter
                                 :priority priority-filter
                                 :max jobs-to-fetch
-                                :claim-timeout claim-timeout)
+                                :claim-timeout claim-timeout
+                                :active-reservations reserved-mote-ids)
 
           ;; Enrich jobs with prompts
           jobs-with-prompts (mapv (fn [j]
@@ -434,82 +488,107 @@
                           (core/status-action)]})
 
         ;; Claim mode: agent provided, claim the job(s)
+        ;; Issues 2.2, 2.3: Use atomic claiming with retry on conflict
         (seq jobs-with-prompts)
-        (let [;; Select which jobs to claim
-              jobs-to-claim (if job
-                              ;; Claim specific job by number (1-indexed)
-                              (let [job-idx (dec job)]
-                                (if (and (>= job-idx 0) (< job-idx (count jobs-with-prompts)))
-                                  [(nth jobs-with-prompts job-idx)]
-                                  []))
-                              ;; Take first max-jobs
-                              (take max-jobs jobs-with-prompts))]
-          (if (empty? jobs-to-claim)
+        (let [;; Build list of candidate jobs to try claiming
+              job-candidates (if job
+                               ;; Claim specific job by number (1-indexed)
+                               (let [job-idx (dec job)]
+                                 (if (and (>= job-idx 0) (< job-idx (count jobs-with-prompts)))
+                                   [(nth jobs-with-prompts job-idx)]
+                                   []))
+                               ;; Take first max-jobs as candidates
+                               (take max-jobs jobs-with-prompts))]
+          (if (empty? job-candidates)
             ;; Invalid job number
             (throw (ex-info (str "Job #" job " not found")
                             {:type :not-found
                              :job-number job
                              :available-count (count jobs-with-prompts)}))
 
-            ;; Proceed with claiming
-            (let [;; Ensure session directories exist
-                  _ (session/ensure-session-dirs! repo-path)
-                  ;; Get session timeout from config (default: 30 minutes)
+            ;; Try to claim jobs atomically, handling race conditions
+            (let [;; Get session timeout from config (default: 30 minutes)
                   session-timeout (or (:session-timeout-minutes config) 30)
-                  ;; Update motes with claims and create sessions
-                  claimed-jobs (mapv (fn [j]
-                                       (let [;; Create session for this job
-                                             job-role (:role j)
-                                             sess (session/create-session! repo-path
-                                                                           (:mote-id j)
-                                                                           job-role
-                                                                           agent
-                                                                           :duration-minutes session-timeout)
-                                             ;; Update mote with claim
-                                             updated-mote (mote/set-claimed-by (:mote j) agent)
-                                             ;; Re-render prompt with session context
-                                             resolved-children (resolve-children (:mote j) motes)
-                                             session-prompt (prompt/render-prompt j
-                                                                                  :resolved-children resolved-children
-                                                                                  :session sess)]
-                                         (assoc j
-                                                :mote updated-mote
-                                                :claimed-by agent
-                                                :session-id (:session-id sess)
-                                                :session sess
-                                                :prompt session-prompt)))
-                                     jobs-to-claim)
-                  ;; Extract updated motes for atomic write
-                  updated-motes (mapv :mote claimed-jobs)
-                  ;; Commit all claims atomically via transaction layer
-                  commit-msg (str "Claim jobs for " agent ": "
-                                  (str/join ", " (map :mote-id claimed-jobs)))]
-              (tx/atomic-write! repo-path commit-msg updated-motes :validate false)
 
-              ;; Return with formatted output - generate intelligent next-actions
-              (let [first-job (first claimed-jobs)
-                    session-id (:session-id first-job)
-                    mote-id (:mote-id first-job)
-                    job-role (:role first-job)
-                    ;; Generate role-specific next actions
-                    role-actions (case job-role
-                                   :verifier [(core/vote-action mote-id session-id :for)
-                                              (core/vote-action mote-id session-id :against)]
-                                   :advisor [(core/approve-action mote-id session-id)
-                                             (core/reject-action mote-id session-id)]
-                                   :proposer [(core/make-action (str "af propose " mote-id " --session " session-id " --claim \"...\"")
-                                                           "Submit decomposition proposal")]
-                                   :prover [(core/make-action (str "af add-ref " mote-id " --session " session-id " --ref \"...\"")
-                                                         "Add external reference")]
-                                   :ref-checker [(core/make-action (str "af add-ref " mote-id " --session " session-id " --ref \"...\"")
-                                                              "Add/update references")]
-                                   :counterexample [(core/vote-action mote-id session-id :for)
-                                                    (core/vote-action mote-id session-id :against)]
-                                   [])]
-                {:mode :claimed
-                 :jobs claimed-jobs
-                 :output (str role-hint (str/join "\n\n" (map format-claimed-job-output claimed-jobs)))
-                 :next-actions (conj (vec role-actions) (core/done-action session-id))}))))
+                  ;; Try to claim each candidate, collecting successfully claimed jobs
+                  ;; On :already-claimed, skip to next candidate
+                  claimed-jobs
+                  (loop [candidates job-candidates
+                         claimed []]
+                    (if (or (empty? candidates)
+                            (>= (count claimed) max-jobs))
+                      claimed
+                      (let [j (first candidates)
+                            mote-id (:mote-id j)]
+                        (let [claim-result
+                              (try
+                                ;; Issue 2.1: Atomic claim with race protection
+                                (let [result (claim-job-atomic! repo-path mote-id agent claim-timeout)]
+                                  {:success true :mote (:result result)})
+                                (catch clojure.lang.ExceptionInfo e
+                                  (if (= :already-claimed (:type (ex-data e)))
+                                    {:success false :reason :already-claimed}
+                                    (throw e))))]
+                          (if (:success claim-result)
+                            ;; Issue 2.3: Create session AFTER successful atomic claim
+                            (let [updated-mote (:mote claim-result)
+                                  _ (session/ensure-session-dirs! repo-path)
+                                  job-role (:role j)
+                                  sess (session/create-session! repo-path
+                                                                mote-id
+                                                                job-role
+                                                                agent
+                                                                :duration-minutes session-timeout)
+                                  ;; Re-render prompt with session context
+                                  resolved-children (resolve-children updated-mote motes)
+                                  session-prompt (prompt/render-prompt j
+                                                                       :resolved-children resolved-children
+                                                                       :session sess)]
+                              (recur (rest candidates)
+                                     (conj claimed
+                                           (assoc j
+                                                  :mote updated-mote
+                                                  :claimed-by agent
+                                                  :session-id (:session-id sess)
+                                                  :session sess
+                                                  :prompt session-prompt))))
+                            ;; Claim failed (already claimed by another) - try next
+                            (recur (rest candidates) claimed))))))]
+
+              (if (empty? claimed-jobs)
+                ;; All candidates were claimed by others
+                {:mode :no-jobs
+                 :jobs []
+                 :output (str role-hint
+                              "All candidate jobs were claimed by other agents.\n"
+                              "Run 'af ready' to see currently available jobs.")
+                 :next-actions [(core/make-action "af ready" "See available jobs")
+                                (core/status-action)]}
+
+                ;; Return with formatted output - generate intelligent next-actions
+                (let [first-job (first claimed-jobs)
+                      session-id (:session-id first-job)
+                      mote-id (:mote-id first-job)
+                      job-role (:role first-job)
+                      ;; Generate role-specific next actions
+                      role-actions (case job-role
+                                     :verifier [(core/vote-action mote-id session-id :for)
+                                                (core/vote-action mote-id session-id :against)]
+                                     :advisor [(core/approve-action mote-id session-id)
+                                               (core/reject-action mote-id session-id)]
+                                     :proposer [(core/make-action (str "af propose " mote-id " --session " session-id " --claim \"...\"")
+                                                             "Submit decomposition proposal")]
+                                     :prover [(core/make-action (str "af add-ref " mote-id " --session " session-id " --ref \"...\"")
+                                                           "Add external reference")]
+                                     :ref-checker [(core/make-action (str "af add-ref " mote-id " --session " session-id " --ref \"...\"")
+                                                                "Add/update references")]
+                                     :counterexample [(core/vote-action mote-id session-id :for)
+                                                      (core/vote-action mote-id session-id :against)]
+                                     [])]
+                  {:mode :claimed
+                   :jobs claimed-jobs
+                   :output (str role-hint (str/join "\n\n" (map format-claimed-job-output claimed-jobs)))
+                   :next-actions (conj (vec role-actions) (core/done-action session-id))})))))
 
         ;; No jobs available when trying to claim
         :else
