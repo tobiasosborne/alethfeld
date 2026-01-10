@@ -1,45 +1,47 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Parallel Swarming (Round 8)
-**Session status:** 2 issues closed via parallel agents - ALL TESTS PASSING
+**Last session:** Middleware Refactor (Round 9)
+**Session status:** 10 issues closed - ALL TESTS PASSING
 
 ---
 
 ## Session Summary
 
-Used 9 parallel agents (6 drafting + 3 research) to complete the mote.clj refactor:
-- Research agents analyzed ka8d, u5j4, and EPIC status
-- Drafting agents produced code for 5 new mote/* submodules
-- Coordinator serialized drafts and verified tests
+Completed the session enforcement middleware refactor (ka8d):
+- Created `alethfeld.middleware` module with `wrap-session-enforcement`
+- Added `command-actions` metadata map defining session requirements
+- Integrated middleware into CLI dispatch layer
+- Migrated 11 `enforce-session!` calls across 4 handler files
+- Added 7 middleware unit tests
 
-### Completed This Session (Round 8)
+### Completed This Session (Round 9)
 
-28. **alethfeld-14qm** (EPIC) - v0.2 Agent UX Improvements
-    - All 31 planned items from V02-REVISION-PLAN.md complete
-    - Closed as container EPIC
+30. **alethfeld-ka8d** (P1) - Centralize session enforcement to middleware
+    - Created `src/alethfeld/middleware.clj`
+    - Added `command-actions` map in `cli.clj`
+    - Integrated middleware into dispatch
+    - Migrated handlers: proposal.clj (3), voting.clj (1), reference.clj (4), session.clj (1)
+    - Note: taint command retains own enforcement for dual-action support
 
-29. **alethfeld-u5j4** (P4) - Refactor mote.clj into separate namespaces
-    - Split 355-line mote.clj into 5 focused submodules:
-      - `mote/util.clj`: ID generation, clock, claim expiration
-      - `mote/vote.clj`: Vote and proposal constructors
-      - `mote/core.clj`: Mote constructors
-      - `mote/validate.clj`: Schema validation
-      - `mote/mutation.clj`: Transformation functions
-    - Re-export wrapper maintains backward compatibility
-    - All 1289 tests pass
+31-38. Sub-issues for ka8d (all closed):
+    - 4qbr: Define command-action metadata
+    - njyw: Create middleware module
+    - gpjr: Integrate into dispatch
+    - eaev, 7eoi, siaz, 6kw0: Handler migrations
+    - 1013: Regression tests
 
-**Commit:** `4bc04ba`
+**Commit:** `f67d557`
 
-### Previously Completed (Round 7)
-25-27. Cross-references, auto-propagation, documentation (3 issues)
+### Previously Completed (Round 8)
+28-29. EPIC v0.2 closed, mote.clj refactor (2 issues)
 
 ---
 
 ## Test Health
 
-- **Total tests:** 1,289
-- **Total assertions:** 7,327
+- **Total tests:** 1,296
+- **Total assertions:** 7,406
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
@@ -50,36 +52,23 @@ Used 9 parallel agents (6 drafting + 3 research) to complete the mote.clj refact
 | Source | State |
 |--------|-------|
 | **`docs/V02-REVISION-PLAN.md`** | Complete (EPIC closed) |
-| **Beads issues** | 1 open, 386 closed |
-| **Codebase** | v0.2 complete + mote.clj refactored |
+| **Beads issues** | 0 open, 396 closed |
+| **Codebase** | v0.2 complete + all refactors done |
 
 ---
 
 ## Ready Work
 
-Run `bd ready` for current unblocked issues. Only item:
+Run `bd ready` for current unblocked issues.
 
-- **alethfeld-ka8d** (P1) - Centralize session enforcement to middleware
-
-### Notes on ka8d
-
-This is an architecture refactor (11-15 hours estimated):
-- Session enforcement is currently "push-based" (each handler calls `enforce-session!`)
-- Issue wants "pull-based" middleware that wraps commands before dispatch
-- 11 direct calls to `enforce-session!` across 6 handler files
-- Non-trivial and touches central infrastructure
-
-**Research completed this session** - see agent output for:
-- Current enforcement locations (file:line for each)
-- Proposed middleware design
-- Estimated complexity breakdown
+**No open issues!** All planned v0.2 work is complete.
 
 ---
 
 ## Quick Commands
 
 ```bash
-clj -M:test              # 1289 tests, all passing
+clj -M:test              # 1296 tests, all passing
 bd stats                 # Issue counts
 bd ready                 # Available work
 ```
@@ -90,11 +79,33 @@ bd ready                 # Available work
 
 | File | Purpose |
 |------|---------|
-| `src/alethfeld/mote/util.clj` | ID generation, clock, claim expiration |
-| `src/alethfeld/mote/vote.clj` | Vote and proposal constructors |
-| `src/alethfeld/mote/core.clj` | Mote constructors |
-| `src/alethfeld/mote/validate.clj` | Schema validation |
-| `src/alethfeld/mote/mutation.clj` | Transformation functions |
+| `src/alethfeld/middleware.clj` | Session enforcement middleware |
+| `test/alethfeld/middleware_test.clj` | Middleware unit tests |
+
+---
+
+## Middleware Architecture
+
+Session enforcement is now "pull-based" (middleware-driven):
+
+1. **Command metadata** (`cli.clj:command-actions`):
+   - Maps commands to their required action (e.g., "propose" -> :propose)
+   - Supports dynamic actions (e.g., taint --add vs --remove)
+   - Supports validate-only mode (e.g., unclaim)
+
+2. **Middleware wrapper** (`middleware.clj:wrap-session-enforcement`):
+   - Validates session BEFORE handler runs
+   - Passes `:validated-session` in context
+   - Throws on invalid/expired/unauthorized session
+
+3. **Dispatch integration** (`cli.clj:dispatch`):
+   - Automatically wraps handlers for commands in `command-actions`
+   - Handlers receive pre-validated session
+
+Security benefits:
+- Impossible to add handler that bypasses permissions
+- Single place to audit all permission checks
+- Handlers focus on business logic
 
 ---
 
@@ -109,4 +120,4 @@ bd ready                 # Available work
 | Cross-references | Done |
 | Documentation | Done |
 | mote.clj refactor | Done |
-| Middleware refactor | Open (ka8d) |
+| Middleware refactor | Done |
