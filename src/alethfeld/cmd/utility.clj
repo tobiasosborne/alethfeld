@@ -12,6 +12,24 @@
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
+;; Display Constants
+;; -----------------------------------------------------------------------------
+
+(def ^:const tree-claim-verbose-max-length
+  "Maximum length for claim text in verbose tree display.
+   Verbose mode shows more context, so longer claims are useful."
+  100)
+
+(def ^:const tree-claim-default-max-length
+  "Maximum length for claim text in default (non-verbose) tree display.
+   Shorter to keep tree output compact and readable."
+  60)
+
+(def ^:const default-log-limit
+  "Default maximum number of commits to show in log output."
+  50)
+
+;; -----------------------------------------------------------------------------
 ;; Check Command
 ;; -----------------------------------------------------------------------------
 
@@ -237,7 +255,7 @@
    - :output - Formatted history string"
   [{:keys [id options]}]
   (let [repo-path "."
-        limit (or (:limit options) 50)
+        limit (or (:limit options) default-log-limit)
         verbose? (:verbose options)]
 
     ;; Validation
@@ -540,7 +558,7 @@
       ;; Load all motes for child lookup
       (let [motes (store/load-all-motes repo-path)
             ;; Render the tree (use longer claim length in verbose mode)
-            max-claim-len (if verbose? 100 60)
+            max-claim-len (if verbose? tree-claim-verbose-max-length tree-claim-default-max-length)
             lines (render-tree mote motes "" true 0 max-depth max-claim-len verbose?)
             output (str/join "\n" lines)]
         {:lines (vec lines)

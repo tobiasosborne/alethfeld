@@ -24,6 +24,18 @@
 
 (def ^:const default-session-duration-minutes 30)
 
+(def ^:const session-id-display-length
+  "Number of characters to display when truncating session IDs for output.
+   Session IDs are 73 characters (dual UUIDs); showing 11 chars is enough
+   for human identification while keeping output clean."
+  11)
+
+(def ^:const reservation-token-length
+  "Length of reservation tokens. Short tokens (6 alphanumeric characters)
+   are easy to type while providing sufficient uniqueness for short-lived
+   reservations (60-second default lifetime)."
+  6)
+
 ;; -----------------------------------------------------------------------------
 ;; Platform Detection
 ;; -----------------------------------------------------------------------------
@@ -720,11 +732,11 @@
 
 (defn- generate-reservation-token
   "Generate a short, memorable reservation token.
-   Format: 6 alphanumeric characters."
+   Format: reservation-token-length alphanumeric characters."
   []
   (let [chars "abcdefghijklmnopqrstuvwxyz0123456789"
         rand-char #(nth chars (rand-int (count chars)))]
-    (apply str (repeatedly 6 rand-char))))
+    (apply str (repeatedly reservation-token-length rand-char))))
 
 (defn- reservation-file-path
   "Get full path to a reservation file."
@@ -1104,7 +1116,7 @@
                 session-id (:session-id session)]
             {:session-id session-id
              :auto-resolved? true
-             :message (str "Using session: " (subs session-id 0 (min 11 (count session-id)))
+             :message (str "Using session: " (subs session-id 0 (min session-id-display-length (count session-id)))
                            "... (your only active session)")})
 
         ;; 2+ sessions - require explicit choice

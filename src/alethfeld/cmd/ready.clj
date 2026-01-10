@@ -10,6 +10,19 @@
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
+;; Display Constants
+;; -----------------------------------------------------------------------------
+
+(def ^:const claim-display-max-length
+  "Maximum length for claim text in job list display.
+   Longer claims are truncated with ellipsis."
+  60)
+
+(def ^:const claim-display-truncated-length
+  "Length to truncate claim text to (claim-display-max-length - 3 for '...')."
+  57)
+
+;; -----------------------------------------------------------------------------
 ;; Stale Session Cleanup Helper
 ;; -----------------------------------------------------------------------------
 
@@ -272,8 +285,8 @@
         claim (get-in job [:mote :claim] "")]
     (str "  " idx ". mote " mote-id " | role: " role " | " priority " | difficulty: " difficulty
          (when (seq claim)
-           (str "\n     " (if (> (count claim) 60)
-                           (str (subs claim 0 57) "...")
+           (str "\n     " (if (> (count claim) claim-display-max-length)
+                           (str (subs claim 0 claim-display-truncated-length) "...")
                            claim))))))
 
 (defn- format-job-list

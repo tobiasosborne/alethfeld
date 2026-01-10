@@ -30,6 +30,16 @@
 
 (def version "0.2.0")
 
+;; -----------------------------------------------------------------------------
+;; Display Constants
+;; -----------------------------------------------------------------------------
+
+(def ^:const command-suggestion-max-distance
+  "Maximum Levenshtein distance for suggesting similar commands.
+   A distance of 2 catches common typos (one insertion + one substitution)
+   while avoiding spurious suggestions for completely different commands."
+  2)
+
 (defn suggest-command
   "Find the closest matching command to the given input.
    Returns the suggestion if Levenshtein distance is <= 2, otherwise nil."
@@ -41,7 +51,7 @@
                                        (if (< d bd) [c d] [bc bd]))
                                      [nil Integer/MAX_VALUE]
                                      distances)]
-    (when (and best-cmd (<= best-dist 2))
+    (when (and best-cmd (<= best-dist command-suggestion-max-distance))
       best-cmd)))
 
 ;; -----------------------------------------------------------------------------
@@ -140,7 +150,7 @@
     (str message "\n"
          (str/join "\n"
                    (map (fn [{:keys [session-id role mote-id]}]
-                          (str "  --session " (subs session-id 0 (min 11 (count session-id)))
+                          (str "  --session " (subs session-id 0 (min session/session-id-display-length (count session-id)))
                                "...  (role: " (name role) ", mote: " mote-id ")"))
                         sessions)))))
 
