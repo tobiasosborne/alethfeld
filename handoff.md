@@ -57,7 +57,7 @@ No git conflicts because:
 | Source | State |
 |--------|-------|
 | **Beads issues** | 0 open, 428 closed |
-| **Codebase** | v0.2.0 + session modularization |
+| **Codebase** | v0.2.1 (session modularization) |
 
 ---
 
@@ -71,7 +71,7 @@ None! All issues closed.
 
 ```bash
 clj -M:test              # 1362 tests, all passing
-clj -M:run --version     # Alethfeld v0.2.0
+clj -M:run --version     # Alethfeld v0.2.1
 ./install.sh             # Build and install af command
 bd stats                 # 428 closed, 0 open
 bd ready                 # See available work (none)
@@ -88,7 +88,7 @@ bd ready                 # See available work (none)
 
 ---
 
-## v0.2.0 Status
+## v0.2.1 Status
 
 | Feature | Status |
 |---------|--------|
@@ -103,7 +103,7 @@ bd ready                 # See available work (none)
 | Repo-path parameterization | Done (ro8b complete) |
 | Session modularization | Done (n0wf complete) |
 
-**v0.2.0 is release-ready.**
+**v0.2.1 released.**
 
 ---
 

@@ -2,7 +2,7 @@
 
 Collaborative proof verification with AI agent swarms.
 
-**Version:** 0.2.0
+**Version:** 0.2.1
 
 ## Overview
 
@@ -59,7 +59,7 @@ If you prefer to manage the jar yourself:
 clj -T:build uber
 
 # Run directly
-java -jar target/alethfeld-0.2.0-SNAPSHOT.jar --help
+java -jar target/alethfeld-0.2.1-SNAPSHOT.jar --help
 ```
 
 ## Quick Start
