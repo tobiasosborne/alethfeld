@@ -216,14 +216,19 @@
    - :role - Mote must have this role in its taint-derived roles
    - :difficulty - Mote difficulty must match (exact or range)
    - :priority - Mote priority must match (exact or range)
+   - :mote-id - Mote must have this specific ID
 
    Other options (:agent, :max, :no-claim, :format) are handled by
    the job selection layer, not here.
 
    Returns true if mote matches all specified criteria."
   [mote options]
-  (let [{:keys [role difficulty priority]} options]
+  (let [{:keys [role difficulty priority mote-id]} options]
     (and
+     ;; Mote ID filter: exact match on ID
+     (if mote-id
+       (= (:id mote) mote-id)
+       true)
      ;; Role filter: mote must have this role available
      (if role
        (contains? (mote->roles mote) role)
@@ -313,6 +318,7 @@
    - :role - Filter by role
    - :difficulty - Filter by difficulty (exact or [min max] range)
    - :priority - Filter by priority (exact or [min max] range)
+   - :mote-id - Filter to a specific mote ID
    - :max - Maximum number of jobs to return (default: 1)
    - :claim-timeout - Minutes after which claims expire (enables reclaiming stale jobs)
    - :claim-timeout-hours - Hours after which claims expire (takes precedence over :claim-timeout)
@@ -322,13 +328,13 @@
    Selection algorithm:
    1. Filter to workable motes (non-terminal status, unclaimed/expired, has role taint)
    2. Exclude motes with active reservations
-   3. Apply role/difficulty/priority filters
+   3. Apply role/difficulty/priority/mote-id filters
    4. Sort by priority (p0 first), then difficulty (lower first)
    5. Take first N jobs
    6. Build Job records for each
 
    Returns a vector of Job maps."
-  [motes & {:keys [role difficulty priority max claim-timeout claim-timeout-hours
+  [motes & {:keys [role difficulty priority mote-id max claim-timeout claim-timeout-hours
                    active-reservations now]
             :or {max 1 active-reservations #{}}}]
   (->> (vals motes)
@@ -336,7 +342,7 @@
                              :claim-timeout-hours claim-timeout-hours
                              :now now))
        (remove #(contains? active-reservations (:id %)))
-       (filter #(matches-filter? % {:role role :difficulty difficulty :priority priority}))
+       (filter #(matches-filter? % {:role role :difficulty difficulty :priority priority :mote-id mote-id}))
        (sort job-comparator)
        (take max)
        (mapv #(build-job % motes :role role))

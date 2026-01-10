@@ -339,7 +339,7 @@
    before selecting jobs."
   [{:keys [options]}]
   (let [repo-path "."
-        {:keys [name role difficulty priority max no-claim job reserve claim-reservation]} options
+        {:keys [name role difficulty priority mote max no-claim job reserve claim-reservation]} options
         agent name  ;; Renamed from --agent to --name, but keep 'agent' var for session compat
         ;; Check if --name looks like a role name (common mistake)
         role-hint (when-let [matched-role (core/name-looks-like-role? name)]
@@ -418,6 +418,7 @@
                                 :role role
                                 :difficulty difficulty-filter
                                 :priority priority-filter
+                                :mote-id mote
                                 :max jobs-to-fetch
                                 :claim-timeout claim-timeout
                                 :active-reservations reserved-mote-ids)
@@ -595,11 +596,21 @@
         {:mode :no-jobs
          :jobs []
          :output (str role-hint
-                      "No jobs available.\n\n"
-                      "All motes are either:\n"
-                      "  - Already claimed by another agent\n"
-                      "  - In a terminal state (verified, rejected, refuted)\n"
-                      "  - Not in need of work (no taints)\n"
-                      "\n"
-                      "Run 'af status' to see project overview.")
+                      (if mote
+                        (str "Mote " mote " is not available.\n\n"
+                             "Possible reasons:\n"
+                             "  - Mote doesn't exist\n"
+                             "  - Already claimed by another agent\n"
+                             "  - In a terminal state (verified, rejected, refuted)\n"
+                             "  - No work needed (no taints)\n"
+                             "\n"
+                             "Run 'af show " mote "' to inspect the mote.\n"
+                             "Run 'af ready --name " (or agent "<name>") "' for available motes.")
+                        (str "No jobs available.\n\n"
+                             "All motes are either:\n"
+                             "  - Already claimed by another agent\n"
+                             "  - In a terminal state (verified, rejected, refuted)\n"
+                             "  - Not in need of work (no taints)\n"
+                             "\n"
+                             "Run 'af status' to see project overview.")))
          :next-actions [(core/status-action)]}))))))

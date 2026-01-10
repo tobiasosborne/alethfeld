@@ -18,5 +18,13 @@ FORBIDDEN (your role cannot):
 {{forbidden-actions}}
 
 When finished: af done --session {{session-id}}
-Then TERMINATE this agent. New work = spawn NEW agent.
+ONE JOB ONLY. After 'af done', TERMINATE this agent.
+
+SESSION SHORTCUTS (avoid typing 73-char tokens):
+  Option 1: Use @current alias
+    af done --session @current
+
+  Option 2: Set AF_SESSION environment variable once
+    export AF_SESSION={{session-id}}
+    af done   # No --session needed
 ===============================================================================

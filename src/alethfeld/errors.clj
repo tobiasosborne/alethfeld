@@ -247,14 +247,16 @@
    (fn [{:keys [session-id]}]
      (str "Error: Invalid or expired session.\n"
           (when session-id (str "Session ID: " session-id "\n"))
-          "\nTo fix: Use 'af claim <id> --agent NAME --role ROLE' to start a new session."))
+          "\nTo fix: Use 'af ready --name NAME' to claim a new job and get a session.\n"
+          "\nTip: Use @current alias or export AF_SESSION=<token> to avoid typing long session IDs."))
 
    :session-expired
    (fn [{:keys [session-id expires-at]}]
      (str "Error: Session has expired.\n"
           (when session-id (str "Session ID: " session-id "\n"))
           (when expires-at (str "Expired at: " expires-at "\n"))
-          "\nTo fix: Use 'af claim <id> --agent NAME --role ROLE' to start a new session."))
+          "\nTo fix: Use 'af ready --name NAME' to claim a new job and get a session.\n"
+          "\nTip: Use @current alias or export AF_SESSION=<token> to avoid typing long session IDs."))
 
    :session-mote-mismatch
    (fn [{:keys [session-mote-id requested-mote-id]}]
@@ -308,9 +310,10 @@
           "  * The session was ended with 'af done'\n"
           "  * The session ID is incorrect\n\n"
           "To get a new session:\n"
-          "  af ready --agent <name>    -> Claim a job and get new session\n\n"
+          "  af ready --name <name>     -> Claim a job and get new session\n\n"
           "To check your active sessions:\n"
-          "  af status                  -> Shows active sessions"))
+          "  af sessions                -> Lists active sessions\n\n"
+          "Tip: Use @current alias or export AF_SESSION=<token> to avoid typing long session IDs."))
 
    ;; -------------------------------------------------------------------------
    ;; File/Parse Errors

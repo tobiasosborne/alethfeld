@@ -215,7 +215,7 @@
           msg (err/format-error ex)]
       (is (str/includes? msg "Invalid or expired session"))
       (is (str/includes? msg "sess-123"))
-      (is (str/includes? msg "af claim")))))
+      (is (str/includes? msg "af ready")))))
 
 (deftest session-expired-error-test
   (testing "session-expired error message"
@@ -227,7 +227,7 @@
       (is (str/includes? msg "Session has expired"))
       (is (str/includes? msg "sess-456"))
       (is (str/includes? msg "2024-01-01"))
-      (is (str/includes? msg "af claim")))))
+      (is (str/includes? msg "af ready")))))
 
 (deftest session-mote-mismatch-error-test
   (testing "session-mote-mismatch error message"
@@ -503,9 +503,9 @@
       (is (str/includes? msg "af done"))
       (is (str/includes? msg "incorrect"))
       ;; Shows recovery
-      (is (str/includes? msg "af ready --agent"))
+      (is (str/includes? msg "af ready --name"))
       ;; Shows how to check status
-      (is (str/includes? msg "af status"))))
+      (is (str/includes? msg "af sessions"))))
 
   (testing "handles missing session-id"
     (let [ex (ex-info "Session not found"

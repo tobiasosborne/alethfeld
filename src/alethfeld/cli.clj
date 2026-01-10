@@ -393,6 +393,7 @@
                                   "Invalid role"]]
                       ["-d" "--difficulty SPEC" "Difficulty filter (N or N-M)"]
                       ["-p" "--priority SPEC" "Priority filter (pN or pN-pM)"]
+                      ["-M" "--mote ID" "Request specific mote (by ID)"]
                       ["-m" "--max N" "Max jobs to return"
                        :default 1
                        :parse-fn #(Integer/parseInt %)
