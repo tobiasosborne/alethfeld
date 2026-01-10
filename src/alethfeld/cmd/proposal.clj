@@ -30,25 +30,22 @@
         args))
 
 (defn- merge-option-claims
-  "Merge claims from --claim options with --difficulty and --atomic options.
+  "Merge claims from --claim options with --difficulty options.
 
-   The --difficulty and --atomic options are positional and apply to claims
-   in order. If there are fewer difficulty/atomic values than claims, the
-   remaining claims inherit from parent (difficulty) or default to false (atomic).
+   The --difficulty options are positional and apply to claims
+   in order. If there are fewer difficulty values than claims, the
+   remaining claims inherit from parent.
 
    Arguments:
    - claim-texts: Vector of claim text strings from --claim options
    - difficulties: Vector of difficulty values from --difficulty options
-   - atomics: Vector of booleans from --atomic options
 
-   Returns vector of {:claim ... :difficulty ... :atomic ...} maps."
-  [claim-texts difficulties atomics]
+   Returns vector of {:claim ... :difficulty ...} maps."
+  [claim-texts difficulties]
   (mapv (fn [idx claim-text]
-          (let [difficulty (get difficulties idx)
-                atomic? (get atomics idx)]
+          (let [difficulty (get difficulties idx)]
             (cond-> {:claim claim-text}
-              difficulty (assoc :difficulty difficulty)
-              atomic? (assoc :atomic true))))
+              difficulty (assoc :difficulty difficulty))))
         (range (count claim-texts))
         claim-texts))
 
@@ -75,19 +72,17 @@
    - :args - Child claims (required unless --claim used)
              Each claim can optionally include difficulty with @ notation:
              'My claim @3' sets difficulty to 3
-             Add ! suffix to mark as atomic: 'My claim !' or 'My claim @3!'
 
    Options:
    - :session - Session token (required)
    - :claim - Claim text (repeatable, alternative to positional args)
    - :difficulty - Difficulty for claims (repeatable, positional)
-   - :atomic - Mark claim as atomic (repeatable, positional)
    - :agent - Agent name (defaults to session agent)
    - :dry-run - Show what would be created without executing
 
    Creates proposed children with :proposed status and attaches
    a proposal to the parent. Sets parent taint to :needs-proposal-review.
-   Atomic claims get :needs-verification taint instead of :needs-decomposition.
+   All children get :needs-verification taint (v0.2 verifier-first workflow).
 
    Returns map with:
    - :proposal - The created proposal
@@ -123,13 +118,12 @@
                         {:type :validation-failed
                          :errors ["Provide --session with session token"]})))
 
-      ;; Parse positional claims (with @N and ! notation support)
+      ;; Parse positional claims (with @N notation support)
       (let [parsed-positional (parse-claims positional-claims)
-            ;; Parse option-based claims (merge with --difficulty and --atomic)
+            ;; Parse option-based claims (merge with --difficulty)
             parsed-options (when (seq option-claims)
                             (merge-option-claims option-claims
-                                                 (:difficulty options)
-                                                 (:atomic options)))
+                                                 (:difficulty options)))
             ;; Combine claims (positional first, then options)
             claims (vec (concat parsed-positional parsed-options))]
 
@@ -148,8 +142,7 @@
                                                                             (map :id (take idx []))))]
                                  {:id (str id "." (+ 1 idx (count existing-children)))
                                   :status :proposed
-                                  :claim (:claim claim-info)
-                                  :atomic (:atomic claim-info)}))
+                                  :claim (:claim claim-info)}))
                              claims)
                 config (store/load-config repo-path)]
             (core/dry-run-result

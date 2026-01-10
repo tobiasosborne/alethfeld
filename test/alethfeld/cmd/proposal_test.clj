@@ -663,97 +663,75 @@
         (is (> final-count initial-count))))))
 
 ;; =============================================================================
-;; Parse Claims - Atomic Notation Tests (Step C.5)
+;; Parse Claims Tests (v0.2: atomic notation removed)
 ;; =============================================================================
 
-(deftest parse-claims-atomic-test
-  (testing "parse-claims handles atomic marker (!)"
-    (let [result (@#'cmd/parse-claims ["Simple fact!"])]
+(deftest parse-claims-difficulty-test
+  (testing "parse-claims handles difficulty notation (@N)"
+    (let [result (@#'cmd/parse-claims ["Simple fact @3"])]
       (is (= "Simple fact" (:claim (first result))))
-      (is (true? (:atomic (first result)))))))
+      (is (= 3 (:difficulty (first result)))))))
 
-(deftest parse-claims-atomic-with-difficulty-test
-  (testing "parse-claims handles atomic with difficulty (@N!)"
-    (let [result (@#'cmd/parse-claims ["Verified fact @2!"])]
-      (is (= "Verified fact" (:claim (first result))))
-      (is (= 2 (:difficulty (first result))))
-      (is (true? (:atomic (first result)))))))
-
-(deftest parse-claims-mixed-atomic-test
-  (testing "parse-claims handles mixed atomic and non-atomic"
-    (let [result (@#'cmd/parse-claims ["Complex step" "Simple fact!" "Another step @3"])]
-      ;; First: non-atomic, no difficulty
+(deftest parse-claims-no-difficulty-test
+  (testing "parse-claims handles claims without notation"
+    (let [result (@#'cmd/parse-claims ["Complex step"])]
       (is (= "Complex step" (:claim (first result))))
-      (is (nil? (:atomic (first result))))
+      (is (nil? (:difficulty (first result)))))))
+
+(deftest parse-claims-mixed-difficulty-test
+  (testing "parse-claims handles mixed claims with and without difficulty"
+    (let [result (@#'cmd/parse-claims ["Complex step" "Simple fact @2" "Another step @3"])]
+      ;; First: no difficulty
+      (is (= "Complex step" (:claim (first result))))
       (is (nil? (:difficulty (first result))))
-      ;; Second: atomic, no difficulty
+      ;; Second: with difficulty
       (is (= "Simple fact" (:claim (second result))))
-      (is (true? (:atomic (second result))))
-      (is (nil? (:difficulty (second result))))
-      ;; Third: non-atomic, with difficulty
+      (is (= 2 (:difficulty (second result))))
+      ;; Third: with difficulty
       (is (= "Another step" (:claim (nth result 2))))
-      (is (nil? (:atomic (nth result 2))))
       (is (= 3 (:difficulty (nth result 2)))))))
 
-(deftest parse-claims-atomic-preserves-whitespace-test
-  (testing "parse-claims handles atomic with whitespace"
-    (let [result (@#'cmd/parse-claims ["  Claim with spaces  @3!"])]
+(deftest parse-claims-preserves-whitespace-test
+  (testing "parse-claims handles claims with whitespace"
+    (let [result (@#'cmd/parse-claims ["  Claim with spaces  @3"])]
       (is (= "Claim with spaces" (:claim (first result))))
-      (is (= 3 (:difficulty (first result))))
-      (is (true? (:atomic (first result)))))))
+      (is (= 3 (:difficulty (first result)))))))
 
 ;; =============================================================================
-;; Atomic Claims - Proposal Integration Tests (Step C.5)
+;; Proposal Taint Tests (v0.2: verifier-first workflow)
 ;; =============================================================================
 
-(deftest propose-atomic-claim-has-correct-taint-test
-  (testing "propose with atomic claim sets :needs-verification taint"
+(deftest propose-claim-has-correct-taint-test
+  (testing "propose sets :needs-verification taint (v0.2 verifier-first)"
     (init-repo!)
     (create-mote! "1" "Parent claim")
-    (let [result (cmd-propose-in-temp! "1" ["Simple fact!"])
+    (let [result (cmd-propose-in-temp! "1" ["Simple fact"])
           child (first (:children result))]
+      ;; v0.2: All proposed children get :needs-verification
       (is (contains? (:taint child) :needs-verification))
-      (is (not (contains? (:taint child) :needs-decomposition)))
-      (is (true? (:atomic child))))))
+      (is (not (contains? (:taint child) :needs-decomposition))))))
 
-(deftest propose-non-atomic-claim-has-correct-taint-test
-  (testing "propose with non-atomic claim sets :needs-verification taint (v0.2 verifier-first)"
+(deftest propose-multiple-claims-taint-test
+  (testing "propose with multiple claims all get :needs-verification (v0.2 verifier-first)"
     (init-repo!)
     (create-mote! "1" "Parent claim")
-    (let [result (cmd-propose-in-temp! "1" ["Complex step"])
-          child (first (:children result))]
-      ;; v0.2: All proposed children get :needs-verification (verifier-first workflow)
-      (is (contains? (:taint child) :needs-verification))
-      (is (not (contains? (:taint child) :needs-decomposition)))
-      (is (nil? (:atomic child))))))
-
-(deftest propose-mixed-atomic-claims-test
-  (testing "propose with mixed claims all get :needs-verification (v0.2 verifier-first)"
-    (init-repo!)
-    (create-mote! "1" "Parent claim")
-    (let [result (cmd-propose-in-temp! "1" ["Complex step" "Simple fact!" "Hard step @4"])
+    (let [result (cmd-propose-in-temp! "1" ["Complex step" "Simple fact" "Hard step @4"])
           [child1 child2 child3] (:children result)]
-      ;; v0.2: All proposed children get :needs-verification regardless of atomic flag
-      ;; First: non-atomic
+      ;; v0.2: All proposed children get :needs-verification
       (is (contains? (:taint child1) :needs-verification))
-      (is (nil? (:atomic child1)))
-      ;; Second: atomic
       (is (contains? (:taint child2) :needs-verification))
-      (is (true? (:atomic child2)))
-      ;; Third: non-atomic with difficulty
       (is (contains? (:taint child3) :needs-verification))
-      (is (nil? (:atomic child3)))
+      ;; Difficulty is preserved
       (is (= 4 (:difficulty child3))))))
 
-(deftest approve-atomic-claim-preserves-taint-test
-  (testing "approved atomic claim has :needs-verification taint (quorum=2)"
+(deftest approve-claim-preserves-taint-test
+  (testing "approved claim has :needs-verification taint (quorum=2)"
     (init-repo! :proposal-quorum 2)
     (create-mote! "1" "Parent claim")
-    (cmd-propose-in-temp! "1" ["Simple fact!"])
+    (cmd-propose-in-temp! "1" ["Simple fact"])
     (cmd-approve-in-temp! "1" :agent "agent-1")
     (cmd-approve-in-temp! "1" :agent "agent-2")
     (let [child (store/load-mote *temp-dir* "1.1")]
       (is (= :fixed (:status child)))
       (is (contains? (:taint child) :needs-verification))
-      (is (not (contains? (:taint child) :needs-decomposition)))
-      (is (true? (:atomic child))))))
+      (is (not (contains? (:taint child) :needs-decomposition))))))
