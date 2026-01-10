@@ -1,6 +1,6 @@
 # Alethfeld: Product Requirements Document
 
-**Version:** 0.1  
+**Version:** 0.2
 **Date:** January 2026
 
 ---

@@ -69,7 +69,7 @@ Two critical issues caused race conditions:
 |--------|-------|
 | **Race condition fix** | Layers 1-4 complete |
 | **Beads issues** | 3 open (P3 tests/docs), 408 closed |
-| **Codebase** | v0.1.0 with race condition fixes |
+| **Codebase** | v0.2.0 with race condition fixes |
 
 ---
 
@@ -93,7 +93,7 @@ bd ready
 
 ```bash
 clj -M:test              # 1296 tests, all passing
-clj -M:run --version     # Alethfeld v0.1.0
+clj -M:run --version     # Alethfeld v0.2.0
 bd stats                 # Issue counts
 bd ready                 # Available work (3 P3 issues)
 ```
@@ -195,7 +195,7 @@ Plan file: `~/.claude/plans/polished-brewing-nest.md`
 
 ---
 
-## v0.1.0 Status
+## v0.2.0 Status
 
 | Feature | Status |
 |---------|--------|

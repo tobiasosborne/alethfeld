@@ -1,6 +1,6 @@
 # Alethfeld: Technical Specification
 
-**Version:** 0.1  
+**Version:** 0.2
 **Date:** January 2026
 
 ---
