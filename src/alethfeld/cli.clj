@@ -87,6 +87,12 @@
   (or (System/getenv "AF_NAME")
       (System/getenv "AF_AGENT")))
 
+(defn get-default-session
+  "Get the default session token from AF_SESSION environment variable.
+   Returns nil if not set."
+  []
+  (System/getenv "AF_SESSION"))
+
 ;; -----------------------------------------------------------------------------
 ;; Deprecated Option Support
 ;; -----------------------------------------------------------------------------
@@ -693,6 +699,10 @@
             ;; Apply AF_NAME (or legacy AF_AGENT) as default for --name if not provided
             options (if (and (nil? (:name options)) (get-default-name))
                       (assoc options :name (get-default-name))
+                      options)
+            ;; Apply AF_SESSION as default for --session if not provided
+            options (if (and (nil? (:session options)) (get-default-session))
+                      (assoc options :session (get-default-session))
                       options)]
         {:command cmd
          :id id

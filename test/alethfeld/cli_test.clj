@@ -343,6 +343,33 @@
       (is (= "alice" (:name (:options result))))
       (is (some #(str/includes? % "deprecated") (:deprecation-warnings result))))))
 
+(deftest parse-args-af-session-env-var-test
+  (testing "AF_SESSION is used when --session not provided"
+    ;; Mock the get-default-session function
+    (with-redefs [cli/get-default-session (constantly "test-session-token")]
+      (let [result (cli/parse-args ["approve" "1"])]
+        (is (= "test-session-token" (:session (:options result)))))))
+
+  (testing "explicit --session takes priority over AF_SESSION"
+    (with-redefs [cli/get-default-session (constantly "env-session")]
+      (let [result (cli/parse-args ["approve" "1" "--session" "explicit-session"])]
+        (is (= "explicit-session" (:session (:options result)))))))
+
+  (testing "AF_SESSION works with propose command"
+    (with-redefs [cli/get-default-session (constantly "propose-session")]
+      (let [result (cli/parse-args ["propose" "1" "--claim" "test"])]
+        (is (= "propose-session" (:session (:options result)))))))
+
+  (testing "AF_SESSION works with vote command"
+    (with-redefs [cli/get-default-session (constantly "vote-session")]
+      (let [result (cli/parse-args ["vote" "1" "--for"])]
+        (is (= "vote-session" (:session (:options result)))))))
+
+  (testing "AF_SESSION not applied when nil"
+    (with-redefs [cli/get-default-session (constantly nil)]
+      (let [result (cli/parse-args ["approve" "1"])]
+        (is (nil? (:session (:options result))))))))
+
 (deftest parse-args-case-insensitive-test
   (testing "commands are case insensitive"
     (let [result1 (cli/parse-args ["SHOW" "1"])

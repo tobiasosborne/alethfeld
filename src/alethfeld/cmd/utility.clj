@@ -566,23 +566,144 @@
         roles (mapcat #(job/mote->roles %) workable)]
     (frequencies roles)))
 
+(defn- leaf-mote?
+  "Check if a mote is a leaf (has no children)."
+  [mote]
+  (empty? (:children mote)))
+
+(defn- intermediate-mote?
+  "Check if a mote is intermediate (has children)."
+  [mote]
+  (seq (:children mote)))
+
+(defn- categorize-motes
+  "Categorize motes into leaf and intermediate.
+   Returns {:leaf-motes [...] :intermediate-motes [...]}."
+  [mote-list]
+  {:leaf-motes (filterv leaf-mote? mote-list)
+   :intermediate-motes (filterv intermediate-mote? mote-list)})
+
+(defn- count-motes-needing-proposer-work
+  "Count motes that need proposer work (decomposition).
+   Only counts motes with :needs-decomposition taint."
+  [mote-list]
+  (count (filter #(contains? (:taint %) :needs-decomposition) mote-list)))
+
+(defn- count-motes-needing-advisor-work
+  "Count motes that need advisor review (proposal review).
+   Only counts motes with :needs-proposal-review taint."
+  [mote-list]
+  (count (filter #(contains? (:taint %) :needs-proposal-review) mote-list)))
+
+(defn- count-motes-needing-verification
+  "Count motes that need verification votes.
+   Only counts leaf motes with :needs-verification taint."
+  [mote-list]
+  (count (filter #(and (leaf-mote? %)
+                       (contains? (:taint %) :needs-verification))
+                 mote-list)))
+
+(defn- count-votes-at-quorum
+  "Count how many leaf motes with :needs-verification have reached quorum.
+   Returns {:at-quorum n :total m}."
+  [mote-list quorum]
+  (let [needs-verify (filter #(and (leaf-mote? %)
+                                   (contains? (:taint %) :needs-verification))
+                             mote-list)
+        total (count needs-verify)
+        at-quorum (count (filter (fn [mote]
+                                   (let [votes (:votes mote [])
+                                         for-count (count (filter #(= :for (:vote %)) votes))]
+                                     (>= for-count quorum)))
+                                 needs-verify))]
+    {:at-quorum at-quorum :total total}))
+
+(defn- all-leaves-verified?
+  "Check if all leaf motes are verified."
+  [mote-list]
+  (let [leaves (filter leaf-mote? mote-list)]
+    (and (seq leaves)
+         (every? #(= :verified (:status %)) leaves))))
+
+(defn- has-fixed-intermediate-motes?
+  "Check if there are intermediate motes with :fixed status."
+  [mote-list]
+  (some #(and (intermediate-mote? %)
+              (= :fixed (:status %)))
+        mote-list))
+
+(defn- suggest-next-action
+  "Suggest the next action based on work remaining by stage.
+   Returns a string suggestion."
+  [proposer-work advisor-work verifier-work]
+  (cond
+    (pos? verifier-work) "af ready --role verifier"
+    (pos? advisor-work)  "af ready --role advisor"
+    (pos? proposer-work) "af ready --role proposer"
+    :else                nil))
+
+(defn- format-progress-by-stage
+  "Format the progress breakdown by stage.
+   Returns a string with proposer/advisor/verifier work remaining."
+  [{:keys [proposer-work advisor-work verifier-work quorum-progress]}]
+  (let [{:keys [at-quorum total]} quorum-progress]
+    (str "Progress by stage:\n"
+         "  Proposer work:    " proposer-work " remaining"
+         (when (zero? proposer-work) " (all decomposed)") "\n"
+         "  Advisor reviews:  " advisor-work " remaining"
+         (when (zero? advisor-work) " (all proposals approved)") "\n"
+         "  Verifier votes:   " verifier-work " remaining"
+         (when (pos? total)
+           (str " (" at-quorum "/" total " at quorum)"))
+         (when (zero? verifier-work) " (all verified)"))))
+
+(defn- format-structure-summary
+  "Format the mote structure summary.
+   Returns a string like 'Structure: 5 intermediate + 14 leaf motes'."
+  [{:keys [leaf-count intermediate-count]}]
+  (str "Structure: " intermediate-count " intermediate + " leaf-count " leaf motes"))
+
+(defn- format-intermediate-mote-note
+  "Format the explanatory note when all leaves are verified but parents are fixed.
+   Returns nil if not applicable."
+  [{:keys [all-leaves-verified? fixed-intermediate-count]}]
+  (when (and all-leaves-verified? (pos? fixed-intermediate-count))
+    (str "\nNote: " fixed-intermediate-count " intermediate mote"
+         (when (> fixed-intermediate-count 1) "s")
+         " " (if (> fixed-intermediate-count 1) "are" "is")
+         " \"fixed\" (decomposed into children).\n"
+         "      Verification applies to leaf motes only.\n"
+         "      All leaves verified = proof complete.")))
+
 (defn- format-status-concise
   "Format concise status output (default).
 
    Returns a human-readable summary string."
-  [{:keys [project-name total-motes verified-count ready-for-work role-counts]}]
+  [{:keys [project-name total-motes verified-count ready-for-work
+           proposer-work advisor-work verifier-work quorum-progress
+           leaf-count intermediate-count all-leaves-verified? fixed-intermediate-count
+           next-action-suggestion]}]
   (let [percent (if (pos? total-motes)
                   (int (* 100 (/ verified-count total-motes)))
                   0)
-        role-summary (when (pos? ready-for-work)
-                       (str/join ", "
-                                 (for [[role cnt] (sort-by (comp - val) role-counts)
-                                       :when (pos? cnt)]
-                                   (str cnt " " (name role)))))]
+        has-work? (or (pos? proposer-work)
+                      (pos? advisor-work)
+                      (pos? verifier-work))]
     (str project-name " - " percent "% verified (" verified-count "/" total-motes ")\n"
-         (if (pos? ready-for-work)
-           (str "Ready work: " ready-for-work " motes (" role-summary ")")
-           "No work available"))))
+         "\n"
+         (format-progress-by-stage {:proposer-work proposer-work
+                                    :advisor-work advisor-work
+                                    :verifier-work verifier-work
+                                    :quorum-progress quorum-progress})
+         "\n\n"
+         (format-structure-summary {:leaf-count leaf-count
+                                    :intermediate-count intermediate-count})
+         (when-let [note (format-intermediate-mote-note
+                          {:all-leaves-verified? all-leaves-verified?
+                           :fixed-intermediate-count fixed-intermediate-count})]
+           note)
+         (when (and has-work? next-action-suggestion)
+           (str "\nNext action: " next-action-suggestion)))))
 
 (defn- format-status-verbose
   "Format verbose status output (with --verbose flag).
@@ -630,6 +751,11 @@
    - :taint-counts - Map of taint -> count
    - :active-sessions - Number of active sessions
    - :ready-for-work - Number of workable motes
+   - :proposer-work - Motes needing decomposition
+   - :advisor-work - Motes needing proposal review
+   - :verifier-work - Motes needing verification
+   - :leaf-count - Number of leaf motes
+   - :intermediate-count - Number of intermediate motes
    - :output - Formatted human-readable output"
   [{:keys [options]}]
   (let [repo-path "."
@@ -641,9 +767,10 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    (let [;; Load config for project name
+    (let [;; Load config for project name and quorum
           config (store/load-config repo-path)
           project-name (:project-name config "Unnamed Project")
+          vote-quorum (or (:vote-quorum config) 1)
 
           ;; Load all motes
           motes (store/load-all-motes repo-path)
@@ -672,6 +799,24 @@
           ;; Count by role needed
           role-counts (count-motes-by-role-needed motes config)
 
+          ;; Enhanced status: work by stage
+          proposer-work (count-motes-needing-proposer-work mote-list)
+          advisor-work (count-motes-needing-advisor-work mote-list)
+          verifier-work (count-motes-needing-verification mote-list)
+          quorum-progress (count-votes-at-quorum mote-list vote-quorum)
+
+          ;; Enhanced status: mote categorization
+          {:keys [leaf-motes intermediate-motes]} (categorize-motes mote-list)
+          leaf-count (count leaf-motes)
+          intermediate-count (count intermediate-motes)
+
+          ;; Enhanced status: check if all leaves verified
+          leaves-verified? (all-leaves-verified? mote-list)
+          fixed-intermediate-count (count (filter #(= :fixed (:status %)) intermediate-motes))
+
+          ;; Suggest next action
+          next-action-suggestion (suggest-next-action proposer-work advisor-work verifier-work)
+
           ;; Build status data
           status-data {:project-name project-name
                        :root-motes root-motes
@@ -681,7 +826,17 @@
                        :taint-counts taint-counts
                        :active-sessions (count active-sessions)
                        :ready-for-work workable-count
-                       :role-counts role-counts}
+                       :role-counts role-counts
+                       ;; Enhanced fields for v0.2-4.2 and v0.2-4.3
+                       :proposer-work proposer-work
+                       :advisor-work advisor-work
+                       :verifier-work verifier-work
+                       :quorum-progress quorum-progress
+                       :leaf-count leaf-count
+                       :intermediate-count intermediate-count
+                       :all-leaves-verified? leaves-verified?
+                       :fixed-intermediate-count fixed-intermediate-count
+                       :next-action-suggestion next-action-suggestion}
 
           ;; Format output based on verbose flag
           output (if verbose?

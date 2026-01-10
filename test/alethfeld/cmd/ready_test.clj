@@ -212,6 +212,88 @@
       (is (= 2 (count result))))))
 
 ;; =============================================================================
+;; Max Jobs with Claiming Tests
+;; =============================================================================
+
+(deftest ready-max-with-claim-returns-multiple-jobs-test
+  (testing "ready with --max and --name claims multiple jobs"
+    (init-repo!)
+    (create-mote! "1" "First" :priority :p1)
+    (create-mote! "2" "Second" :priority :p2)
+    (create-mote! "3" "Third" :priority :p3)
+    (create-mote! "4" "Fourth" :priority :p4)
+    (let [result (cmd-ready-in-temp :agent "batch-agent" :max 3)]
+      ;; Should claim exactly 3 jobs
+      (is (= 3 (count result)))
+      ;; All should be claimed by the agent
+      (is (every? #(= "batch-agent" (:claimed-by %)) result)))))
+
+(deftest ready-max-with-claim-respects-priority-order-test
+  (testing "ready with --max claims highest priority jobs first"
+    (init-repo!)
+    (create-mote! "1" "Low priority" :priority :p4)
+    (create-mote! "2" "Critical" :priority :p0)
+    (create-mote! "3" "Normal" :priority :p2)
+    (create-mote! "4" "High" :priority :p1)
+    (let [result (cmd-ready-in-temp :agent "batch-agent" :max 2)]
+      ;; Should get the 2 highest priority jobs (p0, p1)
+      (is (= 2 (count result)))
+      (is (= :p0 (:priority (first result))))
+      (is (= :p1 (:priority (second result)))))))
+
+(deftest ready-max-with-claim-persists-all-claims-test
+  (testing "ready with --max persists all claims to disk"
+    (init-repo!)
+    (create-mote! "1" "First")
+    (create-mote! "2" "Second")
+    (create-mote! "3" "Third")
+    (cmd-ready-in-temp :agent "batch-agent" :max 3)
+    ;; Verify all motes are claimed in the store
+    (let [m1 (store/load-mote *temp-dir* "1")
+          m2 (store/load-mote *temp-dir* "2")
+          m3 (store/load-mote *temp-dir* "3")]
+      (is (= "batch-agent" (:claimed-by m1)))
+      (is (= "batch-agent" (:claimed-by m2)))
+      (is (= "batch-agent" (:claimed-by m3))))))
+
+(deftest ready-max-with-claim-filters-by-role-test
+  (testing "ready with --max and --role only claims jobs for that role"
+    (init-repo!)
+    (create-mote! "1" "Needs decomp" :taint #{:needs-decomposition})
+    (create-mote! "2" "Needs verification" :taint #{:needs-verification})
+    (create-mote! "3" "More decomp" :taint #{:needs-decomposition})
+    (create-mote! "4" "More verification" :taint #{:needs-verification})
+    (let [result (cmd-ready-in-temp :agent "batch-agent" :role :verifier :max 10)]
+      ;; Should only get verifier jobs (motes 2 and 4)
+      (is (= 2 (count result)))
+      (is (every? #(= :verifier (:role %)) result)))))
+
+(deftest ready-max-one-is-default-for-claiming-test
+  (testing "ready defaults to max 1 when claiming (agent provided)"
+    (init-repo!)
+    (create-mote! "1" "First")
+    (create-mote! "2" "Second")
+    (create-mote! "3" "Third")
+    (let [result (cmd-ready-in-temp :agent "my-agent")]
+      (is (= 1 (count result))))))
+
+(deftest ready-max-with-no-claim-shows-multiple-test
+  (testing "ready with --max and --no-claim shows multiple jobs without claiming"
+    (init-repo!)
+    (create-mote! "1" "First")
+    (create-mote! "2" "Second")
+    (create-mote! "3" "Third")
+    (let [result (cmd-ready-in-temp :agent "batch-agent" :max 3 :no-claim true)]
+      ;; Should return 3 jobs
+      (is (= 3 (count result)))
+      ;; None should be claimed
+      (is (every? #(nil? (:claimed-by %)) result))
+      ;; Verify not persisted
+      (is (nil? (:claimed-by (store/load-mote *temp-dir* "1"))))
+      (is (nil? (:claimed-by (store/load-mote *temp-dir* "2"))))
+      (is (nil? (:claimed-by (store/load-mote *temp-dir* "3")))))))
+
+;; =============================================================================
 ;; Role Filter Tests
 ;; =============================================================================
 
