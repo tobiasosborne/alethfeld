@@ -132,9 +132,8 @@
    - :stale-sessions - Vector of stale session maps
    - :output - Formatted human-readable output
    - :next-actions - Suggested next commands"
-  [{:keys [options]}]
-  (let [repo-path "."
-        verbose? (:details options)]
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [verbose? (:details options)]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)

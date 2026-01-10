@@ -50,9 +50,8 @@
    - Inherits priority/difficulty from parent if not specified
 
    Returns the created mote."
-  [{:keys [id options]}]
-  (let [repo-path "."
-        {:keys [claim root difficulty priority name dry-run]} options
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [{:keys [claim root difficulty priority name dry-run]} options
         agent (or name "cli-user")]
 
     ;; Validation

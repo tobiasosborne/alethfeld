@@ -45,9 +45,8 @@
    - :status-changed - Whether the mote status changed
    - :new-status - The new mote status
    - :propagated - Vector of parent IDs that were auto-voted (if --propagate)"
-  [{:keys [id options validated-session]}]
-  (let [repo-path "."
-        {:keys [for against reason session propagate dry-run]} options]
+  [{:keys [id options validated-session repo-path] :or {repo-path "."}}]
+  (let [{:keys [for against reason session propagate dry-run]} options]
 
     ;; Validation
     (when-not id
@@ -188,9 +187,8 @@
    - :total-voted - Count of votes cast
    - :total-skipped - Count of motes skipped
    - :dry-run - True if this was a dry run"
-  [{:keys [options]}]
-  (let [repo-path "."
-        {:keys [for against reason session dry-run]} options]
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [{:keys [for against reason session dry-run]} options]
 
     ;; Validation
     (when (and for against)
@@ -305,9 +303,8 @@
    Removing taints requires :taint-remove permission (prover, ref-checker roles).
 
    Returns the updated mote."
-  [{:keys [id options]}]
-  (let [repo-path "."
-        {:keys [add remove session dry-run]} options
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [{:keys [add remove session dry-run]} options
         ;; Support both single value and vector for add/remove
         adds (if (sequential? add) add (when add [add]))
         removes (if (sequential? remove) remove (when remove [remove]))]

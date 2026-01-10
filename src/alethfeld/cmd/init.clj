@@ -23,9 +23,8 @@
    - :dry-run - Show what would be created without executing
 
    Returns the config that was created."
-  [{:keys [options]}]
-  (let [repo-path "."
-        project-name (:name options "Alethfeld Project")
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [project-name (:name options "Alethfeld Project")
         dry-run? (:dry-run options)]
 
     ;; Check if already initialized

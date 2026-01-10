@@ -106,9 +106,8 @@
    - :verbose - Show detailed output (default: concise)
 
    Returns the mote map, or throws if not found."
-  [{:keys [id options]}]
-  (let [repo-path "."
-        verbose? (:verbose options)
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [verbose? (:verbose options)
         mote (store/load-mote repo-path id)]
     (if mote
       (let [config (store/load-config repo-path)

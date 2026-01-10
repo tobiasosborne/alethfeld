@@ -38,9 +38,8 @@
    At least one of claim/priority/difficulty must be provided.
 
    Returns the updated mote."
-  [{:keys [id options]}]
-  (let [repo-path "."
-        {:keys [claim priority difficulty name dry-run]} options
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [{:keys [claim priority difficulty name dry-run]} options
         agent (or name "cli-user")]
 
     ;; Validation

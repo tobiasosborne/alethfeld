@@ -45,11 +45,12 @@
      (wrap-session-enforcement cmd-unclaim! :done :validate-only true))
    ```"
   [handler action & {:keys [validate-only repo-path]
-                     :or {validate-only false
-                          repo-path "."}}]
+                     :or {validate-only false}}]
   (fn [context]
     (let [{:keys [id options]} context
-          session-id (:session options)]
+          session-id (:session options)
+          ;; Use repo-path from context if not provided as option
+          effective-repo-path (or repo-path (:repo-path context) ".")]
       ;; Check if we have required session info
       (cond
         ;; No session provided - let handler deal with it (may have its own error)
@@ -63,8 +64,8 @@
         ;; Enforce or validate session
         :else
         (let [session (if validate-only
-                        (session/validate-session! repo-path session-id id)
-                        (session/enforce-session! repo-path session-id action id))]
+                        (session/validate-session! effective-repo-path session-id id)
+                        (session/enforce-session! effective-repo-path session-id action id))]
           ;; Pass validated session to handler
           (handler (assoc context :validated-session session)))))))
 

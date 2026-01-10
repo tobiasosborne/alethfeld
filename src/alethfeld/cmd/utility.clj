@@ -87,9 +87,8 @@
    - :schema-errors - vector of schema validation errors (if any)
    - :dag-errors - vector of DAG validation errors (if any)
    - :output - Formatted check result string"
-  [{:keys [options]}]
-  (let [repo-path "."
-        verbose? (:verbose options)]
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [verbose? (:verbose options)]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
@@ -152,9 +151,8 @@
    - :issues - Detected issues
    - :repairs - Repair results (if --auto)
    - :output - Formatted output string"
-  [{:keys [options]}]
-  (let [repo-path "."
-        dry-run? (:dry-run options)
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [dry-run? (:dry-run options)
         auto? (:auto options)]
 
     ;; Check repository exists
@@ -253,9 +251,8 @@
    - :commits - Vector of commit maps
    - :mote-id - The mote ID
    - :output - Formatted history string"
-  [{:keys [id options]}]
-  (let [repo-path "."
-        limit (or (:limit options) default-log-limit)
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [limit (or (:limit options) default-log-limit)
         verbose? (:verbose options)]
 
     ;; Validation
@@ -322,9 +319,8 @@
    - :commit-sha - SHA of the sync commit (if committed)
 
    Note: If no remote is configured, pull and push are skipped gracefully."
-  [{:keys [options]}]
-  (let [repo-path "."
-        no-push (:no-push options)
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [no-push (:no-push options)
         dry-run? (:dry-run options)]
 
     ;; Check repository exists
@@ -531,9 +527,8 @@
    - :lines - Vector of rendered tree lines
    - :mote-count - Number of motes displayed
    - :output - Formatted tree string"
-  [{:keys [id options]}]
-  (let [repo-path "."
-        max-depth (:depth options)
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [max-depth (:depth options)
         verbose? (:verbose options)]
 
     ;; Validation
@@ -775,9 +770,8 @@
    - :leaf-count - Number of leaf motes
    - :intermediate-count - Number of intermediate motes
    - :output - Formatted human-readable output"
-  [{:keys [options]}]
-  (let [repo-path "."
-        verbose? (:verbose options)]
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [verbose? (:verbose options)]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)

@@ -749,9 +749,8 @@
 
    Note: Automatically cleans up stale sessions (expired or crashed)
    before selecting jobs."
-  [{:keys [options]}]
-  (let [repo-path "."
-        {:keys [name role difficulty priority mote max no-claim job reserve claim-reservation]} options
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [{:keys [name role difficulty priority mote max no-claim job reserve claim-reservation]} options
         agent name  ;; Renamed from --agent to --name, but keep 'agent' var for session compat
         ;; Check if --name looks like a role name (common mistake)
         role-hint (when-let [matched-role (core/name-looks-like-role? name)]

@@ -39,9 +39,8 @@
    Returns map with:
    - :withdrawn-children - Vector of archived child IDs
    - :mote-id - The parent mote ID"
-  [{:keys [id options]}]
-  (let [repo-path "."
-        session-id (:session options)
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [session-id (:session options)
         dry-run? (:dry-run options)]
 
     ;; Validation
@@ -120,10 +119,9 @@
    - :note - Optional note explaining what the reference provides
 
    Returns the updated mote."
-  [{:keys [id options]}]
+  [{:keys [id options repo-path] :or {repo-path "."}}]
   ;; Note: Session enforcement handled by middleware
-  (let [repo-path "."
-        {:keys [ref note session]} options]
+  (let [{:keys [ref note session]} options]
 
     ;; Validation
     (when-not id
@@ -185,10 +183,9 @@
    - :note - Optional note explaining why this assumption is needed
 
    Returns the updated mote."
-  [{:keys [id options]}]
+  [{:keys [id options repo-path] :or {repo-path "."}}]
   ;; Note: Session enforcement handled by middleware
-  (let [repo-path "."
-        {:keys [ref note session]} options]
+  (let [{:keys [ref note session]} options]
 
     ;; Validation
     (when-not id
@@ -256,10 +253,9 @@
    - :meaning - The meaning/definition of the symbol (required)
 
    Returns the updated mote."
-  [{:keys [id options]}]
+  [{:keys [id options repo-path] :or {repo-path "."}}]
   ;; Note: Session enforcement handled by middleware
-  (let [repo-path "."
-        {:keys [symbol meaning session]} options]
+  (let [{:keys [symbol meaning session]} options]
 
     ;; Validation
     (when-not id
@@ -325,10 +321,9 @@
    - :reason - Optional note explaining why this dependency exists
 
    Returns the updated mote."
-  [{:keys [id options]}]
+  [{:keys [id options repo-path] :or {repo-path "."}}]
   ;; Note: Session enforcement handled by middleware
-  (let [repo-path "."
-        {:keys [depends-on reason session]} options]
+  (let [{:keys [depends-on reason session]} options]
 
     ;; Validation
     (when-not id

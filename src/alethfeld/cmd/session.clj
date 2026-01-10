@@ -25,9 +25,8 @@
    Errors if mote is already claimed by another agent.
 
    Returns the updated mote with :session-id."
-  [{:keys [id options]}]
-  (let [repo-path "."
-        {:keys [name role dry-run]} options
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [{:keys [name role dry-run]} options
         agent name]
 
     ;; Validation
@@ -139,9 +138,8 @@
    This command releases the claim but does not end the session.
 
    Returns the updated mote."
-  [{:keys [id options]}]
-  (let [repo-path "."
-        session-id (:session options)
+  [{:keys [id options repo-path] :or {repo-path "."}}]
+  (let [session-id (:session options)
         dry-run? (:dry-run options)]
 
     ;; Validation
@@ -208,9 +206,8 @@
    - :session-id - The session that was ended
    - :mote-id - The mote that was released
    - :action-count - Number of actions performed in the session"
-  [{:keys [options]}]
-  (let [repo-path "."
-        session-id (:session options)
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [session-id (:session options)
         dry-run? (:dry-run options)]
 
     ;; Validation

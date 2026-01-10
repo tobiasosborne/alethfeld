@@ -87,9 +87,8 @@
    Returns map with:
    - :proposal - The created proposal
    - :children - Vector of created child motes"
-  [{:keys [id args options validated-session]}]
-  (let [repo-path "."
-        session-id (:session options)
+  [{:keys [id args options validated-session repo-path] :or {repo-path "."}}]
+  (let [session-id (:session options)
         dry-run? (:dry-run options)]
 
     ;; Validation
@@ -191,9 +190,8 @@
    - :vote-cast - The vote that was cast
    - :quorum-status - :approved or :pending
    - :promoted-children - Child IDs if approved"
-  [{:keys [id options validated-session]}]
-  (let [repo-path "."
-        session-id (:session options)
+  [{:keys [id options validated-session repo-path] :or {repo-path "."}}]
+  (let [session-id (:session options)
         reason (:reason options)
         dry-run? (:dry-run options)]
 
@@ -288,9 +286,8 @@
    - :total-approved - Count of approvals cast
    - :total-skipped - Count of motes skipped
    - :dry-run - True if this was a dry run"
-  [{:keys [options]}]
-  (let [repo-path "."
-        {:keys [session reason dry-run]} options]
+  [{:keys [options repo-path] :or {repo-path "."}}]
+  (let [{:keys [session reason dry-run]} options]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
@@ -379,9 +376,8 @@
    - :vote-cast - The vote that was cast
    - :quorum-status - :rejected or :pending
    - :archived-children - Child IDs if rejected"
-  [{:keys [id options validated-session]}]
-  (let [repo-path "."
-        session-id (:session options)
+  [{:keys [id options validated-session repo-path] :or {repo-path "."}}]
+  (let [session-id (:session options)
         reason (:reason options)
         dry-run? (:dry-run options)]
 

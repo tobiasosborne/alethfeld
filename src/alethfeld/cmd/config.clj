@@ -68,9 +68,8 @@
    - proposal-quorum (integer >= 1)
    - vote-quorum (integer >= 1)
    - claim-timeout-minutes (integer >= 1)"
-  [{:keys [id args]}]
-  (let [repo-path "."
-        subcommand id]
+  [{:keys [id args repo-path] :or {repo-path "."}}]
+  (let [subcommand id]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)

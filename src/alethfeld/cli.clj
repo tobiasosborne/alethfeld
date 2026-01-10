@@ -107,19 +107,19 @@
 
    Arguments:
    - options: Parsed options map (may contain :session and :name)
+   - repo-path: Repository path
 
    Returns updated options map with :session set if auto-inferred,
    or original options if auto-inference not possible/applicable.
 
    Side effects: Sets *session-inference-message* atom with status message."
-  [options]
+  [options repo-path]
   (if (:session options)
     ;; Session already provided - no inference needed
     options
     ;; Try auto-inference if we have an agent name
     (if-let [agent (:name options)]
-      (let [repo-path "."
-            result (session/resolve-session repo-path {:agent agent})]
+      (let [result (session/resolve-session repo-path {:agent agent})]
         (cond
           ;; Successfully auto-resolved - update options and set message
           (:auto-resolved? result)
@@ -823,7 +823,7 @@
             ;; Auto-infer session if still not provided and agent has exactly one session
             ;; Priority: 1. --session flag, 2. AF_SESSION env, 3. auto-inference
             _ (reset! *session-inference-message* nil)
-            options (try-auto-infer-session options)]
+            options (try-auto-infer-session options ".")]
         {:command cmd
          :id id
          :args rest-args
@@ -843,9 +843,8 @@
 (defn- format-bare-output
   "Generate the bare command output showing project context and next action.
    This is shown when `af` is invoked with no arguments."
-  []
-  (let [repo-path "."
-        initialized? (store/repo-exists? repo-path)]
+  [repo-path]
+  (let [initialized? (store/repo-exists? repo-path)]
     (if initialized?
       ;; Project is initialized - show status
       (let [config (store/load-config repo-path)
@@ -952,7 +951,7 @@
 
     ;; Bare invocation - show context and next action
     bare?
-    {:output (format-bare-output)
+    {:output (format-bare-output ".")
      :exit-code :success}
 
     ;; Help
@@ -986,10 +985,12 @@
     :else
     (try
       (let [handler (get @handlers command)
+            repo-path (or (:repo-path options) ".")
             context {:id id
                      :args args
                      :options options
-                     :command command}
+                     :command command
+                     :repo-path repo-path}
             ;; Apply session enforcement middleware if command requires it
             ;; The middleware validates the session BEFORE the handler runs
             wrapped-handler (if (command-requires-session? command)
@@ -998,7 +999,7 @@
                                 (middleware/wrap-session-enforcement
                                  handler action
                                  :validate-only validate-only?
-                                 :repo-path "."))
+                                 :repo-path repo-path))
                               handler)
             result (wrapped-handler context)]
         {:result result
