@@ -121,6 +121,7 @@
 
    Returns the updated mote."
   [{:keys [id options]}]
+  ;; Note: Session enforcement handled by middleware
   (let [repo-path "."
         {:keys [ref note session]} options]
 
@@ -141,13 +142,11 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
+    ;; Session validation (check token exists - enforcement done by middleware)
     (when-not session
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
-
-    (session/enforce-session! repo-path session :add-ref id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -187,6 +186,7 @@
 
    Returns the updated mote."
   [{:keys [id options]}]
+  ;; Note: Session enforcement handled by middleware
   (let [repo-path "."
         {:keys [ref note session]} options]
 
@@ -207,13 +207,11 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
+    ;; Session validation (check token exists - enforcement done by middleware)
     (when-not session
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
-
-    (session/enforce-session! repo-path session :add-assumption id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -259,6 +257,7 @@
 
    Returns the updated mote."
   [{:keys [id options]}]
+  ;; Note: Session enforcement handled by middleware
   (let [repo-path "."
         {:keys [symbol meaning session]} options]
 
@@ -284,13 +283,11 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
+    ;; Session validation (check token exists - enforcement done by middleware)
     (when-not session
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
-
-    (session/enforce-session! repo-path session :add-definition id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]
@@ -329,6 +326,7 @@
 
    Returns the updated mote."
   [{:keys [id options]}]
+  ;; Note: Session enforcement handled by middleware
   (let [repo-path "."
         {:keys [depends-on reason session]} options]
 
@@ -354,13 +352,11 @@
                       {:type :not-initialized
                        :path repo-path})))
 
-    ;; Session enforcement
+    ;; Session validation (check token exists - enforcement done by middleware)
     (when-not session
       (throw (ex-info "Session token is required"
                       {:type :validation-failed
                        :errors ["Provide --session with session token"]})))
-
-    (session/enforce-session! repo-path session :add-dep id)
 
     ;; Load and validate mote exists
     (let [current-mote (store/load-mote repo-path id)]

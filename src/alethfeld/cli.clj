@@ -12,7 +12,8 @@
             [clojure.pprint :as pprint]
             [alethfeld.errors :as err]
             [alethfeld.store :as store]
-            [alethfeld.session :as session])
+            [alethfeld.session :as session]
+            [alethfeld.middleware :as middleware])
   (:gen-class))
 
 ;; Command handlers are registered by alethfeld.cmd namespace.
@@ -596,6 +597,78 @@
            :options []}})
 
 ;; -----------------------------------------------------------------------------
+;; Command-Action Mapping (for middleware enforcement)
+;; -----------------------------------------------------------------------------
+
+(def command-actions
+  "Maps commands to their session enforcement requirements.
+
+   Each entry defines:
+   - :action - The permission action to check (e.g., :propose, :vote)
+   - :validate-only - If true, use validate-session! instead of enforce-session!
+                      (lighter check, no role permission verification)
+   - :dynamic-action - Function (options -> action) for commands where action
+                       depends on options (e.g., taint --add vs --remove)
+
+   Commands not in this map don't require session enforcement.
+
+   This metadata enables middleware-based enforcement (pull-based) instead of
+   requiring each handler to call enforce-session! manually (push-based)."
+  {"propose"        {:action :propose}
+   "approve"        {:action :approve}
+   "reject"         {:action :reject}
+   "vote"           {:action :vote}
+   "vote-all"       {:action :vote}
+   "approve-all"    {:action :approve}
+   "taint"          {:dynamic-action
+                     (fn [options]
+                       (cond
+                         (seq (:add options)) :taint-add
+                         (seq (:remove options)) :taint-remove
+                         :else :taint-add))}  ; default if neither specified
+   "add-ref"        {:action :add-ref}
+   "add-assumption" {:action :add-assumption}
+   "add-definition" {:action :add-definition}
+   "add-dep"        {:action :add-dep}
+   "unclaim"        {:action :done :validate-only true}
+   "done"           {:action :done}
+   "withdraw"       {:action :propose}})  ; withdrawing own proposal = proposer action
+
+(defn get-command-action
+  "Get the action keyword for a command, resolving dynamic actions if needed.
+
+   Arguments:
+   - command: Command name string
+   - options: Parsed options map (needed for dynamic actions like 'taint')
+
+   Returns the action keyword, or nil if command doesn't require enforcement."
+  [command options]
+  (when-let [cmd-meta (get command-actions command)]
+    (if-let [dynamic-fn (:dynamic-action cmd-meta)]
+      (dynamic-fn options)
+      (:action cmd-meta))))
+
+(defn command-requires-session?
+  "Check if a command requires session enforcement.
+
+   Arguments:
+   - command: Command name string
+
+   Returns true if the command requires a session."
+  [command]
+  (contains? command-actions command))
+
+(defn command-validate-only?
+  "Check if a command uses validate-only mode (no role permission check).
+
+   Arguments:
+   - command: Command name string
+
+   Returns true if the command should use validate-session! instead of enforce-session!."
+  [command]
+  (get-in command-actions [command :validate-only] false))
+
+;; -----------------------------------------------------------------------------
 ;; Command Aliases
 ;; -----------------------------------------------------------------------------
 
@@ -940,9 +1013,21 @@
     :else
     (try
       (let [handler (get @handlers command)
-            result (handler {:id id
-                             :args args
-                             :options options})]
+            context {:id id
+                     :args args
+                     :options options
+                     :command command}
+            ;; Apply session enforcement middleware if command requires it
+            ;; The middleware validates the session BEFORE the handler runs
+            wrapped-handler (if (command-requires-session? command)
+                              (let [action (get-command-action command options)
+                                    validate-only? (command-validate-only? command)]
+                                (middleware/wrap-session-enforcement
+                                 handler action
+                                 :validate-only validate-only?
+                                 :repo-path "."))
+                              handler)
+            result (wrapped-handler context)]
         {:result result
          :exit-code :success})
       (catch clojure.lang.ExceptionInfo e

@@ -181,18 +181,14 @@
          :next-actions [(core/ready-action)
                         (core/status-action)])
 
-        ;; Execute
-        (do
-          (session/validate-session! repo-path session-id id)
-
-          ;; Clear claim
-          (let [updated-mote (mote/clear-claim current-mote)]
-            (tx/atomic-write! repo-path
-                              (str "Unclaim mote " id)
-                              [updated-mote])
-            (assoc updated-mote
-                   :next-actions [(core/ready-action)
-                                  (core/status-action)])))))))
+        ;; Execute (session already validated by middleware with validate-only mode)
+        (let [updated-mote (mote/clear-claim current-mote)]
+          (tx/atomic-write! repo-path
+                            (str "Unclaim mote " id)
+                            [updated-mote])
+          (assoc updated-mote
+                 :next-actions [(core/ready-action)
+                                (core/status-action)]))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Done Command

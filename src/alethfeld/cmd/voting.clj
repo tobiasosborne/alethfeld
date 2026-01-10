@@ -45,7 +45,7 @@
    - :status-changed - Whether the mote status changed
    - :new-status - The new mote status
    - :propagated - Vector of parent IDs that were auto-voted (if --propagate)"
-  [{:keys [id options]}]
+  [{:keys [id options validated-session]}]
   (let [repo-path "."
         {:keys [for against reason session propagate dry-run]} options]
 
@@ -112,8 +112,8 @@
          :next-actions [(core/done-action (or session "<session>"))
                         (core/show-action id)]))
 
-      ;; Execute
-      (let [sess (session/enforce-session! repo-path session :vote id)
+      ;; Execute (session already validated by middleware)
+      (let [sess validated-session
             agent (or (:name options) (:agent sess))
             vote-type (if for :for :against)
             result (verify/cast-vote! repo-path id agent vote-type :reason reason)

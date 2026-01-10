@@ -87,7 +87,7 @@
    Returns map with:
    - :proposal - The created proposal
    - :children - Vector of created child motes"
-  [{:keys [id args options]}]
+  [{:keys [id args options validated-session]}]
   (let [repo-path "."
         session-id (:session options)
         dry-run? (:dry-run options)]
@@ -155,8 +155,8 @@
              :next-actions [(core/done-action (or session-id "<session>"))
                             (core/show-action id)]))
 
-          ;; Execute
-          (let [sess (session/enforce-session! repo-path session-id :propose id)
+          ;; Execute (session already validated by middleware)
+          (let [sess validated-session
                 agent (or (:name options) (:agent sess))
                 result (proposal/create-proposal! repo-path id claims agent)
                 proposal-result (:result result)
@@ -191,7 +191,7 @@
    - :vote-cast - The vote that was cast
    - :quorum-status - :approved or :pending
    - :promoted-children - Child IDs if approved"
-  [{:keys [id options]}]
+  [{:keys [id options validated-session]}]
   (let [repo-path "."
         session-id (:session options)
         reason (:reason options)
@@ -249,8 +249,8 @@
          :next-actions [(core/done-action (or session-id "<session>"))
                         (core/show-action id)]))
 
-      ;; Execute
-      (let [sess (session/enforce-session! repo-path session-id :approve id)
+      ;; Execute (session already validated by middleware)
+      (let [sess validated-session
             agent (or (:name options) (:agent sess))
             result (proposal/approve-proposal! repo-path id agent :reason reason)
             approve-result (:result result)
@@ -379,7 +379,7 @@
    - :vote-cast - The vote that was cast
    - :quorum-status - :rejected or :pending
    - :archived-children - Child IDs if rejected"
-  [{:keys [id options]}]
+  [{:keys [id options validated-session]}]
   (let [repo-path "."
         session-id (:session options)
         reason (:reason options)
@@ -434,8 +434,8 @@
          :next-actions [(core/done-action (or session-id "<session>"))
                         (core/show-action id)]))
 
-      ;; Execute
-      (let [sess (session/enforce-session! repo-path session-id :reject id)
+      ;; Execute (session already validated by middleware)
+      (let [sess validated-session
             agent (or (:name options) (:agent sess))
             result (proposal/reject-proposal! repo-path id agent :reason reason)
             reject-result (:result result)
