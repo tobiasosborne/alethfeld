@@ -1,1 +1,1 @@
-{:project-name "test", :version "0.1", :default-difficulty 3, :vote-quorum 1, :proposal-quorum 1, :claim-timeout-minutes 30}
+{:project-name "Test", :version "0.1", :default-difficulty 3, :vote-quorum 1, :proposal-quorum 1, :claim-timeout-minutes 30}
