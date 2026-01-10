@@ -1,12 +1,33 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** P3 Tests & Docs Complete (Round 11)
-**Session status:** ALL 410 ISSUES CLOSED - 1,316 TESTS PASSING
+**Last session:** Fix 3 Critical CLI Bugs (Round 13)
+**Session status:** 3 P0 BUGS FIXED - 1,316 TESTS PASSING
 
 ---
 
 ## Session Summary
+
+Fixed 3 critical bugs identified in UX reviews:
+
+| Bug | Root Cause | Fix |
+|-----|------------|-----|
+| `af sessions` AssertionError | `-v` conflicted with global `--version` | Changed to `--details` flag |
+| `af claim` ClassCastException | Local `name` binding shadowed `clojure.core/name` | Use fully qualified `clojure.core/name` |
+| `af workflow` FileNotFoundException | Fallback path used relative path | Improved path resolution with explicit file check |
+
+### Issues Closed
+- `alethfeld-ghkq` - sessions bug
+- `alethfeld-axt6` - workflow bug
+- `alethfeld-ul9h` - claim bug
+
+### Remaining Work
+- `alethfeld-7xtx` [P1] - Add `--mote` flag to `af ready` (unblocked now)
+- `alethfeld-grfk` [P2] - Document session aliases (blocked by 7xtx)
+
+---
+
+## Previous Session Summary
 
 Implemented comprehensive race condition fixes for multi-agent deployments:
 - Added OS-level FileLock for cross-process mutual exclusion
