@@ -596,7 +596,9 @@
         {:mode :no-jobs
          :jobs []
          :output (str role-hint
-                      (if mote
+                      (cond
+                        ;; Specific mote requested but not available
+                        mote
                         (str "Mote " mote " is not available.\n\n"
                              "Possible reasons:\n"
                              "  - Mote doesn't exist\n"
@@ -606,6 +608,15 @@
                              "\n"
                              "Run 'af show " mote "' to inspect the mote.\n"
                              "Run 'af ready --name " (or agent "<name>") "' for available motes.")
+
+                        ;; No motes exist at all - guide to create first mote
+                        (empty? motes)
+                        (str "No motes yet. Create your first proof goal:\n\n"
+                             "  af create --root --claim \"Your main theorem\"\n\n"
+                             "Then run 'af ready' again to start working.")
+
+                        ;; Motes exist but none available
+                        :else
                         (str "No jobs available.\n\n"
                              "All motes are either:\n"
                              "  - Already claimed by another agent\n"
@@ -613,4 +624,6 @@
                              "  - Not in need of work (no taints)\n"
                              "\n"
                              "Run 'af status' to see project overview.")))
-         :next-actions [(core/status-action)]}))))))
+         :next-actions [(if (empty? motes)
+                          (core/make-action "af create --root --claim \"...\"" "Create first proof goal")
+                          (core/status-action))]}))))))
