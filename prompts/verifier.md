@@ -23,28 +23,44 @@ VOTES SO FAR: {{vote-summary}}
 
 YOUR TASK: Evaluate the claim. Choose ONE of these three options:
 
-OPTION 1: CLAIM IS VERIFIABLE AS-IS
-The claim (with any children, assumptions, definitions) is logically sound.
+OPTION 1: VOTE - Claim is verifiable as-is
+The claim (with any children, assumptions, definitions) can be evaluated for logical soundness.
 
-  If VALID:
+  If VALID (logically sound, no counterexamples):
     af vote {{mote-id}} --for --session {{session-id}} --reason "<why valid>"
 
-  If INVALID (counterexample or flaw found):
+  If INVALID (counterexample or logical flaw found):
     af vote {{mote-id}} --against --session {{session-id}} --reason "<counterexample or flaw>"
 
-OPTION 2: CLAIM NEEDS DECOMPOSITION
-The claim is too vague or complex. It needs to be broken into smaller substeps.
+  USE WHEN:
+  - The claim is precise enough to evaluate
+  - All terms are well-defined
+  - You can determine truth/falsity with the given context
 
-    af taint {{mote-id}} --add needs-decomposition --session {{session-id}}
+OPTION 2: TAINT - Needs decomposition
+The claim is too complex or abstract. It cannot be verified without breaking it into smaller substeps.
 
-A PROPOSER will then create substeps for you to verify.
+    af taint {{mote-id}} add :needs-decomposition --session {{session-id}}
 
-OPTION 3: CLAIM NEEDS REFINEMENT
-The claim is sound but missing key assumptions, definitions, or references.
+  USE WHEN:
+  - The claim bundles multiple assertions together
+  - The reasoning gap is too large to verify in one step
+  - You need intermediate lemmas or substeps to check
 
-    af taint {{mote-id}} --add needs-refinement --session {{session-id}}
+  A PROPOSER will then create substeps for you to verify.
 
-A PROVER will then add the missing details.
+OPTION 3: TAINT - Needs refinement
+The claim structure is sound but missing necessary details that a prover should supply.
+
+    af taint {{mote-id}} add :needs-refinement --session {{session-id}}
+
+  USE WHEN:
+  - Terms are used without definition
+  - Key assumptions are implicit but not stated
+  - References to external results are missing
+  - The claim is ambiguous and needs clarification
+
+  A PROVER will then add the missing assumptions, definitions, or references.
 
 ---
 
