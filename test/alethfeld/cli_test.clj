@@ -415,7 +415,25 @@
   (testing "dispatch with command help"
     (let [result (cli/dispatch {:command "show" :help? true})]
       (is (str/includes? (:output result) "show"))
-      (is (= :success (:exit-code result))))))
+      (is (= :success (:exit-code result)))))
+
+  (testing "af help (no args) shows same output as af --help"
+    ;; af --help dispatches with {:help? true :command nil}
+    (let [result-dash-help (cli/dispatch {:help? true :command nil :args []})
+          ;; af help dispatches with {:help? true :command "help" :args []}
+          result-help-cmd (cli/dispatch {:help? true :command "help" :args []})]
+      (is (= (:output result-dash-help) (:output result-help-cmd))
+          "af help and af --help should produce identical output")
+      ;; Both should show the full command list
+      (is (str/includes? (:output result-help-cmd) "Commands:"))
+      (is (str/includes? (:output result-help-cmd) "init"))
+      (is (str/includes? (:output result-help-cmd) "show"))
+      (is (str/includes? (:output result-help-cmd) "create"))))
+
+  (testing "af help <cmd> shows help for that command"
+    (let [result (cli/dispatch {:help? true :command "help" :args ["show"]})]
+      (is (str/includes? (:output result) "Display mote details"))
+      (is (str/includes? (:output result) "af show")))))
 
 (deftest dispatch-unimplemented-test
   (testing "dispatch to unimplemented command"

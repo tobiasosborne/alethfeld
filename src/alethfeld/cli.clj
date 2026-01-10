@@ -824,9 +824,18 @@
 
     ;; Help
     help?
-    {:output (if command
-               (generate-help command)
-               (generate-help))
+    {:output (cond
+               ;; "af help <cmd>" - show help for specific command
+               (and (= command "help") (seq args))
+               (generate-help (first args))
+
+               ;; "af help" (no args) or "af --help" - show global help
+               (or (= command "help") (nil? command))
+               (generate-help)
+
+               ;; "af <cmd> --help" - show help for that command
+               :else
+               (generate-help command))
      :exit-code :success}
 
     ;; Roles command (handled directly in cli.clj)
