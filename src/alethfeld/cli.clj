@@ -11,7 +11,8 @@
             [clojure.data.json :as json]
             [clojure.pprint :as pprint]
             [alethfeld.errors :as err]
-            [alethfeld.store :as store])
+            [alethfeld.store :as store]
+            [alethfeld.session :as session])
   (:gen-class))
 
 ;; Command handlers are registered by alethfeld.cmd namespace.
@@ -110,6 +111,71 @@
                (swap! *deprecation-warnings* conj
                       "Warning: --agent is deprecated, use --name instead")
                (assoc m :name v))])
+
+;; -----------------------------------------------------------------------------
+;; Session Auto-Inference
+;; -----------------------------------------------------------------------------
+
+(def ^:dynamic *session-inference-message*
+  "Atom to capture session auto-inference message for display."
+  (atom nil))
+
+(defn- try-auto-infer-session
+  "Try to auto-infer session when agent has exactly one active session.
+
+   This implements the priority order:
+   1. Explicit --session flag (already handled before this)
+   2. AF_SESSION environment variable (already handled before this)
+   3. Auto-inference via @current (this function)
+
+   Arguments:
+   - options: Parsed options map (may contain :session and :name)
+
+   Returns updated options map with :session set if auto-inferred,
+   or original options if auto-inference not possible/applicable.
+
+   Side effects: Sets *session-inference-message* atom with status message."
+  [options]
+  (if (:session options)
+    ;; Session already provided - no inference needed
+    options
+    ;; Try auto-inference if we have an agent name
+    (if-let [agent (:name options)]
+      (let [repo-path "."
+            result (session/resolve-session repo-path {:agent agent})]
+        (cond
+          ;; Successfully auto-resolved - update options and set message
+          (:auto-resolved? result)
+          (do
+            (reset! *session-inference-message* (:message result))
+            (assoc options :session (:session-id result)))
+
+          ;; Multiple sessions - set error message for later handling
+          (= :multiple-sessions (:error result))
+          (do
+            (reset! *session-inference-message*
+                    {:error true
+                     :type :multiple-sessions
+                     :message (:message result)
+                     :sessions (:sessions result)})
+            options)
+
+          ;; No sessions - leave as-is, command may not need session
+          :else
+          options))
+      ;; No agent name - can't auto-infer
+      options)))
+
+(defn- format-multiple-sessions-error
+  "Format error message when agent has multiple active sessions."
+  [error-info]
+  (let [{:keys [message sessions]} error-info]
+    (str message "\n"
+         (str/join "\n"
+                   (map (fn [{:keys [session-id role mote-id]}]
+                          (str "  --session " (subs session-id 0 (min 11 (count session-id)))
+                               "...  (role: " (name role) ", mote: " mote-id ")"))
+                        sessions)))))
 
 ;; -----------------------------------------------------------------------------
 ;; Exit Codes
@@ -703,7 +769,11 @@
             ;; Apply AF_SESSION as default for --session if not provided
             options (if (and (nil? (:session options)) (get-default-session))
                       (assoc options :session (get-default-session))
-                      options)]
+                      options)
+            ;; Auto-infer session if still not provided and agent has exactly one session
+            ;; Priority: 1. --session flag, 2. AF_SESSION env, 3. auto-inference
+            _ (reset! *session-inference-message* nil)
+            options (try-auto-infer-session options)]
         {:command cmd
          :id id
          :args rest-args
@@ -713,7 +783,8 @@
                    (conj (str "Command '" cmd "' requires an ID argument")))
          :help? (:help options)
          :summary summary
-         :deprecation-warnings @*deprecation-warnings*}))))
+         :deprecation-warnings @*deprecation-warnings*
+         :session-inference @*session-inference-message*}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Bare Command Output
@@ -895,15 +966,26 @@
    Returns map with :exit-code and :output or :error."
   [args & {:keys [exit?] :or {exit? true}}]
   (let [parsed (parse-args args)
-        {:keys [options deprecation-warnings]} parsed
+        {:keys [options deprecation-warnings session-inference]} parsed
         fmt (:format options :text)
         verbose (:verbose options false)
-        result (dispatch parsed)]
+        ;; Check if session inference resulted in a multiple-sessions error
+        inference-error? (and (map? session-inference) (:error session-inference))
+        result (if inference-error?
+                 ;; Return error result for multiple sessions
+                 {:error true
+                  :messages [(format-multiple-sessions-error session-inference)]
+                  :exit-code :invalid-args}
+                 (dispatch parsed))]
     ;; Print deprecation warnings to stderr
     (when (and exit? (seq deprecation-warnings))
       (doseq [warning deprecation-warnings]
         (binding [*out* *err*]
           (println warning))))
+    ;; Print session auto-inference message to stderr (when it's just a message, not an error)
+    (when (and exit? (string? session-inference))
+      (binding [*out* *err*]
+        (println session-inference)))
     (cond
       ;; Error with messages
       (:messages result)

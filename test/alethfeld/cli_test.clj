@@ -2,7 +2,8 @@
   "Tests for CLI infrastructure."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.string :as str]
-            [alethfeld.cli :as cli]))
+            [alethfeld.cli :as cli]
+            [alethfeld.session :as session]))
 
 ;; -----------------------------------------------------------------------------
 ;; Test Helpers
@@ -369,6 +370,111 @@
     (with-redefs [cli/get-default-session (constantly nil)]
       (let [result (cli/parse-args ["approve" "1"])]
         (is (nil? (:session (:options result))))))))
+
+;; -----------------------------------------------------------------------------
+;; Session Auto-Inference Tests
+;; -----------------------------------------------------------------------------
+
+(deftest parse-args-session-auto-inference-test
+  (testing "auto-infers session when agent has exactly one active session"
+    (with-redefs [cli/get-default-session (constantly nil)
+                  cli/get-default-name (constantly "test-agent")
+                  session/resolve-session (fn [_repo-path {:keys [agent]}]
+                                            (when (= agent "test-agent")
+                                              {:session-id "auto-session-123"
+                                               :auto-resolved? true
+                                               :message "Using session: auto-sessio... (your only active session)"}))]
+      (let [result (cli/parse-args ["approve" "1"])]
+        (is (= "auto-session-123" (:session (:options result))))
+        (is (string? (:session-inference result)))
+        (is (str/includes? (:session-inference result) "Using session")))))
+
+  (testing "explicit --session takes priority over auto-inference"
+    (with-redefs [cli/get-default-session (constantly nil)
+                  cli/get-default-name (constantly "test-agent")
+                  session/resolve-session (fn [_repo-path _opts]
+                                            {:session-id "auto-session"
+                                             :auto-resolved? true
+                                             :message "Using session: auto..."})]
+      (let [result (cli/parse-args ["approve" "1" "--session" "explicit-session"])]
+        (is (= "explicit-session" (:session (:options result))))
+        (is (nil? (:session-inference result))))))
+
+  (testing "AF_SESSION takes priority over auto-inference"
+    (with-redefs [cli/get-default-session (constantly "env-session")
+                  cli/get-default-name (constantly "test-agent")
+                  session/resolve-session (fn [_repo-path _opts]
+                                            {:session-id "auto-session"
+                                             :auto-resolved? true
+                                             :message "Using session: auto..."})]
+      (let [result (cli/parse-args ["approve" "1"])]
+        (is (= "env-session" (:session (:options result))))
+        (is (nil? (:session-inference result))))))
+
+  (testing "returns error info when agent has multiple sessions"
+    (with-redefs [cli/get-default-session (constantly nil)
+                  cli/get-default-name (constantly "multi-agent")
+                  session/resolve-session (fn [_repo-path {:keys [agent]}]
+                                            (when (= agent "multi-agent")
+                                              {:error :multiple-sessions
+                                               :message "Multiple active sessions found. Please specify --session:"
+                                               :sessions [{:session-id "session-aaa" :role :verifier :mote-id "1.1"}
+                                                          {:session-id "session-bbb" :role :prover :mote-id "2.1"}]}))]
+      (let [result (cli/parse-args ["approve" "1"])]
+        (is (nil? (:session (:options result))))
+        (is (map? (:session-inference result)))
+        (is (:error (:session-inference result)))
+        (is (= :multiple-sessions (:type (:session-inference result)))))))
+
+  (testing "no inference when no agent name"
+    (with-redefs [cli/get-default-session (constantly nil)
+                  cli/get-default-name (constantly nil)]
+      (let [result (cli/parse-args ["approve" "1"])]
+        (is (nil? (:session (:options result))))
+        (is (nil? (:session-inference result))))))
+
+  (testing "no inference when agent has no sessions"
+    (with-redefs [cli/get-default-session (constantly nil)
+                  cli/get-default-name (constantly "no-sessions-agent")
+                  session/resolve-session (fn [_repo-path _opts]
+                                            {:error :no-active-session
+                                             :message "No active session for agent 'no-sessions-agent'."})]
+      (let [result (cli/parse-args ["approve" "1"])]
+        (is (nil? (:session (:options result))))
+        ;; No error in session-inference for no-sessions case
+        ;; (command may not need session)
+        (is (nil? (:session-inference result)))))))
+
+(deftest run-session-auto-inference-output-test
+  (testing "prints auto-inference message to stderr"
+    (with-redefs [cli/get-default-session (constantly nil)
+                  cli/get-default-name (constantly "test-agent")
+                  session/resolve-session (fn [_repo-path {:keys [agent]}]
+                                            (when (= agent "test-agent")
+                                              {:session-id "auto-session-123"
+                                               :auto-resolved? true
+                                               :message "Using session: auto-sessio... (your only active session)"}))]
+      ;; Register a dummy handler for testing
+      (cli/register-handler! "approve"
+                             (fn [_ctx] {:output "Approved!" :session-used true}))
+      (let [result (capture-exit #(cli/run ["approve" "1"] :exit? true))]
+        (is (str/includes? (:err result) "Using session"))
+        (is (str/includes? (:err result) "your only active session")))))
+
+  (testing "prints error and exits when multiple sessions"
+    (with-redefs [cli/get-default-session (constantly nil)
+                  cli/get-default-name (constantly "multi-agent")
+                  session/resolve-session (fn [_repo-path {:keys [agent]}]
+                                            (when (= agent "multi-agent")
+                                              {:error :multiple-sessions
+                                               :message "Multiple active sessions found. Please specify --session:"
+                                               :sessions [{:session-id "session-aaaa-bbbb" :role :verifier :mote-id "1.1"}
+                                                          {:session-id "session-cccc-dddd" :role :prover :mote-id "2.1"}]}))]
+      (let [result (capture-exit #(cli/run ["approve" "1"] :exit? true))]
+        (is (= 2 (:exit-code result)) "Should exit with invalid-args code")
+        (is (str/includes? (:err result) "Multiple active sessions"))
+        (is (str/includes? (:err result) "--session session-aaa"))
+        (is (str/includes? (:err result) "verifier"))))))
 
 (deftest parse-args-case-insensitive-test
   (testing "commands are case insensitive"

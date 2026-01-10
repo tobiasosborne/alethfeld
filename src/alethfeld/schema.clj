@@ -246,3 +246,73 @@
   "Explain why value doesn't match schema, or nil if valid."
   [schema value]
   (m/explain schema value))
+
+;; -----------------------------------------------------------------------------
+;; State Machine Transitions
+;; -----------------------------------------------------------------------------
+
+(def valid-status-transitions
+  "Map of valid status transitions.
+   Each key is a source status, value is a set of valid target statuses.
+
+   State machine:
+   - :needs-decomposition -> :needs-proposal-review (when proposal created)
+   - :needs-proposal-review -> :needs-decomposition (when proposal rejected)
+   - :needs-proposal-review -> :needs-verification (when proposal approved)
+   - :needs-verification -> :verified (unanimous for)
+   - :needs-verification -> :refuted (unanimous against)
+   - :needs-verification -> :contested (mixed votes)"
+  {:needs-decomposition   #{:needs-proposal-review}
+   :needs-proposal-review #{:needs-decomposition :needs-verification}
+   :needs-verification    #{:verified :refuted :contested}
+   :verified              #{}
+   :refuted               #{}
+   :contested             #{}
+   :rejected              #{}})
+
+(def MoteStatus
+  "Extended mote lifecycle status including workflow states."
+  [:enum
+   :needs-decomposition
+   :needs-proposal-review
+   :needs-verification
+   :verified
+   :refuted
+   :contested
+   :rejected])
+
+(defn valid-status-transition?
+  "Check if transitioning from `from-status` to `to-status` is allowed.
+   Returns true if the transition is valid, false otherwise.
+
+   Terminal states (:verified, :refuted, :contested, :rejected) have no valid
+   outgoing transitions."
+  [from-status to-status]
+  (let [valid-targets (get valid-status-transitions from-status)]
+    (boolean (and valid-targets (contains? valid-targets to-status)))))
+
+(defn status-transition-error
+  "Returns an error message if the transition is invalid, nil otherwise."
+  [from-status to-status]
+  (let [valid-targets (get valid-status-transitions from-status)]
+    (cond
+      (nil? valid-targets)
+      (str "Unknown source status: " from-status)
+
+      (empty? valid-targets)
+      (str "Terminal status " from-status " cannot transition to any other status")
+
+      (not (contains? valid-targets to-status))
+      (str "Invalid transition from " from-status " to " to-status
+           ". Valid targets are: " (pr-str valid-targets))
+
+      :else nil)))
+
+(def ValidStatusTransition
+  "Schema for a valid status transition pair [from-status to-status].
+   Validates that both statuses are valid MoteStatus values and that
+   the transition between them is allowed."
+  [:and
+   [:tuple MoteStatus MoteStatus]
+   [:fn {:error/message "Invalid status transition"}
+    (fn [[from to]] (valid-status-transition? from to))]])

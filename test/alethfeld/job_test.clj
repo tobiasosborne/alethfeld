@@ -699,3 +699,355 @@
           motes {"1" m1 "2" m2}]
       ;; With timeout: only m1 available (m2's claim is fresh)
       (is (= ["1"] (mapv :mote-id (job/select-jobs motes :max 10 :claim-timeout 30)))))))
+
+;; =============================================================================
+;; Claim Timeout Hours Tests (job.clj claim-expired? wrapper)
+;; =============================================================================
+
+(deftest claim-expired-hours-test
+  (testing "claim-expired? returns false for unclaimed mote"
+    (let [m (test-mote)]
+      (is (false? (job/claim-expired? m)))))
+
+  (testing "claim-expired? returns false for mote with no claimed-at"
+    (let [m (assoc (test-mote) :claimed-by "agent-1")]
+      (is (false? (job/claim-expired? m)))))
+
+  (testing "claim-expired? returns false for fresh claim with default 24h timeout"
+    (let [m (mote/set-claimed-by (test-mote) "agent-1")]
+      (is (false? (job/claim-expired? m)))))
+
+  (testing "claim-expired? returns true for claim older than 24 hours (default)"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 25 60 60 1000))) ;; 25 hours ago
+          m (-> (test-mote)
+                (assoc :claimed-by "agent-1")
+                (assoc :claimed-at old-time))]
+      (is (true? (job/claim-expired? m)))))
+
+  (testing "claim-expired? respects custom timeout-hours"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 2 60 60 1000))) ;; 2 hours ago
+          m (-> (test-mote)
+                (assoc :claimed-by "agent-1")
+                (assoc :claimed-at old-time))]
+      ;; Not expired with 4-hour timeout
+      (is (false? (job/claim-expired? m :timeout-hours 4)))
+      ;; Expired with 1-hour timeout
+      (is (true? (job/claim-expired? m :timeout-hours 1)))))
+
+  (testing "claim-expired? with explicit now parameter"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          m (-> (test-mote)
+                (assoc :claimed-by "agent-1")
+                (assoc :claimed-at claimed-time))
+          ;; 23 hours later - not expired with 24h timeout
+          now-23h (.plus base-instant (java.time.Duration/ofHours 23))
+          ;; 25 hours later - expired with 24h timeout
+          now-25h (.plus base-instant (java.time.Duration/ofHours 25))]
+      (is (false? (job/claim-expired? m :now now-23h)))
+      (is (true? (job/claim-expired? m :now now-25h)))))
+
+  (testing "claim-expired? boundary condition at exactly 24 hours"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          m (-> (test-mote)
+                (assoc :claimed-by "agent-1")
+                (assoc :claimed-at claimed-time))
+          ;; Exactly 24 hours later - NOT expired (boundary is exclusive)
+          now-exactly-24h (.plus base-instant (java.time.Duration/ofHours 24))]
+      (is (false? (job/claim-expired? m :now now-exactly-24h)))))
+
+  (testing "claim-expired? boundary condition 1ms after 24 hours"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          m (-> (test-mote)
+                (assoc :claimed-by "agent-1")
+                (assoc :claimed-at claimed-time))
+          ;; 24 hours + 1ms - expired
+          now-just-after (.plusMillis (.plus base-instant (java.time.Duration/ofHours 24)) 1)]
+      (is (true? (job/claim-expired? m :now now-just-after))))))
+
+(deftest default-timeout-hours-test
+  (testing "*default-timeout-hours* is 24"
+    (is (= 24 job/*default-timeout-hours*)))
+
+  (testing "*default-timeout-hours* can be rebound"
+    (binding [job/*default-timeout-hours* 1]
+      (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 2 60 60 1000))) ;; 2 hours ago
+            m (-> (test-mote)
+                  (assoc :claimed-by "agent-1")
+                  (assoc :claimed-at old-time))]
+        ;; With 1-hour default timeout, 2-hour old claim is expired
+        (is (true? (job/claim-expired? m)))))))
+
+;; =============================================================================
+;; filter-expired-claims Tests
+;; =============================================================================
+
+(deftest filter-expired-claims-empty-test
+  (testing "Empty collection returns empty sequence"
+    (is (empty? (job/filter-expired-claims [])))
+    (is (empty? (job/filter-expired-claims {})))))
+
+(deftest filter-expired-claims-no-claims-test
+  (testing "Motes without claims are not returned"
+    (let [m1 (test-mote :id "1")
+          m2 (test-mote :id "2")
+          motes {"1" m1 "2" m2}]
+      (is (empty? (job/filter-expired-claims motes))))))
+
+(deftest filter-expired-claims-fresh-claims-test
+  (testing "Motes with fresh claims are not returned"
+    (let [m1 (mote/set-claimed-by (test-mote :id "1") "agent-1")
+          m2 (mote/set-claimed-by (test-mote :id "2") "agent-2")
+          motes {"1" m1 "2" m2}]
+      (is (empty? (job/filter-expired-claims motes))))))
+
+(deftest filter-expired-claims-expired-claims-test
+  (testing "Motes with expired claims are returned"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 25 60 60 1000))) ;; 25 hours ago
+          m1 (test-mote :id "1") ;; No claim
+          m2 (-> (test-mote :id "2")
+                 (assoc :claimed-by "stale-agent")
+                 (assoc :claimed-at old-time))
+          m3 (mote/set-claimed-by (test-mote :id "3") "active-agent") ;; Fresh claim
+          motes {"1" m1 "2" m2 "3" m3}
+          expired (job/filter-expired-claims motes)]
+      (is (= 1 (count expired)))
+      (is (= "2" (:id (first expired)))))))
+
+(deftest filter-expired-claims-custom-timeout-test
+  (testing "filter-expired-claims respects custom timeout-hours"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 2 60 60 1000))) ;; 2 hours ago
+          m1 (-> (test-mote :id "1")
+                 (assoc :claimed-by "agent-1")
+                 (assoc :claimed-at old-time))
+          motes {"1" m1}]
+      ;; Not expired with 4-hour timeout
+      (is (empty? (job/filter-expired-claims motes :timeout-hours 4)))
+      ;; Expired with 1-hour timeout
+      (is (= 1 (count (job/filter-expired-claims motes :timeout-hours 1)))))))
+
+(deftest filter-expired-claims-vector-input-test
+  (testing "filter-expired-claims works with vector input"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 25 60 60 1000)))
+          m1 (test-mote :id "1")
+          m2 (-> (test-mote :id "2")
+                 (assoc :claimed-by "stale-agent")
+                 (assoc :claimed-at old-time))
+          expired (job/filter-expired-claims [m1 m2])]
+      (is (= 1 (count expired)))
+      (is (= "2" (:id (first expired)))))))
+
+(deftest filter-expired-claims-with-now-test
+  (testing "filter-expired-claims respects :now parameter"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          m1 (-> (test-mote :id "1")
+                 (assoc :claimed-by "agent-1")
+                 (assoc :claimed-at claimed-time))
+          motes {"1" m1}
+          ;; 23 hours later - not expired
+          now-23h (.plus base-instant (java.time.Duration/ofHours 23))
+          ;; 25 hours later - expired
+          now-25h (.plus base-instant (java.time.Duration/ofHours 25))]
+      (is (empty? (job/filter-expired-claims motes :now now-23h)))
+      (is (= 1 (count (job/filter-expired-claims motes :now now-25h)))))))
+
+;; =============================================================================
+;; filter-active-claims Tests
+;; =============================================================================
+
+(deftest filter-active-claims-empty-test
+  (testing "Empty collection returns empty sequence"
+    (is (empty? (job/filter-active-claims [])))
+    (is (empty? (job/filter-active-claims {})))))
+
+(deftest filter-active-claims-no-claims-test
+  (testing "Motes without claims are not returned"
+    (let [m1 (test-mote :id "1")
+          m2 (test-mote :id "2")
+          motes {"1" m1 "2" m2}]
+      (is (empty? (job/filter-active-claims motes))))))
+
+(deftest filter-active-claims-fresh-claims-test
+  (testing "Motes with fresh claims are returned"
+    (let [m1 (mote/set-claimed-by (test-mote :id "1") "agent-1")
+          m2 (mote/set-claimed-by (test-mote :id "2") "agent-2")
+          m3 (test-mote :id "3") ;; No claim
+          motes {"1" m1 "2" m2 "3" m3}
+          active (job/filter-active-claims motes)]
+      (is (= 2 (count active)))
+      (is (= #{"1" "2"} (set (map :id active)))))))
+
+(deftest filter-active-claims-excludes-expired-test
+  (testing "Motes with expired claims are not returned"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 25 60 60 1000))) ;; 25 hours ago
+          m1 (mote/set-claimed-by (test-mote :id "1") "active-agent") ;; Fresh claim
+          m2 (-> (test-mote :id "2")
+                 (assoc :claimed-by "stale-agent")
+                 (assoc :claimed-at old-time)) ;; Expired claim
+          motes {"1" m1 "2" m2}
+          active (job/filter-active-claims motes)]
+      (is (= 1 (count active)))
+      (is (= "1" (:id (first active)))))))
+
+(deftest filter-active-claims-custom-timeout-test
+  (testing "filter-active-claims respects custom timeout-hours"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 2 60 60 1000))) ;; 2 hours ago
+          m1 (-> (test-mote :id "1")
+                 (assoc :claimed-by "agent-1")
+                 (assoc :claimed-at old-time))
+          motes {"1" m1}]
+      ;; Active with 4-hour timeout
+      (is (= 1 (count (job/filter-active-claims motes :timeout-hours 4))))
+      ;; Not active with 1-hour timeout
+      (is (empty? (job/filter-active-claims motes :timeout-hours 1))))))
+
+;; =============================================================================
+;; workable? with claim-timeout-hours Tests
+;; =============================================================================
+
+(deftest workable-claim-timeout-hours-test
+  (testing "claim-timeout-hours takes precedence over claim-timeout"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 90 60 1000))) ;; 90 minutes ago
+          m (-> (test-mote :status :fixed :taint #{:needs-verification})
+                (assoc :claimed-by "agent")
+                (assoc :claimed-at old-time))]
+      ;; claim-timeout=30 would make it workable (90 > 30 minutes)
+      ;; claim-timeout-hours=2 would make it NOT workable (90 < 120 minutes)
+      ;; claim-timeout-hours should take precedence
+      (is (false? (job/workable? m :claim-timeout 30 :claim-timeout-hours 2)))))
+
+  (testing "claim-timeout-hours=1 makes hour-old claim expired"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 90 60 1000))) ;; 90 minutes ago
+          m (-> (test-mote :status :fixed :taint #{:needs-verification})
+                (assoc :claimed-by "agent")
+                (assoc :claimed-at old-time))]
+      (is (true? (job/workable? m :claim-timeout-hours 1)))))
+
+  (testing "claim-timeout-hours=24 makes day-old claim expired"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 25 60 60 1000))) ;; 25 hours ago
+          m (-> (test-mote :status :fixed :taint #{:needs-verification})
+                (assoc :claimed-by "agent")
+                (assoc :claimed-at old-time))]
+      (is (true? (job/workable? m :claim-timeout-hours 24)))))
+
+  (testing "workable? with :now parameter for deterministic testing"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          m (-> (test-mote :status :fixed :taint #{:needs-verification})
+                (assoc :claimed-by "agent")
+                (assoc :claimed-at claimed-time))
+          now-23h (.plus base-instant (java.time.Duration/ofHours 23))
+          now-25h (.plus base-instant (java.time.Duration/ofHours 25))]
+      (is (false? (job/workable? m :claim-timeout-hours 24 :now now-23h)))
+      (is (true? (job/workable? m :claim-timeout-hours 24 :now now-25h))))))
+
+;; =============================================================================
+;; select-jobs with claim-timeout-hours Tests
+;; =============================================================================
+
+(deftest select-jobs-claim-timeout-hours-test
+  (testing "select-jobs with claim-timeout-hours includes expired claims"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 25 60 60 1000))) ;; 25 hours ago
+          m1 (test-mote :id "1" :taint #{:needs-verification})
+          m2 (-> (test-mote :id "2" :taint #{:needs-verification})
+                 (assoc :claimed-by "stale-agent")
+                 (assoc :claimed-at old-time))
+          motes {"1" m1 "2" m2}]
+      ;; Without timeout: only m1
+      (is (= ["1"] (mapv :mote-id (job/select-jobs motes :max 10))))
+      ;; With 24-hour timeout: both (m2's claim expired)
+      (is (= #{"1" "2"} (set (mapv :mote-id (job/select-jobs motes :max 10 :claim-timeout-hours 24)))))))
+
+  (testing "select-jobs claim-timeout-hours takes precedence over claim-timeout"
+    (let [old-time (java.util.Date. (- (.getTime (java.util.Date.)) (* 90 60 1000))) ;; 90 minutes ago
+          m1 (test-mote :id "1" :taint #{:needs-verification})
+          m2 (-> (test-mote :id "2" :taint #{:needs-verification})
+                 (assoc :claimed-by "agent")
+                 (assoc :claimed-at old-time))
+          motes {"1" m1 "2" m2}]
+      ;; claim-timeout=30 would make m2 available
+      ;; claim-timeout-hours=2 would keep m2 unavailable
+      (is (= ["1"] (mapv :mote-id (job/select-jobs motes :max 10 :claim-timeout 30 :claim-timeout-hours 2))))))
+
+  (testing "select-jobs with :now parameter for deterministic testing"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          claimed-time (java.util.Date/from base-instant)
+          m1 (test-mote :id "1" :taint #{:needs-verification})
+          m2 (-> (test-mote :id "2" :taint #{:needs-verification})
+                 (assoc :claimed-by "agent")
+                 (assoc :claimed-at claimed-time))
+          motes {"1" m1 "2" m2}
+          now-23h (.plus base-instant (java.time.Duration/ofHours 23))
+          now-25h (.plus base-instant (java.time.Duration/ofHours 25))]
+      ;; At 23 hours: m2's claim not expired
+      (is (= ["1"] (mapv :mote-id (job/select-jobs motes :max 10 :claim-timeout-hours 24 :now now-23h))))
+      ;; At 25 hours: m2's claim expired
+      (is (= #{"1" "2"} (set (mapv :mote-id (job/select-jobs motes :max 10 :claim-timeout-hours 24 :now now-25h))))))))
+
+;; =============================================================================
+;; Integration: Abandoned Job Recovery Workflow
+;; =============================================================================
+
+(deftest abandoned-job-recovery-workflow-test
+  (testing "Workflow: claimed job becomes available after timeout"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          ;; Agent claims a job
+          claimed-time (java.util.Date/from base-instant)
+          m (-> (test-mote :id "1" :taint #{:needs-verification} :priority :p0)
+                (assoc :claimed-by "agent-alice")
+                (assoc :claimed-at claimed-time))
+          motes {"1" m}
+
+          ;; At claim time: job is NOT available (actively claimed)
+          now-0h base-instant
+
+          ;; After 12 hours: still not available (within 24h timeout)
+          now-12h (.plus base-instant (java.time.Duration/ofHours 12))
+
+          ;; After 25 hours: job IS available (claim expired)
+          now-25h (.plus base-instant (java.time.Duration/ofHours 25))]
+
+      ;; Immediately after claim: not available
+      (is (empty? (job/select-jobs motes :claim-timeout-hours 24 :now now-0h)))
+      (is (= 1 (count (job/filter-active-claims motes :now now-0h))))
+      (is (empty? (job/filter-expired-claims motes :now now-0h)))
+
+      ;; At 12 hours: still not available
+      (is (empty? (job/select-jobs motes :claim-timeout-hours 24 :now now-12h)))
+      (is (= 1 (count (job/filter-active-claims motes :now now-12h))))
+      (is (empty? (job/filter-expired-claims motes :now now-12h)))
+
+      ;; At 25 hours: available for re-claiming
+      (is (= 1 (count (job/select-jobs motes :claim-timeout-hours 24 :now now-25h))))
+      (is (empty? (job/filter-active-claims motes :now now-25h)))
+      (is (= 1 (count (job/filter-expired-claims motes :now now-25h))))))
+
+  (testing "Workflow: multiple agents, mixed claim states"
+    (let [base-instant (java.time.Instant/parse "2026-01-07T12:00:00Z")
+          ;; Various claim states
+          unclaimed-m (test-mote :id "1" :taint #{:needs-verification} :priority :p1)
+          fresh-claim-m (-> (test-mote :id "2" :taint #{:needs-verification} :priority :p2)
+                            (assoc :claimed-by "agent-bob")
+                            (assoc :claimed-at (java.util.Date/from base-instant)))
+          stale-claim-m (-> (test-mote :id "3" :taint #{:needs-verification} :priority :p0)
+                            (assoc :claimed-by "agent-charlie")
+                            (assoc :claimed-at (java.util.Date/from (.minus base-instant (java.time.Duration/ofHours 30)))))
+          verified-m (test-mote :id "4" :taint #{:needs-verification} :priority :p0 :status :verified)
+          motes {"1" unclaimed-m "2" fresh-claim-m "3" stale-claim-m "4" verified-m}
+
+          now (.plus base-instant (java.time.Duration/ofHours 1))]
+
+      ;; Available jobs: unclaimed + expired claim (not fresh claim, not verified)
+      (let [jobs (job/select-jobs motes :max 10 :claim-timeout-hours 24 :now now)]
+        (is (= 2 (count jobs)))
+        ;; Sorted by priority: p0 (stale-claim) then p1 (unclaimed)
+        (is (= ["3" "1"] (mapv :mote-id jobs))))
+
+      ;; Active claims: only the fresh one
+      (is (= ["2"] (mapv :id (job/filter-active-claims motes :now now))))
+
+      ;; Expired claims: the 30-hour old one
+      (is (= ["3"] (mapv :id (job/filter-expired-claims motes :now now)))))))

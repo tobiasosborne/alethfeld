@@ -4,6 +4,85 @@
             [alethfeld.mote :as mote]))
 
 ;; -----------------------------------------------------------------------------
+;; Claim Timeout Configuration
+;; -----------------------------------------------------------------------------
+
+(def ^:dynamic *default-timeout-hours*
+  "Default timeout for claim expiration in hours.
+   Can be rebound for testing or configuration."
+  24)
+
+;; -----------------------------------------------------------------------------
+;; Claim Expiration Functions
+;; -----------------------------------------------------------------------------
+
+(defn claim-expired?
+  "Check if a mote's claim has expired based on timeout hours.
+
+   Arguments:
+   - claim: A mote or any map with :claimed-at and :claimed-by
+
+   Options:
+   - :timeout-hours - Hours after which claims expire (default: 24)
+   - :now - Optional java.time.Instant for current time (for testing)
+
+   Returns true if:
+   - The claim has a :claimed-at timestamp older than timeout-hours
+
+   Returns false if:
+   - The claim is not present (no :claimed-by)
+   - The claim has no :claimed-at timestamp
+   - The claim is within the timeout window"
+  [claim & {:keys [timeout-hours now] :or {timeout-hours *default-timeout-hours*}}]
+  (let [timeout-minutes (* timeout-hours 60)]
+    (if now
+      (mote/claim-expired? claim timeout-minutes :now now)
+      (mote/claim-expired? claim timeout-minutes))))
+
+(defn filter-expired-claims
+  "Filter a collection of motes to find those with expired claims.
+
+   Arguments:
+   - motes: A collection of motes (or map of id->mote)
+
+   Options:
+   - :timeout-hours - Hours after which claims expire (default: 24)
+   - :now - Optional java.time.Instant for current time (for testing)
+
+   Returns a sequence of motes that have expired claims.
+   These are motes that were claimed but the claim has timed out,
+   making them available for re-claiming by other agents."
+  [motes & {:keys [timeout-hours now] :or {timeout-hours *default-timeout-hours*}}]
+  (let [mote-seq (if (map? motes) (vals motes) motes)]
+    (filter (fn [mote]
+              (and (:claimed-by mote)
+                   (if now
+                     (claim-expired? mote :timeout-hours timeout-hours :now now)
+                     (claim-expired? mote :timeout-hours timeout-hours))))
+            mote-seq)))
+
+(defn filter-active-claims
+  "Filter a collection of motes to find those with active (non-expired) claims.
+
+   Arguments:
+   - motes: A collection of motes (or map of id->mote)
+
+   Options:
+   - :timeout-hours - Hours after which claims expire (default: 24)
+   - :now - Optional java.time.Instant for current time (for testing)
+
+   Returns a sequence of motes that have active claims.
+   These are motes currently being worked on by an agent."
+  [motes & {:keys [timeout-hours now] :or {timeout-hours *default-timeout-hours*}}]
+  (let [mote-seq (if (map? motes) (vals motes) motes)]
+    (filter (fn [mote]
+              (and (:claimed-by mote)
+                   (not (if now
+                          (claim-expired? mote :timeout-hours timeout-hours :now now)
+                          (claim-expired? mote :timeout-hours timeout-hours)))))
+            mote-seq)))
+
+;; -----------------------------------------------------------------------------
 ;; Taint → Role Mapping
 ;; -----------------------------------------------------------------------------
 
@@ -73,13 +152,20 @@
    - mote: The mote to check
 
    Options:
-   - :claim-timeout - Minutes after which claims expire (default: nil, no expiration)"
-  [mote & {:keys [claim-timeout]}]
-  (boolean
-   (and (not (terminal-statuses (:status mote)))
-        (or (nil? (:claimed-by mote))
-            (and claim-timeout (mote/claim-expired? mote claim-timeout)))
-        (seq (mote->roles mote)))))
+   - :claim-timeout - Minutes after which claims expire (default: nil, no expiration)
+   - :claim-timeout-hours - Hours after which claims expire (takes precedence over :claim-timeout)
+   - :now - Optional java.time.Instant for current time (for testing)"
+  [mote & {:keys [claim-timeout claim-timeout-hours now]}]
+  (let [timeout-minutes (or (when claim-timeout-hours (* claim-timeout-hours 60))
+                            claim-timeout)]
+    (boolean
+     (and (not (terminal-statuses (:status mote)))
+          (or (nil? (:claimed-by mote))
+              (and timeout-minutes
+                   (if now
+                     (mote/claim-expired? mote timeout-minutes :now now)
+                     (mote/claim-expired? mote timeout-minutes))))
+          (seq (mote->roles mote))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Priority/Difficulty Helpers
@@ -229,6 +315,8 @@
    - :priority - Filter by priority (exact or [min max] range)
    - :max - Maximum number of jobs to return (default: 1)
    - :claim-timeout - Minutes after which claims expire (enables reclaiming stale jobs)
+   - :claim-timeout-hours - Hours after which claims expire (takes precedence over :claim-timeout)
+   - :now - Optional java.time.Instant for current time (for testing)
 
    Selection algorithm:
    1. Filter to workable motes (non-terminal status, unclaimed/expired, has role taint)
@@ -238,10 +326,12 @@
    5. Build Job records for each
 
    Returns a vector of Job maps."
-  [motes & {:keys [role difficulty priority max claim-timeout]
+  [motes & {:keys [role difficulty priority max claim-timeout claim-timeout-hours now]
             :or {max 1}}]
   (->> (vals motes)
-       (filter #(workable? % :claim-timeout claim-timeout))
+       (filter #(workable? % :claim-timeout claim-timeout
+                             :claim-timeout-hours claim-timeout-hours
+                             :now now))
        (filter #(matches-filter? % {:role role :difficulty difficulty :priority priority}))
        (sort job-comparator)
        (take max)

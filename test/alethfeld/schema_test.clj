@@ -344,3 +344,147 @@
 
   (testing "Missing claim field fails validation"
     (is (not (s/valid? s/Mote (dissoc minimal-mote :claim))))))
+
+;; -----------------------------------------------------------------------------
+;; Status Transitions
+;; -----------------------------------------------------------------------------
+
+(deftest mote-status-test
+  (testing "MoteStatus enum validation"
+    (is (s/valid? s/MoteStatus :needs-decomposition))
+    (is (s/valid? s/MoteStatus :needs-proposal-review))
+    (is (s/valid? s/MoteStatus :needs-verification))
+    (is (s/valid? s/MoteStatus :verified))
+    (is (s/valid? s/MoteStatus :refuted))
+    (is (s/valid? s/MoteStatus :contested))
+    (is (s/valid? s/MoteStatus :rejected))
+    (is (not (s/valid? s/MoteStatus :unknown)))
+    (is (not (s/valid? s/MoteStatus :proposed)))
+    (is (not (s/valid? s/MoteStatus "verified")))))
+
+(deftest valid-status-transition-test
+  (testing "Valid transitions from :needs-decomposition"
+    (is (s/valid-status-transition? :needs-decomposition :needs-proposal-review)
+        "Proposal creation triggers transition to needs-proposal-review"))
+
+  (testing "Valid transitions from :needs-proposal-review"
+    (is (s/valid-status-transition? :needs-proposal-review :needs-decomposition)
+        "Proposal rejection returns to needs-decomposition")
+    (is (s/valid-status-transition? :needs-proposal-review :needs-verification)
+        "Proposal approval advances to needs-verification"))
+
+  (testing "Valid transitions from :needs-verification"
+    (is (s/valid-status-transition? :needs-verification :verified)
+        "Unanimous for votes results in verified")
+    (is (s/valid-status-transition? :needs-verification :refuted)
+        "Unanimous against votes results in refuted")
+    (is (s/valid-status-transition? :needs-verification :contested)
+        "Mixed votes results in contested"))
+
+  (testing "Terminal states have no valid outgoing transitions"
+    (is (not (s/valid-status-transition? :verified :needs-verification)))
+    (is (not (s/valid-status-transition? :verified :refuted)))
+    (is (not (s/valid-status-transition? :verified :contested)))
+    (is (not (s/valid-status-transition? :verified :needs-decomposition)))
+
+    (is (not (s/valid-status-transition? :refuted :verified)))
+    (is (not (s/valid-status-transition? :refuted :needs-verification)))
+
+    (is (not (s/valid-status-transition? :contested :verified)))
+    (is (not (s/valid-status-transition? :contested :refuted)))
+
+    (is (not (s/valid-status-transition? :rejected :needs-decomposition)))
+    (is (not (s/valid-status-transition? :rejected :verified)))))
+
+(deftest invalid-status-transitions-test
+  (testing "Invalid transitions from :needs-decomposition"
+    (is (not (s/valid-status-transition? :needs-decomposition :needs-verification))
+        "Cannot skip proposal review")
+    (is (not (s/valid-status-transition? :needs-decomposition :verified))
+        "Cannot jump directly to verified")
+    (is (not (s/valid-status-transition? :needs-decomposition :refuted)))
+    (is (not (s/valid-status-transition? :needs-decomposition :contested)))
+    (is (not (s/valid-status-transition? :needs-decomposition :rejected))))
+
+  (testing "Invalid transitions from :needs-proposal-review"
+    (is (not (s/valid-status-transition? :needs-proposal-review :verified))
+        "Cannot jump directly to verified from proposal review")
+    (is (not (s/valid-status-transition? :needs-proposal-review :refuted)))
+    (is (not (s/valid-status-transition? :needs-proposal-review :contested)))
+    (is (not (s/valid-status-transition? :needs-proposal-review :rejected))))
+
+  (testing "Invalid transitions from :needs-verification"
+    (is (not (s/valid-status-transition? :needs-verification :needs-decomposition))
+        "Cannot go back to decomposition from verification")
+    (is (not (s/valid-status-transition? :needs-verification :needs-proposal-review))
+        "Cannot go back to proposal review from verification")
+    (is (not (s/valid-status-transition? :needs-verification :rejected))))
+
+  (testing "Self-transitions are not allowed"
+    (is (not (s/valid-status-transition? :needs-decomposition :needs-decomposition)))
+    (is (not (s/valid-status-transition? :needs-proposal-review :needs-proposal-review)))
+    (is (not (s/valid-status-transition? :needs-verification :needs-verification)))
+    (is (not (s/valid-status-transition? :verified :verified)))
+    (is (not (s/valid-status-transition? :refuted :refuted)))
+    (is (not (s/valid-status-transition? :contested :contested)))
+    (is (not (s/valid-status-transition? :rejected :rejected))))
+
+  (testing "Unknown statuses return false"
+    (is (not (s/valid-status-transition? :unknown :verified)))
+    (is (not (s/valid-status-transition? :needs-decomposition :unknown)))
+    (is (not (s/valid-status-transition? nil :verified)))
+    (is (not (s/valid-status-transition? :needs-decomposition nil)))))
+
+(deftest status-transition-error-test
+  (testing "Valid transitions return nil"
+    (is (nil? (s/status-transition-error :needs-decomposition :needs-proposal-review)))
+    (is (nil? (s/status-transition-error :needs-proposal-review :needs-verification)))
+    (is (nil? (s/status-transition-error :needs-verification :verified))))
+
+  (testing "Terminal status transitions return error message"
+    (is (= "Terminal status :verified cannot transition to any other status"
+           (s/status-transition-error :verified :refuted)))
+    (is (= "Terminal status :refuted cannot transition to any other status"
+           (s/status-transition-error :refuted :verified)))
+    (is (= "Terminal status :contested cannot transition to any other status"
+           (s/status-transition-error :contested :verified)))
+    (is (= "Terminal status :rejected cannot transition to any other status"
+           (s/status-transition-error :rejected :verified))))
+
+  (testing "Invalid non-terminal transitions return error message"
+    (let [error (s/status-transition-error :needs-decomposition :verified)]
+      (is (string? error))
+      (is (re-find #"Invalid transition from :needs-decomposition to :verified" error))
+      (is (re-find #":needs-proposal-review" error))))
+
+  (testing "Unknown source status returns error message"
+    (is (= "Unknown source status: :unknown"
+           (s/status-transition-error :unknown :verified)))
+    (is (re-find #"Unknown source status:"
+           (s/status-transition-error nil :verified)))))
+
+(deftest valid-status-transition-schema-test
+  (testing "ValidStatusTransition schema - valid transitions"
+    (is (s/valid? s/ValidStatusTransition [:needs-decomposition :needs-proposal-review]))
+    (is (s/valid? s/ValidStatusTransition [:needs-proposal-review :needs-decomposition]))
+    (is (s/valid? s/ValidStatusTransition [:needs-proposal-review :needs-verification]))
+    (is (s/valid? s/ValidStatusTransition [:needs-verification :verified]))
+    (is (s/valid? s/ValidStatusTransition [:needs-verification :refuted]))
+    (is (s/valid? s/ValidStatusTransition [:needs-verification :contested])))
+
+  (testing "ValidStatusTransition schema - invalid transitions"
+    (is (not (s/valid? s/ValidStatusTransition [:needs-decomposition :verified])))
+    (is (not (s/valid? s/ValidStatusTransition [:verified :refuted])))
+    (is (not (s/valid? s/ValidStatusTransition [:needs-verification :needs-decomposition]))))
+
+  (testing "ValidStatusTransition schema - invalid status values"
+    (is (not (s/valid? s/ValidStatusTransition [:unknown :verified])))
+    (is (not (s/valid? s/ValidStatusTransition [:needs-decomposition :unknown])))
+    (is (not (s/valid? s/ValidStatusTransition ["needs-decomposition" "verified"])))
+    (is (not (s/valid? s/ValidStatusTransition [:needs-decomposition])))
+    (is (not (s/valid? s/ValidStatusTransition [:a :b :c]))))
+
+  (testing "ValidStatusTransition schema explains failures"
+    (let [explanation (s/explain s/ValidStatusTransition [:verified :refuted])]
+      (is (some? explanation))
+      (is (map? explanation)))))
