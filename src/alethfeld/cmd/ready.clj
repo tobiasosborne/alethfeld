@@ -460,9 +460,22 @@
         list-mode?
         {:mode :list
          :jobs jobs-with-prompts
-         :output (str role-hint (format-job-list jobs-with-prompts))
-         :next-actions (if (empty? jobs-with-prompts)
+         :output (str role-hint
+                      (cond
+                        ;; No motes at all - guide to create first
+                        (empty? motes)
+                        (str "No motes yet. Create your first proof goal:\n\n"
+                             "  af create --root --claim \"Your main theorem\"\n\n"
+                             "Then run 'af ready' again to start working.")
+                        ;; Has motes but no jobs
+                        :else
+                        (format-job-list jobs-with-prompts)))
+         :next-actions (cond
+                         (empty? motes)
+                         [(core/make-action "af create --root --claim \"...\"" "Create first proof goal")]
+                         (empty? jobs-with-prompts)
                          [(core/status-action)]
+                         :else
                          [(core/make-action "af ready --agent <name>" "Claim highest priority job")
                           (core/make-action "af ready --agent <name> --job 1" "Claim specific job")
                           (core/status-action)])}
