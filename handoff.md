@@ -1,8 +1,8 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Parallel Swarming (Round 4)
-**Session status:** 5 issues completed via 4 parallel agents - ALL TESTS PASSING
+**Last session:** Parallel Swarming (Round 5)
+**Session status:** 9 issues completed via parallel agents (2 rounds) - ALL TESTS PASSING
 
 ---
 
@@ -13,29 +13,27 @@ Successfully ran 4 parallel agents with NO race conditions by:
 - Each agent assigned exclusive file sets
 - Agents don't commit - coordinator commits after
 
-### Completed This Session (Parallel Round 4)
-12. **alethfeld-oz8q** (v0.2-4.2) - Enhanced af status progress breakdown
-    - Added progress by stage (proposer/advisor/verifier work remaining)
-    - Added structure summary (intermediate vs leaf motes)
-    - Added next action suggestion
+### Completed This Session (Parallel Round 5)
+17. **alethfeld-mjlt** (v0.2-3.1) - Support @current session alias
+    - Added resolve-session-alias function with 14 tests
+    - Supports @current and @last aliases
 
-13. **alethfeld-b98b** (v0.2-4.3) - Explain parent mote status
-    - Added explanatory note for fixed intermediate motes
-    - Explains verification applies to leaves only
+18. **alethfeld-ppdz** - Add caching layer for load-all-motes
+    - Added *motes-cache* dynamic var and with-motes-cache macro
+    - Cache key includes repo-path and all options
 
-14. **alethfeld-f2zg** (v0.2-3.3) - Support AF_SESSION environment variable
-    - Added get-default-session function
-    - Priority: explicit --session > AF_SESSION env var
+19. **alethfeld-437q** - Skip schema validation on trusted reads
+    - Added :validate option to load-mote and load-all-motes
+    - Default true for safety, false for performance
 
-15. **alethfeld-hyzu** (v0.2-2.2) - Add --max flag to af ready
-    - Found already implemented!
-    - Added 6 new tests to verify functionality
+20. **alethfeld-daci** (P0) - Add end-to-end integration tests
+    - Created e2e_test.clj with 22 comprehensive tests
+    - Covers verification, proposal, multi-agent, error handling
 
-16. **alethfeld-ngxd** - Expand CLI help to be self-documenting
-    - Created prompts/help/commands.md (709 lines)
-    - Created prompts/help/topics.md (599 lines)
+**Commit:** `30872d9`
 
-**Commit:** `c13e2bd`
+### Previously Completed (Round 4)
+12-16. Status progress, AF_SESSION, --max tests, CLI help docs (5 issues)
 
 ### Previously Completed (Round 3)
 8. **alethfeld-w1ps** - Quorum configuration tests
@@ -58,8 +56,8 @@ Successfully ran 4 parallel agents with NO race conditions by:
 
 ## Test Health
 
-- **Total tests:** 1,172
-- **Total assertions:** 6,784
+- **Total tests:** 1,213
+- **Total assertions:** 7,057
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
@@ -70,7 +68,7 @@ Successfully ran 4 parallel agents with NO race conditions by:
 | Source | State |
 |--------|-------|
 | **`docs/V02-REVISION-PLAN.md`** | Canonical plan |
-| **Beads issues** | 14 open, 373 closed |
+| **Beads issues** | 10 open, 377 closed |
 | **Codebase** | Verifier-first workflow + new commands |
 
 ---
@@ -80,8 +78,8 @@ Successfully ran 4 parallel agents with NO race conditions by:
 Run `bd ready` for current unblocked issues. Key items:
 
 - **alethfeld-ka8d** (P1) - Centralize session enforcement to middleware
-- **alethfeld-mjlt** (v0.2-3.1) - Support @current session alias
 - **alethfeld-4ntd** (v0.2-3.2) - Auto-infer session when unambiguous
+- **alethfeld-3rje** (P2) - Implement claim timeout mechanism
 
 ---
 
@@ -108,10 +106,8 @@ bd ready                 # Available work
 
 | File | Changes |
 |------|---------|
-| `src/alethfeld/cmd/utility.clj` | +177 lines - status progress/structure display |
-| `src/alethfeld/cli.clj` | +10 lines - AF_SESSION env var support |
-| `prompts/help/commands.md` | NEW - 709 lines CLI command reference |
-| `prompts/help/topics.md` | NEW - 599 lines conceptual help topics |
-| `test/alethfeld/cmd/status_test.clj` | +173 lines - status tests |
-| `test/alethfeld/cmd/ready_test.clj` | +82 lines - --max flag tests |
-| `test/alethfeld/cli_test.clj` | +27 lines - AF_SESSION tests |
+| `src/alethfeld/session.clj` | +79 lines - resolve-session-alias |
+| `src/alethfeld/store.clj` | +109 lines - caching + validation skip |
+| `test/alethfeld/e2e_test.clj` | NEW - 770 lines E2E integration tests |
+| `test/alethfeld/session_test.clj` | +195 lines - alias resolution tests |
+| `test/alethfeld/store_test.clj` | +134 lines - caching/validation tests |
