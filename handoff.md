@@ -1,29 +1,37 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Fix 3 Critical CLI Bugs (Round 13)
-**Session status:** 3 P0 BUGS FIXED - 1,316 TESTS PASSING
+**Last session:** Complete UX Fixes (Round 14)
+**Session status:** ALL 5 UX ISSUES CLOSED - 1,316 TESTS PASSING
 
 ---
 
 ## Session Summary
 
-Fixed 3 critical bugs identified in UX reviews:
+Completed all UX improvements identified in agent testing:
 
+### Bugs Fixed (Round 13)
 | Bug | Root Cause | Fix |
 |-----|------------|-----|
 | `af sessions` AssertionError | `-v` conflicted with global `--version` | Changed to `--details` flag |
 | `af claim` ClassCastException | Local `name` binding shadowed `clojure.core/name` | Use fully qualified `clojure.core/name` |
 | `af workflow` FileNotFoundException | Fallback path used relative path | Improved path resolution with explicit file check |
 
-### Issues Closed
-- `alethfeld-ghkq` - sessions bug
-- `alethfeld-axt6` - workflow bug
-- `alethfeld-ul9h` - claim bug
+### Features Added (Round 14)
+| Feature | Description |
+|---------|-------------|
+| `--mote` flag | `af ready --name X --mote 1.3` claims specific mote |
+| Session alias docs | `@current`, `AF_SESSION` documented in prompts and errors |
 
-### Remaining Work
-- `alethfeld-7xtx` [P1] - Add `--mote` flag to `af ready` (unblocked now)
-- `alethfeld-grfk` [P2] - Document session aliases (blocked by 7xtx)
+### All Issues Closed
+- `alethfeld-ghkq` - sessions bug (P0)
+- `alethfeld-axt6` - workflow bug (P0)
+- `alethfeld-ul9h` - claim bug (P0)
+- `alethfeld-7xtx` - --mote flag (P1)
+- `alethfeld-grfk` - session docs (P2)
+
+### No Remaining UX Issues
+All work from the UX reviews is complete.
 
 ---
 
