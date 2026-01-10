@@ -15,7 +15,7 @@
 set -euo pipefail
 
 # Configuration
-VERSION="0.1.0-SNAPSHOT"
+VERSION="0.1.0"
 JAR_NAME="alethfeld-${VERSION}.jar"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
