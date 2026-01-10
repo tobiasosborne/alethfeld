@@ -1,8 +1,8 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Race Condition Fix (Round 10)
-**Session status:** 12 issues closed - ALL TESTS PASSING
+**Last session:** P3 Tests & Docs Complete (Round 11)
+**Session status:** ALL 410 ISSUES CLOSED - 1,316 TESTS PASSING
 
 ---
 
@@ -56,8 +56,8 @@ Two critical issues caused race conditions:
 
 ## Test Health
 
-- **Total tests:** 1,296
-- **Total assertions:** 7,333
+- **Total tests:** 1,316
+- **Total assertions:** 7,369
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
@@ -67,35 +67,33 @@ Two critical issues caused race conditions:
 
 | Source | State |
 |--------|-------|
-| **Race condition fix** | Layers 1-4 complete |
-| **Beads issues** | 3 open (P3 tests/docs), 408 closed |
-| **Codebase** | v0.2.0 with race condition fixes |
+| **Race condition fix** | All 4 layers complete |
+| **Beads issues** | 0 open, 410 closed |
+| **Codebase** | v0.2.0 release-ready |
 
 ---
 
-## Remaining Work (P3)
-
-```bash
-bd ready
-```
-
-3 test/documentation issues remain (not blocking):
+## Completed This Session (Round 11)
 
 | Issue | Description |
 |-------|-------------|
-| alethfeld-h21w | Add multi-process claim test |
-| alethfeld-psog | Add atomic reservation tests |
-| alethfeld-okh0 | Update documentation |
+| alethfeld-h21w | Multi-process claim tests (11 tests in `multiprocess_test.clj`) |
+| alethfeld-psog | Atomic reservation tests (8 tests in `session_test.clj`) |
+| alethfeld-okh0 | Documentation updates (`CLAUDE.md`, `TECH-SPEC.md`) |
+
+Also fixed:
+- `install.sh` version mismatch (was 0.1.0-SNAPSHOT, now 0.2.0)
+- Version sync across all files to 0.2.0
 
 ---
 
 ## Quick Commands
 
 ```bash
-clj -M:test              # 1296 tests, all passing
+clj -M:test              # 1316 tests, all passing
 clj -M:run --version     # Alethfeld v0.2.0
-bd stats                 # Issue counts
-bd ready                 # Available work (3 P3 issues)
+./install.sh             # Build and install af command
+bd stats                 # 410 closed, 0 open
 ```
 
 ---
@@ -203,4 +201,7 @@ Plan file: `~/.claude/plans/polished-brewing-nest.md`
 | Session management | Done |
 | Transaction layer | Done + Race fixes |
 | Multi-agent safety | Done (Layers 1-4) |
-| Multi-process tests | P3 (not blocking) |
+| Multi-process tests | Done |
+| Documentation | Done |
+
+**v0.2.0 is release-ready.**
