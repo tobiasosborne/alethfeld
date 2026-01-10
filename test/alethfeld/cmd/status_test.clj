@@ -38,7 +38,7 @@
 
 (defn- create-test-mote
   "Create and save a test mote.
-   Note: taint defaults to empty (not :needs-decomposition) for test control."
+   Note: taint defaults to empty set for test control (not :needs-verification)."
   [& {:keys [id claim status priority difficulty parent children taint]
       :or {id "1"
            claim "Test claim"

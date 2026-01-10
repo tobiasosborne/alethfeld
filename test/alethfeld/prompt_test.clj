@@ -448,7 +448,7 @@
           prompt (prompt/render-prompt job)]
       ;; v0.2: Verifier-first workflow with three options
       (is (str/includes? prompt "GATEKEEPER"))
-      (is (str/includes? prompt "OPTION 1: CLAIM IS VERIFIABLE")))))
+      (is (str/includes? prompt "OPTION 1: VOTE")))))
 
 (deftest render-prompt-counterexample-task-test
   (testing "Counterexample prompt has adversarial task"
