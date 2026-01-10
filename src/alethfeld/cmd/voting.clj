@@ -125,14 +125,21 @@
                              (assoc vote-result :propagated propagated))
                            vote-result)
             ;; Generate intelligent next-actions based on state
-            next-acts (core/generate-vote-next-actions repo-path id session agent quorum-status)]
+            next-acts (core/generate-vote-next-actions repo-path id session agent quorum-status)
+            ;; Get quorum info for pending message
+            pending-message (when (= :pending quorum-status)
+                              (let [status (verify/verification-status repo-path id)]
+                                (str "Vote recorded. " (:votes-for status) "/" (:quorum status) " for, "
+                                     (:votes-against status) " against"
+                                     (when (pos? (:votes-needed status))
+                                       (str " (need " (:votes-needed status) " more for quorum)")))))]
         (assoc final-result
                :next-actions next-acts
                :message (case quorum-status
                           :verified "Mote verified! Quorum reached."
                           :refuted "Mote refuted. Quorum reached."
                           :contested "Mote contested - votes are mixed."
-                          :pending (str "Vote recorded. Waiting for more votes.")))))))
+                          :pending pending-message))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Batch Vote Command

@@ -5,6 +5,27 @@
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
+;; Quorum Display Helpers
+;; -----------------------------------------------------------------------------
+
+(defn- format-vote-quorum-progress
+  "Format vote counts with quorum progress.
+
+   Arguments:
+   - for-votes: Number of votes for
+   - against-votes: Number of votes against
+   - quorum: Required quorum threshold
+
+   Returns string like '1/2 for, 0 against (need 1 more for quorum)'"
+  [for-votes against-votes quorum]
+  (let [total-votes (+ for-votes against-votes)
+        votes-needed (- quorum total-votes)
+        base-str (str for-votes "/" quorum " for, " against-votes " against")]
+    (if (pos? votes-needed)
+      (str base-str " (need " votes-needed " more for quorum)")
+      base-str)))
+
+;; -----------------------------------------------------------------------------
 ;; Formatting Helpers
 ;; -----------------------------------------------------------------------------
 
@@ -23,9 +44,16 @@
 (defn- format-show-verbose
   "Format verbose mote display (with --verbose flag).
 
+   Arguments:
+   - mote: The mote to display
+   - vote-quorum: The quorum threshold for votes (default 1)
+   - proposal-quorum: The quorum threshold for proposal votes (default 1)
+
    Returns a detailed human-readable string."
-  [mote]
-  (let [sep (apply str (repeat 40 "-"))]
+  [mote vote-quorum proposal-quorum]
+  (let [sep (apply str (repeat 40 "-"))
+        for-votes (count (filter #(= :for (:type %)) (:votes mote)))
+        against-votes (count (filter #(= :against (:type %)) (:votes mote)))]
     (str sep "\n"
          "Mote: " (:id mote) "\n"
          sep "\n"
@@ -42,15 +70,20 @@
          (when (:parent mote)
            (str "Parent: " (:parent mote) "\n"))
          (when-let [proposal (:proposal mote)]
-           (str "\nProposal:\n"
-                "  Proposer: " (:proposer proposal) "\n"
-                "  Children: " (str/join ", " (:children proposal)) "\n"
-                (when (seq (:votes proposal))
-                  (str "  Votes: " (count (:votes proposal)) "\n"))))
+           (let [proposal-for (count (filter #(= :approve (:vote %)) (:votes proposal)))
+                 proposal-against (count (filter #(= :reject (:vote %)) (:votes proposal)))
+                 proposal-total (+ proposal-for proposal-against)
+                 proposal-needed (- proposal-quorum proposal-total)]
+             (str "\nProposal:\n"
+                  "  Proposer: " (:proposer proposal) "\n"
+                  "  Children: " (str/join ", " (:children proposal)) "\n"
+                  (when (seq (:votes proposal))
+                    (str "  Votes: " proposal-for "/" proposal-quorum " approve, " proposal-against " reject"
+                         (when (pos? proposal-needed)
+                           (str " (need " proposal-needed " more for quorum)"))
+                         "\n")))))
          (when (seq (:votes mote))
-           (str "\nVotes: " (count (:votes mote))
-                " (for: " (count (filter #(= :for (:type %)) (:votes mote)))
-                ", against: " (count (filter #(= :against (:type %)) (:votes mote))) ")\n"))
+           (str "\nVotes: " (format-vote-quorum-progress for-votes against-votes vote-quorum) "\n"))
          (when (seq (:assumptions mote))
            (str "\nAssumptions: " (count (:assumptions mote)) "\n"))
          (when (seq (:definitions mote))
@@ -78,8 +111,11 @@
         verbose? (:verbose options)
         mote (store/load-mote repo-path id)]
     (if mote
-      (let [output (if verbose?
-                     (format-show-verbose mote)
+      (let [config (store/load-config repo-path)
+            vote-quorum (or (:vote-quorum config) 1)
+            proposal-quorum (or (:proposal-quorum config) 1)
+            output (if verbose?
+                     (format-show-verbose mote vote-quorum proposal-quorum)
                      (format-show-concise mote))]
         (assoc mote
                :output output
