@@ -1,27 +1,43 @@
 # Alethfeld Session Handoff
 
-**Last updated:** 2026-01-09
-**Last session:** Phase 7 Prompts Complete
-**Session status:** 7.9 + 7.11 DONE - ALL TESTS PASSING
+**Last updated:** 2026-01-10
+**Last session:** Parallel Subagent Swarming
+**Session status:** 3 issues closed via parallel agents - ALL TESTS PASSING
 
 ---
 
 ## Session Summary
 
-This session completed Phase 7 (Verifier-First Workflow Refactoring):
+This session attempted parallel subagent swarming on 4 issues with branch isolation:
 
-1. **7.1** Changed default taint from `:needs-decomposition` to `:needs-verification` in mote.clj
-2. **7.2** Updated proposal taints to always use `:needs-verification` in proposal.clj
-3. **7.3** Reordered role priorities: verifier=0, proposer=1, advisor=2, prover=3
-4. **7.4** Changed proposal quorum from 2 to 1 (single-agent approval)
-5. **7.5** Changed vote quorum from 2 to 1 (single-agent verification)
-6. **7.6** Rewrote verifier prompt with three-option decision structure
+### Completed
+1. **alethfeld-jtsz** (v0.2-6.1) - Make `af help` show same output as `af --help`
+   - Modified `cli.clj` and `cli_test.clj`
+   - Commit: `3332115`
 
-**Test Updates:**
-- Updated ~20 test files with explicit quorum parameters where multi-vote behavior is tested
-- All 1098 tests passing (6556 assertions)
+2. **alethfeld-q02u** (7.8) - Add `:taint-remove` permission to verifier role
+   - Verifiers can now remove taints for workflow control
+   - Modified `session.clj`, `session_test.clj`, `enforce_test.clj`
+   - Commit: `dae9cd7`
 
-**Commit:** `0a07f71` - feat: Implement verifier-first workflow (Phase 7)
+3. **alethfeld-sowp** - Add comprehensive error path testing (~30% gap)
+   - Created `error_paths_test.clj` with 35 tests, 789 lines
+   - Commit: `199fcdf`
+
+### Not Completed (Race Condition Interference)
+- **alethfeld-o137** (7.10) - Remove --atomic flag
+  - Agent work was lost due to git branch interference between parallel agents
+
+### Race Condition Analysis
+When 4 subagents ran simultaneously on separate branches, they experienced:
+- `git checkout` operations interfering with each other's working directory
+- Commits going to wrong branches
+- Branch state becoming inconsistent
+- Work needing manual recovery
+
+**Lesson:** Parallel git operations are NOT safe without true isolation (separate worktrees or repos).
+
+**Tests:** 1,126 tests, 6,614 assertions, 0 failures
 
 ---
 

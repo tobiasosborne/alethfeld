@@ -14,27 +14,19 @@
 (defn- parse-claims
   "Parse claims from command-line args.
 
-   Each claim is a string. Can optionally include difficulty with @ notation
-   and atomic marker with ! notation:
+   Each claim is a string. Can optionally include difficulty with @ notation:
    'My claim @3' -> {:claim 'My claim' :difficulty 3}
-   'My claim !' -> {:claim 'My claim' :atomic true}
-   'My claim @3!' -> {:claim 'My claim' :difficulty 3 :atomic true}
    'My claim' -> {:claim 'My claim'}
 
-   Returns vector of {:claim ... :difficulty ... :atomic ...} maps."
+   Returns vector of {:claim ... :difficulty ...} maps."
   [args]
   (mapv (fn [arg]
-          (let [;; Check for trailing ! (atomic marker)
-                [arg-without-atomic atomic?] (if (str/ends-with? arg "!")
-                                               [(subs arg 0 (dec (count arg))) true]
-                                               [arg false])
-                ;; Check for @N difficulty notation
-                [claim difficulty] (if-let [[_ c d] (re-matches #"(.+?)\s*@(\d+)\s*$" arg-without-atomic)]
+          (let [;; Check for @N difficulty notation
+                [claim difficulty] (if-let [[_ c d] (re-matches #"(.+?)\s*@(\d+)\s*$" arg)]
                                      [(str/trim c) (Integer/parseInt d)]
-                                     [arg-without-atomic nil])]
+                                     [arg nil])]
             (cond-> {:claim claim}
-              difficulty (assoc :difficulty difficulty)
-              atomic? (assoc :atomic true))))
+              difficulty (assoc :difficulty difficulty))))
         args))
 
 (defn- merge-option-claims
