@@ -1,8 +1,8 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Complete UX Fixes (Round 14)
-**Session status:** ALL 5 UX ISSUES CLOSED - 1,316 TESTS PASSING
+**Last session:** Final Fixes (Round 15)
+**Session status:** ALL 7 UX ISSUES CLOSED - 1,316 TESTS PASSING
 
 ---
 
@@ -27,11 +27,22 @@ Completed all UX improvements identified in agent testing:
 - `alethfeld-ghkq` - sessions bug (P0)
 - `alethfeld-axt6` - workflow bug (P0)
 - `alethfeld-ul9h` - claim bug (P0)
+- `alethfeld-ozg1` - workflow "Mote not found" (P0) - Round 15
 - `alethfeld-7xtx` - --mote flag (P1)
+- `alethfeld-h5gl` - ready guidance after init (P1) - Round 15
 - `alethfeld-grfk` - session docs (P2)
+
+### Round 15 Fixes
+| Bug | Fix |
+|-----|-----|
+| `af workflow` shows "Mote not found" | Embedded fallback workflow doc |
+| `af ready` after init shows no guidance | "No motes yet. Create your first..." message |
 
 ### No Remaining UX Issues
 All work from the UX reviews is complete.
+
+### Rebuild Required
+Run `clj -T:build uber` and reinstall to get the fixes.
 
 ---
 
