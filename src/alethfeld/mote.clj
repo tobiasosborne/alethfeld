@@ -1,355 +1,147 @@
 (ns alethfeld.mote
-  "Mote constructor and manipulation functions."
-  (:require [alethfeld.schema :as s]))
+  "Mote constructor and manipulation functions.
 
-;; -----------------------------------------------------------------------------
-;; ID Generation
-;; -----------------------------------------------------------------------------
+   Re-exports all public APIs from submodules for backward compatibility.
+   Existing code using [alethfeld.mote :as mote] will continue to work
+   unchanged after internal module reorganization."
+  (:require [alethfeld.mote.util :as util]
+            [alethfeld.mote.vote :as vote]
+            [alethfeld.mote.core :as core]
+            [alethfeld.mote.validate :as validate]
+            [alethfeld.mote.mutation :as mutation]))
 
-;; Timestamp format for ID generation: YYYYMMDD-HHmmssSSS
-(def ^:private id-timestamp-format "yyyyMMdd-HHmmssSSS")
+;; =============================================================================
+;; Re-exports from alethfeld.mote.util
+;; =============================================================================
 
-;; Max value for random suffix (0x10000 = 65536) to produce 4 hex digits (0000-ffff)
-(def ^:private random-suffix-max 0x10000)
-
-(defn generate-id
+(def generate-id
   "Generate a unique ID suffix for proposals/jobs."
-  []
-  (let [ts (java.time.LocalDateTime/now)
-        fmt (java.time.format.DateTimeFormatter/ofPattern id-timestamp-format)
-        random-suffix (format "%04x" (rand-int random-suffix-max))]
-    (str (.format ts fmt) "-" random-suffix)))
-
-;; -----------------------------------------------------------------------------
-;; Timestamp Helpers
-;; -----------------------------------------------------------------------------
+  util/generate-id)
 
 (def ^:dynamic *clock*
   "Clock function for getting current time. Rebindable for testing."
-  #(java.util.Date.))
+  util/*clock*)
 
-(defn now
+(def now
   "Returns current time. Uses *clock* which can be rebound in tests."
-  []
-  (*clock*))
+  util/now)
 
-;; -----------------------------------------------------------------------------
-;; Vote Constructors
-;; -----------------------------------------------------------------------------
+(def claim-expired?
+  "Check if a mote's claim has expired."
+  util/claim-expired?)
 
-(defn make-vote
-  "Create a verification vote.
+;; =============================================================================
+;; Re-exports from alethfeld.mote.vote
+;; =============================================================================
 
-   Arguments:
-   - agent: Agent name (string)
-   - vote: :for or :against
+(def make-vote
+  "Create a verification vote."
+  vote/make-vote)
 
-   Options:
-   - :reason - Optional reason string
-   - :timestamp - Defaults to now"
-  [agent vote & {:keys [reason timestamp]}]
-  (cond-> {:agent agent
-           :vote vote
-           :timestamp (or timestamp (now))}
-    reason (assoc :reason reason)))
+(def make-proposal-vote
+  "Create a proposal vote (approve/reject)."
+  vote/make-proposal-vote)
 
-(defn make-proposal-vote
-  "Create a proposal vote (approve/reject).
+(def make-proposal
+  "Create a decomposition proposal."
+  vote/make-proposal)
 
-   Arguments:
-   - agent: Agent name (string)
-   - vote: :approve or :reject
+;; =============================================================================
+;; Re-exports from alethfeld.mote.core
+;; =============================================================================
 
-   Options:
-   - :reason - Optional reason string
-   - :timestamp - Defaults to now"
-  [agent vote & {:keys [reason timestamp]}]
-  (cond-> {:agent agent
-           :vote vote
-           :timestamp (or timestamp (now))}
-    reason (assoc :reason reason)))
+(def make-mote
+  "Create a mote with explicit values. Low-level constructor."
+  core/make-mote)
 
-;; -----------------------------------------------------------------------------
-;; Proposal Constructor
-;; -----------------------------------------------------------------------------
+(def make-root-mote
+  "Create a root mote (no parent)."
+  core/make-root-mote)
 
-(defn make-proposal
-  "Create a decomposition proposal.
+(def make-child-mote
+  "Create a child mote, inheriting priority/difficulty from parent."
+  core/make-child-mote)
 
-   Arguments:
-   - proposed-by: Agent name (string)
-   - children: Vector of child mote IDs
+;; =============================================================================
+;; Re-exports from alethfeld.mote.validate
+;; =============================================================================
 
-   Options:
-   - :id - Proposal ID, defaults to generated
-   - :proposed-at - Defaults to now
-   - :votes - Defaults to []
-   - :status - Defaults to :pending"
-  [proposed-by children & {:keys [id proposed-at votes status]}]
-  {:id (or id (str "prop-" (generate-id)))
-   :proposed-by proposed-by
-   :proposed-at (or proposed-at (now))
-   :children (vec children)
-   :votes (or votes [])
-   :status (or status :pending)})
-
-;; -----------------------------------------------------------------------------
-;; Mote Constructors
-;; -----------------------------------------------------------------------------
-
-(defn make-mote
-  "Create a mote with explicit values. Low-level constructor.
-
-   Required:
-   - id: Mote ID (string)
-   - claim: The mathematical statement (string)
-   - created-by: Agent name (string)
-
-   Options:
-   - :status - Defaults to :fixed
-   - :taint - Defaults to #{:needs-verification}
-   - :priority - Defaults to :p2
-   - :difficulty - Defaults to 3
-   - :parent - Parent mote ID (nil for roots)
-   - :children - Vector of child IDs, defaults to []
-   - :proposal - Active proposal, defaults to nil
-   - :assumptions - Vector of assumptions, defaults to []
-   - :definitions - Vector of definitions, defaults to []
-   - :depends-on - Vector of dependencies, defaults to nil
-   - :votes - Vector of votes, defaults to []
-   - :claimed-by - Agent name, defaults to nil
-   - :claimed-at - Timestamp, defaults to nil
-   - :created-at - Timestamp, defaults to now
-   - :updated-at - Timestamp, defaults to now
-   - :contributors - Contributors tracking map (auto-initialized)
-   - :meta - Additional metadata map"
-  [id claim created-by & {:keys [status taint priority difficulty
-                                  parent children proposal
-                                  assumptions definitions depends-on votes
-                                  claimed-by claimed-at
-                                  created-at updated-at contributors meta]}]
-  (let [ts (or created-at (now))
-        default-contributors {:created-by created-by}]
-    (cond-> {:id id
-             :claim claim
-             :status (or status :fixed)
-             :taint (or taint #{:needs-verification})
-             :priority (or priority :p2)
-             :difficulty (or difficulty 3)
-             :children (or children [])
-             :assumptions (or assumptions [])
-             :definitions (or definitions [])
-             :votes (or votes [])
-             :created-by created-by
-             :created-at ts
-             :updated-at (or updated-at ts)
-             :contributors (or contributors default-contributors)}
-      parent (assoc :parent parent)
-      proposal (assoc :proposal proposal)
-      depends-on (assoc :depends-on depends-on)
-      claimed-by (assoc :claimed-by claimed-by)
-      claimed-at (assoc :claimed-at claimed-at)
-      meta (assoc :meta meta))))
-
-(defn make-root-mote
-  "Create a root mote (no parent).
-
-   Arguments:
-   - id: Mote ID (typically a single number like \"1\", \"2\")
-   - claim: The mathematical statement
-   - created-by: Agent name
-
-   Options:
-   - :priority - Defaults to :p2
-   - :difficulty - Defaults to 3
-   - Other options passed through to make-mote"
-  [id claim created-by & {:keys [priority difficulty] :as opts}]
-  (apply make-mote id claim created-by
-         (mapcat identity (dissoc opts :parent))))
-
-(defn make-child-mote
-  "Create a child mote, inheriting priority/difficulty from parent.
-
-   Arguments:
-   - id: Mote ID (e.g., \"1.2.3\")
-   - claim: The mathematical statement
-   - created-by: Agent name
-   - parent-mote: The parent mote map (to inherit from)
-
-   Options:
-   - :priority - Defaults to parent's priority
-   - :difficulty - Defaults to parent's difficulty
-   - Other options passed through to make-mote"
-  [id claim created-by parent-mote & {:keys [priority difficulty] :as opts}]
-  (apply make-mote id claim created-by
-         :parent (:id parent-mote)
-         :priority (or priority (:priority parent-mote) :p2)
-         :difficulty (or difficulty (:difficulty parent-mote) 3)
-         (mapcat identity (dissoc opts :parent :priority :difficulty))))
-
-;; -----------------------------------------------------------------------------
-;; Validation
-;; -----------------------------------------------------------------------------
-
-(defn valid-mote?
+(def valid-mote?
   "Check if mote is valid according to schema."
-  [mote]
-  (s/valid? s/Mote mote))
+  validate/valid-mote?)
 
-(defn valid-proposal?
+(def valid-proposal?
   "Check if proposal is valid according to schema."
-  [proposal]
-  (s/valid? s/Proposal proposal))
+  validate/valid-proposal?)
 
-(defn valid-vote?
+(def valid-vote?
   "Check if vote is valid according to schema."
-  [vote]
-  (s/valid? s/Vote vote))
+  validate/valid-vote?)
 
-(defn valid-proposal-vote?
+(def valid-proposal-vote?
   "Check if proposal vote is valid according to schema."
-  [vote]
-  (s/valid? s/ProposalVote vote))
+  validate/valid-proposal-vote?)
 
-;; -----------------------------------------------------------------------------
-;; Mote Transformations (Pure Functions)
-;; -----------------------------------------------------------------------------
+;; =============================================================================
+;; Re-exports from alethfeld.mote.mutation
+;; =============================================================================
 
-(defn- touch
-  "Update the :updated-at timestamp."
-  [mote]
-  (assoc mote :updated-at (now)))
-
-(defn add-assumption
+(def add-assumption
   "Add an assumption to a mote. Returns new mote."
-  [mote assumption]
-  (-> mote
-      (update :assumptions conj assumption)
-      touch))
+  mutation/add-assumption)
 
-(defn add-definition
+(def add-definition
   "Add a definition to a mote. Returns new mote."
-  [mote definition]
-  (-> mote
-      (update :definitions conj definition)
-      touch))
+  mutation/add-definition)
 
-(defn add-dep
+(def add-dep
   "Add a dependency to a mote. Returns new mote."
-  [mote dependency]
-  (-> mote
-      (update :depends-on (fnil conj []) dependency)
-      touch))
+  mutation/add-dep)
 
-(defn add-vote
+(def add-vote
   "Add a verification vote to a mote. Returns new mote."
-  [mote vote]
-  (-> mote
-      (update :votes conj vote)
-      touch))
+  mutation/add-vote)
 
-(defn add-taint
+(def add-taint
   "Add a taint flag to a mote. Returns new mote."
-  [mote taint]
-  (-> mote
-      (update :taint conj taint)
-      touch))
+  mutation/add-taint)
 
-(defn remove-taint
+(def remove-taint
   "Remove a taint flag from a mote. Returns new mote."
-  [mote taint]
-  (-> mote
-      (update :taint disj taint)
-      touch))
+  mutation/remove-taint)
 
-(defn set-status
+(def set-status
   "Set the status of a mote. Returns new mote."
-  [mote status]
-  (-> mote
-      (assoc :status status)
-      touch))
+  mutation/set-status)
 
-(defn set-claimed-by
+(def set-claimed-by
   "Set the claimed-by field of a mote. Returns new mote."
-  [mote agent]
-  (-> mote
-      (assoc :claimed-by agent)
-      (assoc :claimed-at (now))
-      touch))
+  mutation/set-claimed-by)
 
-(defn clear-claim
+(def clear-claim
   "Clear the claim on a mote. Returns new mote."
-  [mote]
-  (-> mote
-      (dissoc :claimed-by :claimed-at)
-      touch))
+  mutation/clear-claim)
 
-(defn claim-expired?
-  "Check if a mote's claim has expired.
-
-   Arguments:
-   - mote: The mote to check
-   - timeout-minutes: Number of minutes after which a claim expires
-
-   Options:
-   - now: Optional java.time.Instant for the current time (defaults to Instant/now).
-          Useful for testing and ensuring consistent time comparisons.
-
-   Returns true if:
-   - The mote has a claimed-at timestamp
-   - The claim is older than timeout-minutes
-
-   Returns false if:
-   - The mote is not claimed
-   - The claim has no timestamp
-   - The claim is within the timeout window"
-  [mote timeout-minutes & {:keys [now]}]
-  (if-let [claimed-at (:claimed-at mote)]
-    (let [current-instant (or now (java.time.Instant/now))
-          claimed-instant (java.time.Instant/ofEpochMilli (.getTime claimed-at))
-          timeout (java.time.Duration/ofMinutes timeout-minutes)
-          expiration-instant (.plus claimed-instant timeout)]
-      (.isAfter current-instant expiration-instant))
-    false))
-
-(defn set-proposal
+(def set-proposal
   "Set an active proposal on a mote. Returns new mote."
-  [mote proposal]
-  (-> mote
-      (assoc :proposal proposal)
-      touch))
+  mutation/set-proposal)
 
-(defn clear-proposal
+(def clear-proposal
   "Clear the proposal from a mote. Returns new mote."
-  [mote]
-  (-> mote
-      (dissoc :proposal)
-      touch))
+  mutation/clear-proposal)
 
-(defn add-child
+(def add-child
   "Add a child ID to a mote. Returns new mote."
-  [mote child-id]
-  (-> mote
-      (update :children conj child-id)
-      touch))
+  mutation/add-child)
 
-(defn set-priority
+(def set-priority
   "Set the priority of a mote. Returns new mote."
-  [mote priority]
-  (-> mote
-      (assoc :priority priority)
-      touch))
+  mutation/set-priority)
 
-(defn set-difficulty
+(def set-difficulty
   "Set the difficulty of a mote. Returns new mote."
-  [mote difficulty]
-  (-> mote
-      (assoc :difficulty difficulty)
-      touch))
+  mutation/set-difficulty)
 
-(defn set-claim
+(def set-claim
   "Update the claim text of a mote. Returns new mote."
-  [mote claim-text]
-  (-> mote
-      (assoc :claim claim-text)
-      touch))
+  mutation/set-claim)
