@@ -1,29 +1,40 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** o137 Completion (Post-Swarming)
-**Session status:** o137 completed - 4 issues total from swarming session - ALL TESTS PASSING
+**Last session:** Safe Parallel Swarming (Round 2)
+**Session status:** 3 more issues completed via parallel agents - ALL TESTS PASSING
 
 ---
 
 ## Session Summary
 
-Completed the remaining o137 task that was lost during parallel subagent swarming:
+Successfully ran 3 parallel agents with NO race conditions by:
+- All agents work on main branch (no git checkout)
+- Each agent assigned exclusive file sets
+- Agents don't commit - coordinator commits after
 
-### Completed This Session
-4. **alethfeld-o137** (7.10) - Remove --atomic flag from propose command
-   - Removed `!` notation parsing from `parse-claims`
-   - Removed `--atomic` CLI option (already done on main)
-   - Simplified `merge-option-claims` to not handle atomics
-   - Updated tests to not use atomic notation
-   - Commit: `a1eb96b`
+### Completed This Session (Parallel Round 2)
+5. **alethfeld-iqsd** (7.12) - Update tests for workflow defaults
+   - Fixed prompt_test.clj, config_test.clj, status_test.clj
+   - Commit: `7d4f7ac`
 
-### Previously Completed (Swarming Session)
-1. **alethfeld-jtsz** (v0.2-6.1) - Make `af help` show same output as `af --help`
-2. **alethfeld-q02u** (7.8) - Add `:taint-remove` permission to verifier role
-3. **alethfeld-sowp** - Add comprehensive error path testing
+6. **alethfeld-2crv** (v0.2-4.1) - Show quorum progress in vote displays
+   - Updated cmd/show.clj and cmd/voting.clj
+   - Shows "X/Y for (need Z more for quorum)" format
+   - Commit: `3e1f1d5`
 
-**Tests:** 1,130 tests, 6,691 assertions, 0 failures
+7. **alethfeld-b5wf** (7.7) - Verifier CLI output with taint commands
+   - Updated prompts/verifier.md with USE WHEN guidance
+   - Fixed taint command syntax
+   - Commit: `b0fffaa`
+
+### Previously Completed
+1. **alethfeld-jtsz** (v0.2-6.1) - Make `af help` = `af --help`
+2. **alethfeld-q02u** (7.8) - Add `:taint-remove` to verifier role
+3. **alethfeld-sowp** - Comprehensive error path testing
+4. **alethfeld-o137** (7.10) - Remove --atomic flag
+
+**Tests:** 1,130 tests, 6,705 assertions, 0 failures
 
 ---
 
@@ -41,10 +52,8 @@ Completed the remaining o137 task that was lost during parallel subagent swarmin
 
 ## Priority Work Queues
 
-### Phase 7 Remaining (P2 Medium)
-
-- `alethfeld-b5wf` - 7.7 Verifier CLI commands
-- `alethfeld-iqsd` - 7.12 tests (may now be unblocked)
+### Phase 7 - COMPLETE
+All Phase 7 items (7.1-7.12) are now closed.
 
 ### Other Ready Work
 
@@ -77,15 +86,16 @@ bd list --status=open | grep "7\."
 | `src/alethfeld/verify.clj` | Vote quorum fallback to 1 |
 | `src/alethfeld/cmd/config.clj` | Config defaults to 1 |
 | `src/alethfeld/cmd/proposal.clj` | Removed atomic notation, quorum fallback to 1 |
-| `src/alethfeld/cmd/voting.clj` | Dry-run quorum to 1 |
-| `prompts/verifier.md` | Three-option decision structure |
+| `src/alethfeld/cmd/show.clj` | Quorum progress display |
+| `src/alethfeld/cmd/voting.clj` | Quorum progress, dry-run quorum to 1 |
+| `prompts/verifier.md` | Three-option decision with USE WHEN guidance |
 
 ---
 
 ## Test Health
 
 - **Total tests:** 1,130
-- **Total assertions:** 6,691
+- **Total assertions:** 6,705
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
