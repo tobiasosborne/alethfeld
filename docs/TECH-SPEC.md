@@ -594,6 +594,71 @@ This is acceptable because:
 
 Future work may add startup recovery to detect and commit orphaned validated changes.
 
+### 7.5 Multi-Agent Safety
+
+When multiple `af` processes run concurrently, race conditions are prevented via:
+
+#### 7.5.1 OS FileLock (Cross-Process Mutex)
+
+```clojure
+;; tx.clj - with-repo-lock
+1. Acquire ReentrantLock (thread safety within JVM)
+2. Acquire FileLock on .alethfeld/lock (OS-level)
+3. Execute transaction
+4. Release FileLock
+5. Release ReentrantLock
+```
+
+- **Lock file**: `.alethfeld/lock`
+- **Wait feedback**: "Waiting for repository lock..." after 200ms
+- **Dual-lock strategy**: ReentrantLock + FileLock for both thread and process safety
+
+#### 7.5.2 Atomic Claim Flow
+
+```clojure
+;; cmd/ready.clj - claim-job-atomic!
+for each job candidate:
+  1. Re-check claim status inside lock
+  2. If unclaimed → claim and create session
+  3. If already claimed → try next candidate
+```
+
+Prevents TOCTOU (time-of-check-time-of-use) race where two agents see the same mote as unclaimed.
+
+#### 7.5.3 Atomic Reservations
+
+```clojure
+;; session.clj - create-reservation-atomic!
+Lock file: .alethfeld/sessions/reservations/lock-{mote-id}.edn
+
+1. Try create-file-exclusive! (CREATE_NEW semantics)
+   ├─ Success → Write reservation, return {:success true}
+   └─ File exists → Check if expired
+      ├─ Expired → Delete, retry
+      └─ Active → Return {:success false :held-by ...}
+```
+
+- **TTL**: 60 seconds default
+- **Atomicity**: Uses `StandardOpenOption/CREATE_NEW` (atomic on POSIX)
+
+#### 7.5.4 Reservation Filtering
+
+```clojure
+;; job.clj - select-jobs
+(select-jobs motes :active-reservations #{mote-ids-to-exclude})
+```
+
+Reserved motes are excluded from job candidates during the reservation window.
+
+#### 7.5.5 Limitations
+
+| Limitation | Impact |
+|------------|--------|
+| NFS | Advisory locks may not work reliably |
+| Same machine only | FileLock coordinates local processes only |
+| Git sync required | Distributed agents must use git pull/push |
+| Windows behavior | Exclusive locks, may differ from POSIX |
+
 ---
 
 ## 8. DAG Invariants

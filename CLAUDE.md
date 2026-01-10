@@ -92,3 +92,43 @@ There is a small window (~<100ms) between validation passing and git commit comp
 **Potential future mitigations:**
 - Validate against git index instead of working tree
 - Add startup recovery to detect uncommitted validated changes
+
+### FileLock Limitations
+
+The multi-agent safety layer uses OS-level file locks (`java.nio.channels.FileLock`):
+
+- **NFS**: Advisory locks may not work reliably on NFS mounts
+- **Same machine only**: FileLock coordinates processes on same machine
+- **Git sync required**: Distributed agents must coordinate via git pull/push
+- **Windows**: Exclusive locks (no concurrent readers), may differ from POSIX
+
+## Multi-Agent Safety
+
+Alethfeld prevents race conditions in multi-agent deployments via 4 layers:
+
+### Layer 1: OS FileLock (Cross-Process)
+
+`tx.clj` uses a dual-lock strategy:
+- **ReentrantLock**: Thread safety within same JVM
+- **FileLock**: Cross-process mutex on `.alethfeld/lock`
+- Lock wait feedback: "Waiting for repository lock..." after 200ms
+
+### Layer 2: Atomic Claim Flow
+
+`cmd/ready.clj` uses `claim-job-atomic!`:
+- Re-checks claim status inside the lock
+- Retries on conflict with next candidate
+- Session created only after successful claim
+
+### Layer 3: Atomic Reservations
+
+`session.clj` uses `create-reservation-atomic!`:
+- Lock file per mote: `.alethfeld/sessions/reservations/lock-{mote-id}.edn`
+- `CREATE_NEW` semantics for atomic file creation
+- Automatic expiration (default 60 seconds)
+
+### Layer 4: Reservation Filtering
+
+`job.clj` `select-jobs` accepts `:active-reservations`:
+- Reserved motes excluded from job candidates
+- Prevents duplicate claims during reservation window

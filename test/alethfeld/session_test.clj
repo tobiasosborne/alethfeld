@@ -1535,3 +1535,135 @@
       (let [result (session/resolve-session-alias *temp-dir* "@latest" "agent-1")]
         (is (= "@latest" (:session-id result)))
         (is (nil? (:resolved-from result)))))))
+
+;; =============================================================================
+;; Atomic Reservation Tests (Race Condition Prevention)
+;; =============================================================================
+
+(deftest create-reservation-atomic-success-test
+  (testing "create-reservation-atomic! succeeds when no reservation exists"
+    (init-session-dirs)
+    (let [result (session/create-reservation-atomic! *temp-dir* "1.1" :proposer)]
+      (is (:success result) "Reservation should succeed")
+      (is (some? (get-in result [:reservation :token])) "Should have token")
+      (is (= "1.1" (get-in result [:reservation :mote-id])))
+      (is (= :proposer (get-in result [:reservation :role]))))))
+
+(deftest create-reservation-atomic-conflict-test
+  (testing "create-reservation-atomic! fails when reservation exists"
+    (init-session-dirs)
+    ;; Create first reservation
+    (let [result1 (session/create-reservation-atomic! *temp-dir* "1.1" :proposer)]
+      (is (:success result1) "First reservation should succeed")
+
+      ;; Second reservation should fail
+      (let [result2 (session/create-reservation-atomic! *temp-dir* "1.1" :proposer)]
+        (is (not (:success result2)) "Second reservation should fail")
+        (is (some? (:held-by result2)) "Should indicate who holds the reservation")))))
+
+(deftest create-reservation-atomic-different-motes-test
+  (testing "create-reservation-atomic! allows reservations for different motes"
+    (init-session-dirs)
+    (let [result1 (session/create-reservation-atomic! *temp-dir* "1.1" :proposer)
+          result2 (session/create-reservation-atomic! *temp-dir* "1.2" :advisor)]
+      (is (:success result1) "First mote reservation should succeed")
+      (is (:success result2) "Second mote reservation should succeed"))))
+
+(deftest create-reservation-atomic-expired-reclaim-test
+  (testing "create-reservation-atomic! succeeds after existing reservation expires"
+    (init-session-dirs)
+    ;; Create reservation with very short TTL
+    (let [result1 (session/create-reservation-atomic! *temp-dir* "1.1" :proposer
+                                                       :duration-seconds 1)]
+      (is (:success result1) "Initial reservation should succeed")
+
+      ;; Wait for expiration
+      (Thread/sleep 1100)
+
+      ;; New reservation should succeed
+      (let [result2 (session/create-reservation-atomic! *temp-dir* "1.1" :advisor)]
+        (is (:success result2) "Reservation after expiration should succeed")
+        (is (= :advisor (get-in result2 [:reservation :role]))
+            "Should have new role")))))
+
+(deftest create-reservation-atomic-custom-duration-test
+  (testing "create-reservation-atomic! respects custom duration"
+    (init-session-dirs)
+    (let [result (session/create-reservation-atomic! *temp-dir* "1.1" :proposer
+                                                      :duration-seconds 120)
+          reservation (:reservation result)
+          created-at (:created-at reservation)
+          expires-at (:expires-at reservation)
+          diff-ms (- (.getTime expires-at) (.getTime created-at))]
+      (is (:success result))
+      ;; Should be approximately 120 seconds (120000 ms)
+      (is (< 119000 diff-ms 121000)
+          "Duration should be approximately 120 seconds"))))
+
+(deftest reservation-expired?-test
+  (testing "reservation-expired? correctly detects expiration"
+    (let [now (java.time.Instant/now)
+          ;; Reservation expired 10 seconds ago
+          expired-reservation {:expires-at (java.util.Date/from (.minusSeconds now 10))}
+          ;; Reservation expires in 10 seconds
+          active-reservation {:expires-at (java.util.Date/from (.plusSeconds now 10))}]
+      (is (session/reservation-expired? expired-reservation :now now)
+          "Expired reservation should be detected")
+      (is (not (session/reservation-expired? active-reservation :now now))
+          "Active reservation should not be detected as expired"))))
+
+(deftest cleanup-expired-reservations-test
+  (testing "cleanup-expired-reservations! removes expired reservations"
+    (init-session-dirs)
+    ;; Create a reservation with very short TTL
+    (let [result (session/create-reservation-atomic! *temp-dir* "1.1" :proposer
+                                                      :duration-seconds 1)]
+      (is (:success result))
+
+      ;; Verify reservation exists
+      (is (= 1 (count (session/list-active-reservations *temp-dir*))))
+
+      ;; Wait for expiration
+      (Thread/sleep 1100)
+
+      ;; Cleanup
+      (session/cleanup-expired-reservations! *temp-dir*)
+
+      ;; Reservation should be gone
+      (is (= 0 (count (session/list-active-reservations *temp-dir*)))
+          "Expired reservation should be cleaned up"))))
+
+(deftest list-active-reservations-excludes-lock-files-test
+  (testing "list-active-reservations does not include lock files"
+    (init-session-dirs)
+    ;; Create some reservations (which also create lock files)
+    (let [result1 (session/create-reservation-atomic! *temp-dir* "1.1" :proposer)
+          result2 (session/create-reservation-atomic! *temp-dir* "1.2" :advisor)]
+      (is (:success result1))
+      (is (:success result2))
+
+      ;; List should only show actual reservations, not lock files
+      (let [reservations (session/list-active-reservations *temp-dir*)]
+        (is (= 2 (count reservations))
+            "Should have exactly 2 reservations (no lock files counted)")
+        (is (every? :token reservations)
+            "All listed items should be valid reservations with tokens")))))
+
+(deftest mote-has-reservation-with-atomic-creation-test
+  (testing "mote-has-reservation? works correctly with atomic reservations"
+    (init-session-dirs)
+    ;; Initially no reservation
+    (is (not (session/mote-has-reservation? *temp-dir* "1.1"))
+        "No reservation should exist initially")
+
+    ;; Create reservation
+    (let [result (session/create-reservation-atomic! *temp-dir* "1.1" :verifier)]
+      (is (:success result))
+
+      ;; Check for reservation
+      (is (session/mote-has-reservation? *temp-dir* "1.1")
+          "Reservation should be detected")
+      (is (session/mote-has-reservation? *temp-dir* "1.1" :verifier)
+          "Reservation with correct role should be detected")
+      (is (not (session/mote-has-reservation? *temp-dir* "1.1" :proposer))
+          "Reservation with wrong role should not be detected"))))
