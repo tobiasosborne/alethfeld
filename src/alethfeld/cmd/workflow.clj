@@ -17,10 +17,15 @@
    - :next-actions - Suggested next commands"
   [_context]
   (let [workflow-path "prompts/workflow.md"
-        workflow-text (try
-                        (slurp (io/resource workflow-path))
-                        (catch Exception _
-                          (slurp workflow-path)))]
+        ;; Try classpath first (for jar), then absolute path from CWD
+        workflow-text (or (some-> (io/resource workflow-path) slurp)
+                          (let [f (io/file workflow-path)]
+                            (when (.exists f)
+                              (slurp f)))
+                          (throw (ex-info "Workflow documentation not found"
+                                          {:type :not-found
+                                           :path workflow-path
+                                           :hint "Run 'af workflow' from your project root directory"})))]
     {:output workflow-text
      :next-actions [(core/make-action "af ready --name <agent> --role verifier"
                                       "Start working on verification")

@@ -77,9 +77,9 @@
       (if dry-run
         ;; Dry run - show what would happen
         (core/dry-run-result
-         :output (str "Would claim mote " id " for agent \"" agent "\" as " (name role)
+         :output (str "Would claim mote " id " for agent \"" agent "\" as " (clojure.core/name role)
                       (core/format-would-create
-                       [(str "session for " agent " on " id " as " (name role))])
+                       [(str "session for " agent " on " id " as " (clojure.core/name role))])
                       (core/format-would-update
                        [{:id id :change (str "set claimed-by to \"" agent "\"")}]))
          :would-create [{:type :session :agent agent :mote-id id :role role}]
@@ -100,7 +100,7 @@
                 session-id (:session-id sess)
                 updated-mote (mote/set-claimed-by current-mote agent)]
             (tx/atomic-write! repo-path
-                              (str "Claim mote " id " for " agent " as " (name role))
+                              (str "Claim mote " id " for " agent " as " (clojure.core/name role))
                               [updated-mote])
             (assoc updated-mote
                    :session-id session-id

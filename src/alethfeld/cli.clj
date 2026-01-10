@@ -589,8 +589,8 @@
                :options []}
 
    "sessions" {:description "List all active sessions"
-               :usage "af sessions [--verbose]"
-               :options [["-v" "--verbose" "Show additional session details"]]}
+               :usage "af sessions [--details]"
+               :options [[nil "--details" "Show additional session details"]]}
 
    "help" {:description "Show help"
            :usage "af help [command]"

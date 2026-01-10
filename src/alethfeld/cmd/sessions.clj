@@ -125,7 +125,7 @@
    - Stale sessions: expired or owning process died
 
    Options:
-   - :verbose - Show additional session details (actions count, expires-at)
+   - :details - Show additional session details (actions count, expires-at)
 
    Returns a map with:
    - :active-sessions - Vector of active session maps
@@ -134,7 +134,7 @@
    - :next-actions - Suggested next commands"
   [{:keys [options]}]
   (let [repo-path "."
-        verbose? (:verbose options)]
+        verbose? (:details options)]
 
     ;; Check repository exists
     (when-not (store/repo-exists? repo-path)
