@@ -1,47 +1,49 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Parallel Subagent Swarming (Round 18)
-**Session status:** 2 ISSUES CLOSED - 1,362 TESTS PASSING (+46)
+**Last session:** Parallel Subagent Swarming (Round 19)
+**Session status:** PARTIAL 62cq COMPLETE - 1,362 TESTS PASSING
 
 ---
 
 ## Session Summary
 
-Demonstrated safe parallel subagent execution on 5 issues simultaneously:
+Demonstrated safe parallel subagent execution on 3 remaining issues:
 
 ### Parallel Execution Strategy
 
-Analyzed 5 open issues for conflict potential and launched 5 agents in parallel:
-- **2 Implementation agents:** jv8a (repair tests), xj1a (private notation)
-- **3 Research agents:** 62cq (magic numbers), ro8b (repo-path), n0wf (session split)
+Analyzed file conflict potential and launched 4 agents in parallel:
+- **1 Implementation agent:** 62cq (tx.clj, git.clj only - safe files)
+- **3 Draft agents:** 62cq-remaining, ro8b, n0wf (produced markdown drafts)
 
 No git conflicts occurred because:
-- jv8a created a NEW file (no conflicts possible)
-- xj1a found no changes needed (already consistent)
-- Research agents did NOT edit files (report only)
+- Implementation agent only touched tx.clj, git.clj (no overlap with drafts)
+- Draft agents wrote to `drafts/` directory (no source file edits)
+- Agents serialized work as drafts for future implementation
 
-### Issues Closed This Session
+### Work Completed This Session
 
-| Issue | Description | Result |
-|-------|-------------|--------|
-| alethfeld-jv8a | Add tests for repair.clj | 624-line test file, 46 new tests |
-| alethfeld-xj1a | Standardize private notation | Already done - all 136 uses are `defn-` |
+| Type | Work | Result |
+|------|------|--------|
+| Implementation | 62cq partial (tx.clj, git.clj) | 3 constants extracted, tests pass |
+| Draft | 62cq remaining (cli, session, cmd) | `drafts/62cq-cli-cmd-draft.md` |
+| Draft | ro8b full plan (18 files, 35 locations) | `drafts/ro8b-implementation-draft.md` |
+| Draft | n0wf full plan (7 modules, 44 functions) | `drafts/n0wf-session-split-plan.md` |
 
-### Research Completed
+### Constants Added
 
-| Issue | Finding |
-|-------|---------|
-| alethfeld-62cq | Identified 30+ magic numbers, 7 high-priority for extraction |
-| alethfeld-ro8b | Identified 35 hardcoded repo-paths in 18 files |
-| alethfeld-n0wf | Detailed 7-module split plan for session.clj |
+| File | Constant | Value |
+|------|----------|-------|
+| tx.clj | `lock-wait-feedback-ms` | 200 |
+| tx.clj | `lock-retry-interval-ms` | 10 |
+| git.clj | `default-git-log-limit` | 50 |
 
 ---
 
 ## Test Health
 
-- **Total tests:** 1,362 (+46 from repair tests)
-- **Total assertions:** 7,495
+- **Total tests:** 1,362
+- **Total assertions:** 7,402
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
@@ -58,18 +60,32 @@ No git conflicts occurred because:
 
 ## Remaining Open Issues (3)
 
-| Priority | Issue | Description | Status |
-|----------|-------|-------------|--------|
-| P1 | alethfeld-n0wf | Split session.clj | Research complete, ready to implement |
-| P1 | alethfeld-ro8b | Parameterize repo-path | Research complete, 35 locations identified |
-| P1 | alethfeld-62cq | Magic numbers to constants | Research complete, 7 high-priority values |
+| Priority | Issue | Description | Draft Available |
+|----------|-------|-------------|-----------------|
+| P1 | alethfeld-62cq | Magic numbers to constants | Yes - 7 remaining |
+| P1 | alethfeld-ro8b | Parameterize repo-path | Yes - full plan |
+| P1 | alethfeld-n0wf | Split session.clj | Yes - 8-module plan |
 
-### Parallelization Notes
+### Draft Files
 
-For future swarming:
-- **n0wf** should run alone (major refactor affecting many files)
-- **62cq + ro8b** could potentially run together (different concerns) but both touch session.clj
-- Consider implementing 62cq first (smaller scope) before n0wf
+All in `drafts/` directory:
+
+1. **62cq-cli-cmd-draft.md** (14KB) - Exact changes for:
+   - cli.clj: `session-id-display-length`, `command-suggestion-max-distance`
+   - session.clj: `reservation-token-length`
+   - cmd/ready.clj: claim display lengths
+   - cmd/utility.clj: tree display lengths
+
+2. **ro8b-implementation-draft.md** (25KB) - Full plan for:
+   - 18 files, 35 locations
+   - Phase-by-phase implementation order
+   - Exact old/new code for each location
+
+3. **n0wf-session-split-plan.md** (22KB) - Full plan for:
+   - 8-module split (role, contributor, core, enforcement, cleanup, reservation, resolution, facade)
+   - 44 functions mapped to modules
+   - Internal dependency graph
+   - Backwards compatibility strategy
 
 ---
 
@@ -89,15 +105,25 @@ bd ready                 # See available work
 
 | File | Changes |
 |------|---------|
-| `test/alethfeld/repair_test.clj` | NEW: 624 lines, 46 tests for repair.clj |
+| `src/alethfeld/tx.clj` | Added 2 constants (lock timing) |
+| `src/alethfeld/git.clj` | Added 1 constant (git log limit) |
+| `drafts/62cq-cli-cmd-draft.md` | NEW: Draft for remaining 62cq work |
+| `drafts/ro8b-implementation-draft.md` | NEW: Full ro8b implementation plan |
+| `drafts/n0wf-session-split-plan.md` | NEW: Full session.clj split plan |
 
 ---
 
 ## Next Steps
 
-1. **P1**: Implement magic number extraction (62cq) - smallest scope
-2. **P1**: Parameterize repo-path (ro8b) - requires threading through 18 files
-3. **P1**: Split session.clj (n0wf) - major refactor, 7 modules
+1. **Implement 62cq remaining** - Use `drafts/62cq-cli-cmd-draft.md`
+2. **Implement ro8b** - Use `drafts/ro8b-implementation-draft.md`
+3. **Implement n0wf** - Use `drafts/n0wf-session-split-plan.md` (run alone)
+
+### Parallelization Notes
+
+- **62cq remaining** and **ro8b** overlap on cli.clj - serialize these
+- **n0wf** should run alone (major refactor, 13 external callers)
+- Future: Could parallelize n0wf submodule creation if careful
 
 ---
 
