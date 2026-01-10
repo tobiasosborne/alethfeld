@@ -8,6 +8,14 @@
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
+;; Configuration Constants
+;; -----------------------------------------------------------------------------
+
+(def ^:private default-git-log-limit
+  "Default maximum number of commits to return from git-log."
+  50)
+
+;; -----------------------------------------------------------------------------
 ;; Internal Helpers
 ;; -----------------------------------------------------------------------------
 
@@ -206,7 +214,7 @@
    - :author - Author name (if format is :short or :full)
    - :date - Commit date (if format is :full)"
   [repo-path & {:keys [path max-count format]
-                :or {max-count 50 format :oneline}}]
+                :or {max-count default-git-log-limit format :oneline}}]
   (when (git-has-commits? repo-path)
     (let [format-str (case format
                        :oneline "%h %s"

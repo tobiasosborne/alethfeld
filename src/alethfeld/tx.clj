@@ -14,6 +14,18 @@
            [java.io RandomAccessFile]))
 
 ;; -----------------------------------------------------------------------------
+;; Configuration Constants
+;; -----------------------------------------------------------------------------
+
+(def ^:private lock-wait-feedback-ms
+  "Milliseconds to wait before showing 'Waiting for repository lock...' message."
+  200)
+
+(def ^:private lock-retry-interval-ms
+  "Milliseconds between lock acquisition retry attempts."
+  10)
+
+;; -----------------------------------------------------------------------------
 ;; Repository Locking
 ;; -----------------------------------------------------------------------------
 
@@ -136,7 +148,7 @@
               {:channel channel :raf raf :lock file-lock}
               (if (< (System/currentTimeMillis) deadline)
                 (do
-                  (Thread/sleep 10)
+                  (Thread/sleep lock-retry-interval-ms)
                   (recur))
                 (do
                   (binding [*out* *err*]
@@ -179,7 +191,7 @@
     (.lock thread-lock)
     (try
       (ensure-lock-file-parent! repo-path)
-      (let [file-lock-info (acquire-file-lock! lock-path 200)]
+      (let [file-lock-info (acquire-file-lock! lock-path lock-wait-feedback-ms)]
         (try
           (f)
           (finally
