@@ -114,15 +114,22 @@
 
 (defn unverified-dependencies
   "Return list of dependency refs that are not yet :verified.
-   Returns empty vector if all dependencies are verified or if no dependencies exist."
+   Returns empty vector if all dependencies are verified or if no dependencies exist.
+
+   Uses batch loading to avoid N+1 queries when checking multiple dependencies."
   [repo-path mote]
-  (let [deps (:depends-on mote [])]
-    (vec
-     (for [{:keys [ref]} deps
-           :let [dep-mote (store/load-mote repo-path ref)]
-           :when (or (nil? dep-mote)
-                     (not= :verified (:status dep-mote)))]
-       ref))))
+  (let [deps (:depends-on mote [])
+        dep-refs (mapv :ref deps)]
+    (if (empty? dep-refs)
+      []
+      ;; Batch load all dependencies at once
+      (let [dep-motes (store/load-motes repo-path dep-refs)]
+        (vec
+         (for [{:keys [ref]} deps
+               :let [dep-mote (get dep-motes ref)]
+               :when (or (nil? dep-mote)
+                         (not= :verified (:status dep-mote)))]
+           ref))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Vote Casting

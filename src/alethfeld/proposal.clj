@@ -162,16 +162,22 @@
   "Promote proposed children to fixed status.
    Moves files from proposed/ to motes/.
    All promoted children get :needs-verification taint.
-   Throws if any child cannot be loaded - this indicates data corruption."
+   Throws if any child cannot be loaded - this indicates data corruption.
+
+   Uses batch loading to avoid N+1 queries when promoting multiple children."
   [repo-path parent child-ids]
-  (doseq [child-id child-ids]
-    (let [child (store/load-mote repo-path child-id)]
-      (when-not child
+  ;; Batch load all children at once
+  (let [children-map (store/load-motes repo-path child-ids)]
+    ;; Validate all children exist before modifying any
+    (doseq [child-id child-ids]
+      (when-not (get children-map child-id)
         (throw (ex-info "Child mote not found during promotion"
                         {:type :child-not-found
                          :parent-id (:id parent)
-                         :child-id child-id})))
-      (let [atomic? (:atomic child)
+                         :child-id child-id}))))
+    ;; Now promote all children
+    (doseq [child-id child-ids]
+      (let [child (get children-map child-id)
             taint-to-add :needs-verification
             promoted (-> child
                          (mote/set-status :fixed)
@@ -184,15 +190,22 @@
 (defn- archive-children!
   "Archive rejected children.
    Moves files from proposed/ to archive/.
-   Throws if any child cannot be loaded - this indicates data corruption."
+   Throws if any child cannot be loaded - this indicates data corruption.
+
+   Uses batch loading to avoid N+1 queries when archiving multiple children."
   [repo-path child-ids]
-  (doseq [child-id child-ids]
-    (let [child (store/load-mote repo-path child-id)]
-      (when-not child
+  ;; Batch load all children at once
+  (let [children-map (store/load-motes repo-path child-ids)]
+    ;; Validate all children exist before modifying any
+    (doseq [child-id child-ids]
+      (when-not (get children-map child-id)
         (throw (ex-info "Child mote not found during archival"
                         {:type :child-not-found
-                         :child-id child-id})))
-      (let [rejected (mote/set-status child :rejected)]
+                         :child-id child-id}))))
+    ;; Now archive all children
+    (doseq [child-id child-ids]
+      (let [child (get children-map child-id)
+            rejected (mote/set-status child :rejected)]
         ;; Delete from proposed/
         (store/delete-mote! repo-path child-id)
         ;; Save to archive/

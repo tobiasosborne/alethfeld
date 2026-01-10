@@ -289,6 +289,24 @@
           "\nThe file may be corrupted or contain invalid EDN.\n"
           "To fix: Check the file contents or restore from git history."))
 
+   :invalid-config
+   (fn [{:keys [path errors]}]
+     (str "Error: Invalid configuration file.\n"
+          (when path (str "File: " path "\n"))
+          "\nValidation errors:\n"
+          (if errors
+            (str/join "\n" (map #(str "  - " %) errors))
+            "  - Unknown validation error")
+          "\n\nExpected config format:\n"
+          "  {:project-name \"My Project\"      ; required string\n"
+          "   :version \"0.1\"                  ; required string\n"
+          "   :default-difficulty 3            ; required integer 1-5\n"
+          "   :proposal-quorum 1               ; optional integer >= 1\n"
+          "   :vote-quorum 1                   ; optional integer >= 1\n"
+          "   :claim-timeout-minutes 30        ; optional integer >= 1\n"
+          "   :session-timeout-minutes 60}     ; optional integer >= 1\n"
+          "\nTo fix: Edit .alethfeld/config.edn to match the expected format."))
+
    ;; -------------------------------------------------------------------------
    ;; Role Errors
    ;; -------------------------------------------------------------------------
@@ -350,7 +368,7 @@
     (:not-found :session-not-found :no-proposal) :not-found
 
     ;; Validation errors (invalid input or state)
-    (:validation-failed :invalid-status :invalid-role) :validation-error
+    (:validation-failed :invalid-status :invalid-role :invalid-config) :validation-error
 
     ;; Conflict errors (resource already exists/in-use or conflicting state)
     (:already-voted :already-claimed :proposal-exists :already-initialized :atomicity-violation) :conflict

@@ -172,7 +172,7 @@
     (let [job (test-job :role :verifier
                         :mote (test-mote :taint #{:needs-verification}))
           prompt (prompt/render-prompt job)]
-      (is (str/starts-with? prompt "You are a VERIFIER agent.")))))
+      (is (str/starts-with? prompt "You are an ADVERSARIAL VERIFIER agent.")))))
 
 (deftest render-prompt-ref-checker-header-test
   (testing "Ref-checker prompt has correct header"
