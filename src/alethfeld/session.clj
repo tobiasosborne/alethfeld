@@ -795,14 +795,24 @@
            :reservation reservation})
 
         ;; Lock file already exists - check if expired
+        ;; TOCTOU FIX: Handle case where file was deleted between our create attempt
+        ;; and this read (returns nil). In that case, retry immediately.
         (let [existing (io/read-edn lock-path)]
-          (if (reservation-expired? existing :now now)
+          (cond
+            ;; File was deleted by another process - retry
+            (nil? existing)
+            (create-reservation-atomic! repo-path mote-id role
+                                        :duration-seconds duration-seconds)
+
             ;; Expired - delete lock and retry
+            (reservation-expired? existing :now now)
             (do
               (io/delete-file lock-path)
               (create-reservation-atomic! repo-path mote-id role
                                           :duration-seconds duration-seconds))
+
             ;; Active reservation held by another agent
+            :else
             {:success false
              :held-by existing}))))))
 
