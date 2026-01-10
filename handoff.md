@@ -1,103 +1,67 @@
 # Alethfeld Session Handoff
 
 **Last updated:** 2026-01-10
-**Last session:** Final Fixes (Round 15)
-**Session status:** ALL 7 UX ISSUES CLOSED - 1,316 TESTS PASSING
+**Last session:** Code Review & Refactoring (Round 16)
+**Session status:** 5 ISSUES CLOSED - 1,316 TESTS PASSING
 
 ---
 
 ## Session Summary
 
-Completed all UX improvements identified in agent testing:
+Conducted comprehensive 4-agent code review and applied high-priority fixes:
 
-### Bugs Fixed (Round 13)
-| Bug | Root Cause | Fix |
-|-----|------------|-----|
-| `af sessions` AssertionError | `-v` conflicted with global `--version` | Changed to `--details` flag |
-| `af claim` ClassCastException | Local `name` binding shadowed `clojure.core/name` | Use fully qualified `clojure.core/name` |
-| `af workflow` FileNotFoundException | Fallback path used relative path | Improved path resolution with explicit file check |
+### Code Review (4 Parallel Agents)
 
-### Features Added (Round 14)
-| Feature | Description |
-|---------|-------------|
-| `--mote` flag | `af ready --name X --mote 1.3` claims specific mote |
-| Session alias docs | `@current`, `AF_SESSION` documented in prompts and errors |
+| Agent | Focus | Key Findings |
+|-------|-------|--------------|
+| Linus Torvalds | Direct critique | Duplicated code, magic numbers, hardcoded paths |
+| Architecture | Design review | Grade B+, session.clj too large, N+1 loading |
+| Test Coverage | Test gaps | repair.clj has NO tests (critical) |
+| Bugs/Smells | Code quality | TOCTOU race, notation inconsistencies |
 
-### All Issues Closed
-- `alethfeld-ghkq` - sessions bug (P0)
-- `alethfeld-axt6` - workflow bug (P0)
-- `alethfeld-ul9h` - claim bug (P0)
-- `alethfeld-ozg1` - workflow "Mote not found" (P0) - Round 15
-- `alethfeld-7xtx` - --mote flag (P1)
-- `alethfeld-h5gl` - ready guidance after init (P1) - Round 15
-- `alethfeld-grfk` - session docs (P2)
+### Issues Fixed This Session
 
-### Round 15 Fixes
-| Bug | Fix |
-|-----|-----|
-| `af workflow` shows "Mote not found" | Embedded fallback workflow doc |
-| `af ready` after init shows no guidance | "No motes yet. Create your first..." message |
+| Issue | Description | Fix |
+|-------|-------------|-----|
+| alethfeld-pf8o | Unused atom in prompt.clj | Deleted 2 lines |
+| alethfeld-qnfp | Duplicated levenshtein-distance | Extracted to util.clj |
+| alethfeld-f64x | Duplicated valid-roles | Consolidated in util.clj |
+| alethfeld-bom9 | Incomplete error-type mapping | Added 19 missing error types |
+| alethfeld-hlsj | Inconsistent -s/-S options | Standardized to -s |
 
-### No Remaining UX Issues
-All work from the UX reviews is complete.
+### New File Created
 
-### Rebuild Required
-Run `clj -T:build uber` and reinstall to get the fixes.
+`src/alethfeld/util.clj` - Shared utilities:
+- `levenshtein-distance` - Edit distance calculation
+- `valid-roles` - Map of role keywords to descriptions
+- `valid-role-names` - Vector of role name strings
 
----
+### Remaining Open Issues (9)
 
-## Previous Session Summary
+| Priority | Issue | Description |
+|----------|-------|-------------|
+| P0 | alethfeld-2g3p | Fix TOCTOU race in create-reservation-atomic! |
+| P0 | alethfeld-jv8a | Add tests for repair.clj |
+| P1 | alethfeld-62cq | Extract magic numbers to constants |
+| P1 | alethfeld-ro8b | Parameterize hardcoded repo-path |
+| P1 | alethfeld-n0wf | Split session.clj into modules |
+| P1 | alethfeld-20wg | Refactor cmd-ready (draft ready) |
+| P2 | alethfeld-elp4 | Add config schema validation (draft ready) |
+| P2 | alethfeld-evxz | Fix N+1 mote loading pattern |
+| P2 | alethfeld-xj1a | Standardize private function notation |
 
-Implemented comprehensive race condition fixes for multi-agent deployments:
-- Added OS-level FileLock for cross-process mutual exclusion
-- Implemented atomic claim flow with retry-on-conflict
-- Added atomic reservation creation using `CREATE_NEW` semantics
-- Integrated reservation filtering into job selection
+### Agent Drafts Available (Not Applied)
 
-### Root Cause (Fixed)
-
-Two critical issues caused race conditions:
-
-1. **JVM-local locking**: `ReentrantLock` in `tx.clj` only coordinated threads within a single JVM. Each `af` CLI invocation spawned a new JVM with its own lock map - zero cross-process coordination.
-
-2. **Lock scope too narrow**: The claim flow performed read/check/session-creation OUTSIDE the lock, with only the final `atomic-write!` protected. Classic TOCTOU (time-of-check-time-of-use) race.
-
-### Solution Implemented
-
-**5-Layer Hybrid Approach:**
-
-| Layer | Description | Files |
-|-------|-------------|-------|
-| 1 | OS FileLock (cross-process) | `tx.clj` |
-| 2 | Atomic claim with retry | `cmd/ready.clj` |
-| 3 | Atomic reservation creation | `io.clj`, `session.clj` |
-| 4 | Filter reserved from jobs | `job.clj`, `cmd/ready.clj` |
-
-### Completed This Session (Round 10)
-
-| Issue | Description |
-|-------|-------------|
-| alethfeld-8pdl | Add FileLock imports to tx.clj |
-| alethfeld-0bfn | Implement FileLock-based with-repo-lock |
-| alethfeld-5zzb | Add lock wait feedback (200ms timeout) |
-| alethfeld-r9cw | Create claim-job-atomic! helper |
-| alethfeld-440g | Refactor claim mode to use atomic claim |
-| alethfeld-w1p1 | Move session creation after claim |
-| alethfeld-77kv | Add create-file-exclusive! to io.clj |
-| alethfeld-lu5r | Implement create-reservation-atomic! |
-| alethfeld-pmzl | Update create-reservation! to use atomic version |
-| alethfeld-96lu | Add reservation filtering to select-jobs |
-| alethfeld-r4fi | Load reservations in cmd-ready |
-| alethfeld-7nsq | Add reservation cleanup to stale cleanup |
-
-**Method:** Parallel agent drafting (5 agents, ~5 min) + serialized edits (~10 min)
+- **elp4**: Config validation code ready in agent output
+- **20wg**: cmd-ready refactor with 12 helper functions ready
+- **jv8a**: repair_test.clj needs API adjustment (generated tests didn't match actual exports)
 
 ---
 
 ## Test Health
 
 - **Total tests:** 1,316
-- **Total assertions:** 7,369
+- **Total assertions:** 7,356
 - **Status:** ALL PASSING
 - **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
 
@@ -107,23 +71,9 @@ Two critical issues caused race conditions:
 
 | Source | State |
 |--------|-------|
-| **Race condition fix** | All 4 layers complete |
-| **Beads issues** | 0 open, 410 closed |
-| **Codebase** | v0.2.0 release-ready |
-
----
-
-## Completed This Session (Round 11)
-
-| Issue | Description |
-|-------|-------------|
-| alethfeld-h21w | Multi-process claim tests (11 tests in `multiprocess_test.clj`) |
-| alethfeld-psog | Atomic reservation tests (8 tests in `session_test.clj`) |
-| alethfeld-okh0 | Documentation updates (`CLAUDE.md`, `TECH-SPEC.md`) |
-
-Also fixed:
-- `install.sh` version mismatch (was 0.1.0-SNAPSHOT, now 0.2.0)
-- Version sync across all files to 0.2.0
+| **Code review** | Complete (4 agents) |
+| **Beads issues** | 9 open, 419 closed |
+| **Codebase** | v0.2.0 + refactoring |
 
 ---
 
@@ -133,7 +83,8 @@ Also fixed:
 clj -M:test              # 1316 tests, all passing
 clj -M:run --version     # Alethfeld v0.2.0
 ./install.sh             # Build and install af command
-bd stats                 # 410 closed, 0 open
+bd stats                 # 419 closed, 9 open
+bd ready                 # See available work
 ```
 
 ---
@@ -142,94 +93,55 @@ bd stats                 # 410 closed, 0 open
 
 | File | Changes |
 |------|---------|
-| `src/alethfeld/tx.clj` | FileLock implementation, `acquire-file-lock!`, `release-file-lock!`, 200ms wait feedback |
-| `src/alethfeld/io.clj` | `create-file-exclusive!` using `StandardOpenOption/CREATE_NEW` |
-| `src/alethfeld/session.clj` | `create-reservation-atomic!`, lock file per mote |
-| `src/alethfeld/job.clj` | `:active-reservations` parameter to `select-jobs` |
-| `src/alethfeld/cmd/ready.clj` | `claim-job-atomic!`, retry loop, reservation loading |
-
----
-
-## Architecture: Race Condition Fix
-
-### Locking Strategy (Dual-Lock)
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  with-repo-lock                      │
-├─────────────────────────────────────────────────────┤
-│  1. Acquire ReentrantLock (thread safety in JVM)    │
-│  2. Acquire FileLock on .alethfeld/lock (OS-level)  │
-│  3. Execute transaction                              │
-│  4. Release FileLock                                 │
-│  5. Release ReentrantLock                            │
-└─────────────────────────────────────────────────────┘
-```
-
-- **ReentrantLock**: Prevents thread contention within same JVM
-- **FileLock**: Provides cross-process mutual exclusion
-- **Lock wait feedback**: Prints "Waiting for repository lock..." after 200ms
-
-### Atomic Claim Flow
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  cmd-ready (claim mode)              │
-├─────────────────────────────────────────────────────┤
-│  for each job candidate:                            │
-│    1. claim-job-atomic! (re-checks inside lock)     │
-│       ├─ Success → Create session, return          │
-│       └─ :already-claimed → Try next candidate     │
-│  if all claimed → "Run af ready to see available"  │
-└─────────────────────────────────────────────────────┘
-```
-
-### Atomic Reservations
-
-```
-┌─────────────────────────────────────────────────────┐
-│            create-reservation-atomic!                │
-├─────────────────────────────────────────────────────┤
-│  Lock file: .alethfeld/sessions/reservations/       │
-│             lock-{mote-id}.edn                      │
-│                                                     │
-│  1. Try create-file-exclusive! (CREATE_NEW)         │
-│     ├─ Success → Write reservation, return          │
-│     └─ Exists → Check if expired                    │
-│        ├─ Expired → Delete, retry                   │
-│        └─ Active → Return {:success false}          │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-## Known Limitations (Updated)
-
-### Transaction Race Window (Unchanged)
-
-~100ms window between validation and git commit. See `tx.clj` docstring.
-
-### FileLock Limitations
-
-- **NFS**: Advisory locks may not work reliably on NFS mounts
-- **Same machine only**: FileLock coordinates processes on same machine
-- **Git sync**: Distributed agents must still coordinate via git pull/push
-
-### Reservation TTL
-
-- Default: 60 seconds
-- Lock files cleaned up by `cleanup-expired-reservations!`
-- Called automatically at start of `cmd-ready`
+| `src/alethfeld/util.clj` | NEW - shared levenshtein-distance, valid-roles |
+| `src/alethfeld/cli.clj` | Removed duplicates, use util/, standardized -s |
+| `src/alethfeld/errors.clj` | Removed duplicates, complete error-type mapping |
+| `src/alethfeld/prompt.clj` | Removed unused external-templates-cache atom |
+| `test/alethfeld/errors_test.clj` | Updated to use util/levenshtein-distance |
 
 ---
 
 ## Review Documents
 
-Race condition analysis documents in `review/`:
-- `RACE_CONDITION_ANALYSIS.md` - Original analysis
-- `multi-agent-race-condition-report.md` - Comprehensive 7-solution comparison
+Code review reports in `review/`:
+- `alethfeld-experience-report.md` - Agent UX testing
+- `dobinski-proof-report.md` - Proof verification case study
+- `ux-implementation-plan.md` - UX improvement plan
+- `ux-review-old/` - Historical review documents
 
-Plan file: `~/.claude/plans/polished-brewing-nest.md`
+---
+
+## Architecture Notes
+
+### Shared Utilities Pattern
+
+```
+util.clj
+├── levenshtein-distance  (used by cli.clj, errors.clj)
+├── valid-roles           (map with descriptions)
+└── valid-role-names      (vector for CLI display)
+```
+
+### Error Exit Codes (Complete)
+
+```clojure
+:not-found        ; :not-found, :session-not-found, :no-proposal
+:validation-error ; :validation-failed, :invalid-status, :invalid-role
+:conflict         ; :already-voted, :already-claimed, :proposal-exists,
+                  ; :already-initialized, :atomicity-violation
+:forbidden        ; :invalid-session, :session-expired, :session-mote-mismatch,
+                  ; :action-not-allowed, :self-vote, :role-forbidden
+:error            ; all other errors (default)
+```
+
+---
+
+## Next Steps
+
+1. **P0**: Fix TOCTOU race in reservation (alethfeld-2g3p)
+2. **P0**: Write proper repair_test.clj matching actual API (alethfeld-jv8a)
+3. **P1**: Apply cmd-ready refactor draft (alethfeld-20wg)
+4. **P2**: Apply config validation draft (alethfeld-elp4)
 
 ---
 
@@ -241,7 +153,7 @@ Plan file: `~/.claude/plans/polished-brewing-nest.md`
 | Session management | Done |
 | Transaction layer | Done + Race fixes |
 | Multi-agent safety | Done (Layers 1-4) |
-| Multi-process tests | Done |
+| Code quality | Improved (duplicates removed) |
 | Documentation | Done |
 
 **v0.2.0 is release-ready.**
