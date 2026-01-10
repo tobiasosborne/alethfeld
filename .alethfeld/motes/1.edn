@@ -1,0 +1,1 @@
+{:updated-at #inst "2026-01-10T14:58:39.187-00:00", :votes [], :children [], :definitions [], :taint #{:needs-verification}, :difficulty 3, :assumptions [], :created-by "cli-user", :priority :p2, :status :fixed, :id "1", :contributors {:created-by "cli-user"}, :created-at #inst "2026-01-10T14:58:39.187-00:00", :claim "Test theorem"}
