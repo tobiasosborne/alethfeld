@@ -6,20 +6,12 @@
    - User-friendly error messages with actionable hints
    - Error formatting for both EDN and plain text output
    - Role suggestions using Levenshtein distance"
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [alethfeld.util :as util]))
 
 ;; -----------------------------------------------------------------------------
-;; Role Definitions
+;; Role Action Definitions
 ;; -----------------------------------------------------------------------------
-
-(def valid-roles
-  "Map of valid role keywords to their descriptions."
-  {:proposer      "Break claims into sub-claims"
-   :advisor       "Review and approve/reject proposals"
-   :prover        "Add references and refine claims"
-   :verifier      "Vote on claim validity"
-   :ref-checker   "Validate external references"
-   :counterexample "Find flaws and counterexamples"})
 
 (def role-allowed-actions
   "Map of roles to their allowed actions with example commands."
@@ -45,38 +37,8 @@
                                "af done --session xxx"]}})
 
 ;; -----------------------------------------------------------------------------
-;; Levenshtein Distance for Suggestions
+;; Role Suggestion
 ;; -----------------------------------------------------------------------------
-
-(defn levenshtein-distance
-  "Calculate the Levenshtein (edit) distance between two strings.
-   Returns the minimum number of single-character edits (insertions,
-   deletions, or substitutions) required to change s1 into s2."
-  [s1 s2]
-  (let [len1 (count s1)
-        len2 (count s2)]
-    (cond
-      (zero? len1) len2
-      (zero? len2) len1
-      :else
-      (let [;; Initialize the distance matrix as a 2D vector
-            ;; We only need the previous row and current row
-            init-row (vec (range (inc len2)))]
-        (loop [i 0
-               prev-row init-row]
-          (if (>= i len1)
-            (peek prev-row)
-            (let [curr-row (loop [j 0
-                                  row [(inc i)]]
-                             (if (>= j len2)
-                               row
-                               (let [cost (if (= (nth s1 i) (nth s2 j)) 0 1)
-                                     insert (inc (nth row j))
-                                     delete (inc (nth prev-row (inc j)))
-                                     substitute (+ (nth prev-row j) cost)]
-                                 (recur (inc j)
-                                        (conj row (min insert delete substitute))))))]
-              (recur (inc i) curr-row))))))))
 
 (defn suggest-role
   "Suggest a valid role based on Levenshtein distance.
@@ -85,9 +47,9 @@
    This allows for common misspellings like 'reviewer' -> 'verifier'."
   [invalid-role]
   (let [invalid-str (name invalid-role)
-        role-distances (for [role (keys valid-roles)]
+        role-distances (for [role (keys util/valid-roles)]
                          {:role role
-                          :distance (levenshtein-distance invalid-str (name role))})
+                          :distance (util/levenshtein-distance invalid-str (name role))})
         best-match (first (sort-by :distance role-distances))]
     (when (and best-match (<= (:distance best-match) 4))
       (:role best-match))))
@@ -97,7 +59,7 @@
   []
   (str/join "\n" (map (fn [[role desc]]
                         (format "  %-13s - %s" (name role) desc))
-                      valid-roles)))
+                      util/valid-roles)))
 
 ;; -----------------------------------------------------------------------------
 ;; Error Message Formatters
@@ -384,16 +346,23 @@
    Returns exit code keyword compatible with alethfeld.cli/exit-codes."
   [error-type]
   (case error-type
-    ;; Not found errors
-    (:not-found :session-not-found) :not-found
+    ;; Not found errors (resource doesn't exist)
+    (:not-found :session-not-found :no-proposal) :not-found
 
-    ;; Validation errors
-    :validation-failed :validation-error
+    ;; Validation errors (invalid input or state)
+    (:validation-failed :invalid-status :invalid-role) :validation-error
 
-    ;; Conflict errors (resource already exists/in-use)
-    (:already-voted :already-claimed :proposal-exists) :conflict
+    ;; Conflict errors (resource already exists/in-use or conflicting state)
+    (:already-voted :already-claimed :proposal-exists :already-initialized :atomicity-violation) :conflict
 
-    ;; Default to generic error
+    ;; Forbidden errors (authentication, authorization, policy violations)
+    (:invalid-session :session-expired :session-mote-mismatch :action-not-allowed :self-vote :role-forbidden) :forbidden
+
+    ;; Generic errors (environment, configuration, external failures, data corruption)
+    (:not-initialized :not-git-repo :integrity-error :unverified-dependencies :quorum-not-reached
+     :git-error :no-remote :parse-error) :error
+
+    ;; Default fallback
     :error))
 
 (defn throw-error

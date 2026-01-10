@@ -178,9 +178,6 @@
    template
    context))
 
-;; Cache for loaded templates (reset on each call to support hot-reloading)
-(def ^:private external-templates-cache (atom nil))
-
 (defn- load-external-role-template
   "Load an external role template file.
 

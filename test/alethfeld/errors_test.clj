@@ -2,7 +2,8 @@
   "Tests for alethfeld.errors namespace."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
-            [alethfeld.errors :as err]))
+            [alethfeld.errors :as err]
+            [alethfeld.util :as util]))
 
 ;; -----------------------------------------------------------------------------
 ;; Repository Error Tests
@@ -344,28 +345,28 @@
 
 (deftest levenshtein-distance-test
   (testing "identical strings have distance 0"
-    (is (= 0 (err/levenshtein-distance "verifier" "verifier")))
-    (is (= 0 (err/levenshtein-distance "" ""))))
+    (is (= 0 (util/levenshtein-distance "verifier" "verifier")))
+    (is (= 0 (util/levenshtein-distance "" ""))))
 
   (testing "empty string to non-empty has distance = length"
-    (is (= 5 (err/levenshtein-distance "" "hello")))
-    (is (= 5 (err/levenshtein-distance "hello" ""))))
+    (is (= 5 (util/levenshtein-distance "" "hello")))
+    (is (= 5 (util/levenshtein-distance "hello" ""))))
 
   (testing "single character insertions"
-    (is (= 1 (err/levenshtein-distance "verifier" "verifyer")))
-    (is (= 1 (err/levenshtein-distance "advisor" "advisors"))))
+    (is (= 1 (util/levenshtein-distance "verifier" "verifyer")))
+    (is (= 1 (util/levenshtein-distance "advisor" "advisors"))))
 
   (testing "single character deletions"
-    (is (= 1 (err/levenshtein-distance "proposer" "propose"))))
+    (is (= 1 (util/levenshtein-distance "proposer" "propose"))))
 
   (testing "single character substitutions"
-    (is (= 1 (err/levenshtein-distance "verifier" "verifierx"))))
+    (is (= 1 (util/levenshtein-distance "verifier" "verifierx"))))
 
   (testing "complex edits"
     ;; "reviewer" -> "verifier" requires 4 edits
-    (is (<= 3 (err/levenshtein-distance "reviewer" "verifier") 5))
+    (is (<= 3 (util/levenshtein-distance "reviewer" "verifier") 5))
     ;; "judge" -> "verifier" is very different
-    (is (> (err/levenshtein-distance "judge" "verifier") 5))))
+    (is (> (util/levenshtein-distance "judge" "verifier") 5))))
 
 ;; -----------------------------------------------------------------------------
 ;; Role Suggestion Tests

@@ -13,7 +13,8 @@
             [alethfeld.errors :as err]
             [alethfeld.store :as store]
             [alethfeld.session :as session]
-            [alethfeld.middleware :as middleware])
+            [alethfeld.middleware :as middleware]
+            [alethfeld.util :as util])
   (:gen-class))
 
 ;; Command handlers are registered by alethfeld.cmd namespace.
@@ -29,48 +30,13 @@
 
 (def version "0.2.0")
 
-;; -----------------------------------------------------------------------------
-;; Levenshtein Distance (for typo suggestions)
-;; -----------------------------------------------------------------------------
-
-(defn levenshtein-distance
-  "Calculate the Levenshtein (edit) distance between two strings.
-   Returns the minimum number of single-character edits (insertions,
-   deletions, or substitutions) required to transform s1 into s2."
-  [s1 s2]
-  (let [len1 (count s1)
-        len2 (count s2)]
-    (cond
-      (zero? len1) len2
-      (zero? len2) len1
-      :else
-      (let [;; Create initial row [0 1 2 ... len2]
-            initial-row (vec (range (inc len2)))]
-        (loop [i 0
-               prev-row initial-row]
-          (if (>= i len1)
-            (last prev-row)
-            (let [c1 (nth s1 i)
-                  curr-row (loop [j 0
-                                  row [(inc i)]]
-                             (if (>= j len2)
-                               row
-                               (let [c2 (nth s2 j)
-                                     cost (if (= c1 c2) 0 1)
-                                     insert (inc (nth row j))
-                                     delete (inc (nth prev-row (inc j)))
-                                     substitute (+ (nth prev-row j) cost)]
-                                 (recur (inc j)
-                                        (conj row (min insert delete substitute))))))]
-              (recur (inc i) curr-row))))))))
-
 (defn suggest-command
   "Find the closest matching command to the given input.
    Returns the suggestion if Levenshtein distance is <= 2, otherwise nil."
   [input known-commands]
   (let [input-lower (str/lower-case input)
         distances (for [cmd known-commands]
-                    [cmd (levenshtein-distance input-lower cmd)])
+                    [cmd (util/levenshtein-distance input-lower cmd)])
         [best-cmd best-dist] (reduce (fn [[bc bd] [c d]]
                                        (if (< d bd) [c d] [bc bd]))
                                      [nil Integer/MAX_VALUE]
@@ -463,8 +429,8 @@
 
    "update" {:description "Update mote fields"
              :usage "af update <id> --session TOKEN [OPTIONS]"
-             :options [["-S" "--session TOKEN" "Session token (required for mutations)"]
-                       ["-s" "--status STATUS" "New status"
+             :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                       [nil "--status STATUS" "New status"
                         :parse-fn keyword]
                        ["-p" "--priority P" "New priority"
                         :parse-fn keyword]
@@ -524,8 +490,8 @@
 
    "add-definition" {:description "Add definition"
                      :usage "af add-definition <id> --session TOKEN --symbol SYM --meaning TEXT"
-                     :options [["-S" "--session TOKEN" "Session token (required for mutations)"]
-                               ["-s" "--symbol SYM" "Symbol to define (required)"
+                     :options [["-s" "--session TOKEN" "Session token (required for mutations)"]
+                               [nil "--symbol SYM" "Symbol to define (required)"
                                 :missing "Symbol is required"]
                                ["-m" "--meaning TEXT" "Meaning of symbol (required)"
                                 :missing "Meaning is required"]]
@@ -864,10 +830,6 @@
 ;; Bare Command Output
 ;; -----------------------------------------------------------------------------
 
-(def valid-roles
-  "List of valid agent roles."
-  ["proposer" "advisor" "prover" "verifier" "ref-checker" "counterexample"])
-
 (defn- format-bare-output
   "Generate the bare command output showing project context and next action.
    This is shown when `af` is invoked with no arguments."
@@ -900,7 +862,7 @@
              "  af tree 1                  View proof structure from mote 1\n"
              "  af help                    Full command reference\n"
              "\n"
-             "Roles: " (str/join ", " valid-roles)))
+             "Roles: " (str/join ", " util/valid-role-names)))
       ;; Not initialized - suggest init
       (str "Alethfeld v" version " - Collaborative Proof Verification\n"
            "\n"
@@ -911,7 +873,7 @@
            "\n"
            "Or navigate to an existing Alethfeld project directory.\n"
            "\n"
-           "Roles: " (str/join ", " valid-roles)))))
+           "Roles: " (str/join ", " util/valid-role-names)))))
 
 ;; -----------------------------------------------------------------------------
 ;; Roles Command
@@ -933,7 +895,7 @@
        "=====================\n"
        "\n"
        (str/join "\n\n"
-                 (for [role valid-roles]
+                 (for [role util/valid-role-names]
                    (str "  " role "\n"
                         "    " (get role-descriptions role "No description"))))
        "\n\n"
