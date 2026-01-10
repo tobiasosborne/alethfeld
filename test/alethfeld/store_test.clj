@@ -433,3 +433,137 @@
       (is (contains? motes "1"))
       (is (not (contains? motes "2")))
       (is (contains? motes "3")))))
+
+;; =============================================================================
+;; Skip Validation Tests (alethfeld-437q)
+;; =============================================================================
+
+(deftest load-mote-skip-validation-test
+  (testing "Skips schema validation when :validate false"
+    (init-test-repo)
+    ;; Write invalid mote directly to disk
+    (let [invalid-mote {:id "1" :claim "test" :status :fixed}  ; missing required fields
+          file-path (str *temp-dir* "/.alethfeld/motes/1.edn")]
+      (spit file-path (pr-str invalid-mote))
+      ;; With validation (default) - returns nil
+      (is (nil? (store/load-mote *temp-dir* "1")))
+      ;; Without validation - returns the mote
+      (is (= "1" (:id (store/load-mote *temp-dir* "1" :validate false)))))))
+
+(deftest load-all-motes-skip-validation-test
+  (testing "Skips schema validation when :validate false"
+    (init-test-repo)
+    ;; Save one valid mote
+    (store/save-mote! *temp-dir* (test-mote :id "1"))
+    ;; Write invalid mote directly to disk
+    (let [invalid-mote {:id "2" :claim "Invalid" :status :fixed}
+          file-path (str *temp-dir* "/.alethfeld/motes/2.edn")]
+      (spit file-path (pr-str invalid-mote)))
+    ;; With validation (default) - only returns valid mote
+    (let [motes (store/load-all-motes *temp-dir*)]
+      (is (= 1 (count motes)))
+      (is (contains? motes "1")))
+    ;; Without validation - returns both motes
+    (let [motes (store/load-all-motes *temp-dir* :validate false)]
+      (is (= 2 (count motes)))
+      (is (contains? motes "1"))
+      (is (contains? motes "2")))))
+
+(deftest load-mote-validate-default-true-test
+  (testing "Validation is enabled by default"
+    (init-test-repo)
+    (let [invalid {:id "1" :status :fixed}  ; missing required fields
+          file-path (str *temp-dir* "/.alethfeld/motes/1.edn")]
+      (spit file-path (pr-str invalid))
+      ;; Default behavior should validate
+      (is (nil? (store/load-mote *temp-dir* "1"))))))
+
+;; =============================================================================
+;; Caching Tests (alethfeld-ppdz)
+;; =============================================================================
+
+(deftest load-all-motes-no-cache-by-default-test
+  (testing "No caching when *motes-cache* is not bound"
+    (init-test-repo)
+    (store/save-mote! *temp-dir* (test-mote :id "1"))
+    ;; Without binding, cache should be nil
+    (is (nil? store/*motes-cache*))
+    ;; Should still work fine
+    (let [motes (store/load-all-motes *temp-dir*)]
+      (is (= 1 (count motes))))))
+
+(deftest load-all-motes-with-cache-binding-test
+  (testing "Caches results when *motes-cache* is bound"
+    (init-test-repo)
+    (store/save-mote! *temp-dir* (test-mote :id "1"))
+    (binding [store/*motes-cache* (atom nil)]
+      ;; First call - should populate cache
+      (let [motes1 (store/load-all-motes *temp-dir*)]
+        (is (= 1 (count motes1)))
+        ;; Cache should be populated
+        (is (some? @store/*motes-cache*))
+        (is (= 1 (count (:motes @store/*motes-cache*))))
+        ;; Add another mote
+        (store/save-mote! *temp-dir* (test-mote :id "2"))
+        ;; Second call should return cached (stale) result
+        (let [motes2 (store/load-all-motes *temp-dir*)]
+          (is (= 1 (count motes2)))  ; Still 1 from cache
+          (is (= motes1 motes2)))))))
+
+(deftest load-all-motes-cache-invalidation-test
+  (testing "Cache invalidates when options change"
+    (init-test-repo)
+    (store/save-mote! *temp-dir* (test-mote :id "1" :status :fixed))
+    (store/save-mote! *temp-dir* (test-mote :id "2" :status :rejected))
+    (binding [store/*motes-cache* (atom nil)]
+      ;; First call without archived
+      (let [motes1 (store/load-all-motes *temp-dir*)]
+        (is (= 1 (count motes1)))
+        ;; Second call with include-archived - should not use stale cache
+        (let [motes2 (store/load-all-motes *temp-dir* :include-archived true)]
+          (is (= 2 (count motes2))))))))
+
+(deftest load-all-motes-use-cache-false-test
+  (testing "Can bypass cache with :use-cache false"
+    (init-test-repo)
+    (store/save-mote! *temp-dir* (test-mote :id "1"))
+    (binding [store/*motes-cache* (atom nil)]
+      ;; Populate cache
+      (store/load-all-motes *temp-dir*)
+      ;; Add another mote
+      (store/save-mote! *temp-dir* (test-mote :id "2"))
+      ;; With cache - returns stale result
+      (is (= 1 (count (store/load-all-motes *temp-dir*))))
+      ;; Bypass cache - returns fresh result
+      (is (= 2 (count (store/load-all-motes *temp-dir* :use-cache false)))))))
+
+(deftest with-motes-cache-macro-test
+  (testing "with-motes-cache macro enables caching"
+    (init-test-repo)
+    (store/save-mote! *temp-dir* (test-mote :id "1"))
+    ;; Outside macro - no caching
+    (is (nil? store/*motes-cache*))
+    ;; Inside macro - caching is enabled
+    (store/with-motes-cache
+      (is (some? store/*motes-cache*))
+      (is (nil? @store/*motes-cache*))  ; Initially empty
+      (store/load-all-motes *temp-dir*)
+      (is (some? @store/*motes-cache*)))  ; Populated after call
+    ;; After macro - back to nil
+    (is (nil? store/*motes-cache*))))
+
+(deftest with-motes-cache-multiple-calls-test
+  (testing "Multiple calls within with-motes-cache share cache"
+    (init-test-repo)
+    (store/save-mote! *temp-dir* (test-mote :id "1"))
+    (let [call-count (atom 0)]
+      ;; We can't directly track file reads, but we can verify cache behavior
+      (store/with-motes-cache
+        (let [motes1 (store/load-all-motes *temp-dir*)
+              cache-after-first @store/*motes-cache*
+              motes2 (store/load-all-motes *temp-dir*)
+              cache-after-second @store/*motes-cache*]
+          ;; Both calls return same result
+          (is (= motes1 motes2))
+          ;; Cache object should be same (not re-loaded)
+          (is (identical? cache-after-first cache-after-second)))))))

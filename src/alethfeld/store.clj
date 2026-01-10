@@ -10,6 +10,38 @@
             [malli.core :as m]))
 
 ;; -----------------------------------------------------------------------------
+;; Caching Support
+;; -----------------------------------------------------------------------------
+
+(def ^:dynamic *motes-cache*
+  "Dynamic var for command-scoped mote caching.
+   When bound to an atom, load-all-motes will cache results.
+
+   Usage:
+     (binding [*motes-cache* (atom nil)]
+       (cmd-ready ...)  ; All calls share cache within this scope)
+
+   Set to nil (default) to disable caching."
+  nil)
+
+(defmacro with-motes-cache
+  "Execute body with motes caching enabled.
+
+   All calls to load-all-motes within body will share a cache,
+   avoiding redundant file I/O for commands that call it multiple times.
+
+   Example:
+     (with-motes-cache
+       (let [motes1 (load-all-motes repo)   ; Reads from disk
+             motes2 (load-all-motes repo)]  ; Returns cached result
+         ...))
+
+   Note: Cache is invalidated if options change (e.g., include-archived)."
+  [& body]
+  `(binding [*motes-cache* (atom nil)]
+     ~@body))
+
+;; -----------------------------------------------------------------------------
 ;; Path Helpers
 ;; -----------------------------------------------------------------------------
 
@@ -60,15 +92,19 @@
    - repo-path: Path to the repository root
    - mote-id: The mote ID to load
 
+   Options:
+   - :validate - Run schema validation (default: true). Set to false for
+                 trusted reads to improve performance on large repositories.
+
    Searches in order: motes/, proposed/, archive/
    Returns nil if not found, mote-id is invalid, or mote fails schema validation."
-  [repo-path mote-id]
+  [repo-path mote-id & {:keys [validate] :or {validate true}}]
   (let [statuses [:fixed :proposed :rejected]]
     (some (fn [status]
             (when-let [file-path (mote-path repo-path mote-id status)]
               (when-let [mote (io/read-edn file-path)]
-                ;; Only return mote if it passes schema validation
-                (when (m/validate schema/Mote mote)
+                ;; Only return mote if validation is disabled or it passes schema
+                (when (or (not validate) (m/validate schema/Mote mote))
                   mote))))
           statuses)))
 
@@ -132,20 +168,12 @@
 ;; Bulk Load Operations
 ;; -----------------------------------------------------------------------------
 
-(defn load-all-motes
-  "Load all motes from a repository.
-
-   Arguments:
-   - repo-path: Path to the repository root
-
-   Options:
-   - :include-proposed - Include motes from proposed/ (default: true)
-   - :include-archived - Include motes from archive/ (default: false)
-
-   Returns a map of mote-id → mote."
-  [repo-path & {:keys [include-proposed include-archived]
-                :or {include-proposed true
-                     include-archived false}}]
+(defn- load-all-motes-impl
+  "Internal implementation of load-all-motes (no caching)."
+  [repo-path {:keys [include-proposed include-archived validate]
+              :or {include-proposed true
+                   include-archived false
+                   validate true}}]
   (let [motes-base (io/full-path repo-path (path/motes-path))
         proposed-base (io/full-path repo-path (path/proposed-path))
         archive-base (io/full-path repo-path (path/archive-path))
@@ -160,15 +188,58 @@
         ;; Combine all paths
         all-paths (concat mote-paths proposed-paths archive-paths)]
 
-    ;; Load each mote and build map (skip invalid motes)
+    ;; Load each mote and build map (skip invalid motes when validating)
     (reduce (fn [acc file-path]
               (if-let [mote (io/read-edn file-path)]
-                (if (m/validate schema/Mote mote)
+                (if (or (not validate) (m/validate schema/Mote mote))
                   (assoc acc (:id mote) mote)
                   acc)  ; Skip invalid motes
                 acc))
             {}
             all-paths)))
+
+(defn load-all-motes
+  "Load all motes from a repository.
+
+   Arguments:
+   - repo-path: Path to the repository root
+
+   Options:
+   - :include-proposed - Include motes from proposed/ (default: true)
+   - :include-archived - Include motes from archive/ (default: false)
+   - :validate - Run schema validation on each mote (default: true).
+                 Set to false for trusted reads to improve performance.
+   - :use-cache - Use *motes-cache* if bound (default: true).
+                  Set to false to force a fresh load.
+
+   Caching:
+   When *motes-cache* is bound to an atom, results are cached for the
+   duration of that binding. Useful for commands that call load-all-motes
+   multiple times.
+
+   Returns a map of mote-id → mote."
+  [repo-path & {:keys [include-proposed include-archived validate use-cache]
+                :or {include-proposed true
+                     include-archived false
+                     validate true
+                     use-cache true}
+                :as opts}]
+  (let [cache-key {:repo-path repo-path
+                   :include-proposed include-proposed
+                   :include-archived include-archived
+                   :validate validate}]
+    (if (and use-cache *motes-cache*)
+      ;; Cache is enabled and bound
+      (let [cached @*motes-cache*]
+        (if (and cached (= (:cache-key cached) cache-key))
+          ;; Cache hit - return cached motes
+          (:motes cached)
+          ;; Cache miss - load, cache, and return
+          (let [motes (load-all-motes-impl repo-path opts)]
+            (reset! *motes-cache* {:cache-key cache-key :motes motes})
+            motes)))
+      ;; No caching - load directly
+      (load-all-motes-impl repo-path opts))))
 
 ;; -----------------------------------------------------------------------------
 ;; Repository Initialization

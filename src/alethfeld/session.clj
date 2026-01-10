@@ -880,6 +880,85 @@
           reservations)))
 
 ;; -----------------------------------------------------------------------------
+;; Session Alias Resolution (@current, @last)
+;; -----------------------------------------------------------------------------
+
+(defn resolve-session-alias
+  "Resolve @current or @last session alias to an actual session ID.
+
+   Supports the following aliases:
+   - \"@current\" - The most recent active session for the agent
+   - \"@last\" - Same as @current (alias for familiarity)
+
+   Arguments:
+   - repo-path: Path to the repository root
+   - session-id: The session ID or alias string
+   - agent: Agent identifier string
+
+   Returns a map with:
+   - :session-id - The resolved session ID (actual ID, not alias)
+   - :resolved-from - The original alias if resolved (\"@current\" or \"@last\"), or nil
+
+   Or returns an error map with:
+   - :error - Error type (:no-active-session, :multiple-sessions, :no-agent-specified)
+   - :message - Human-readable error message
+   - :sessions - (for :multiple-sessions) List of available sessions
+
+   Examples:
+   - Alias with single session:
+     {:session-id \"abc-123...\" :resolved-from \"@current\"}
+
+   - Non-alias (regular session ID):
+     {:session-id \"abc-123...\" :resolved-from nil}
+
+   - No active sessions:
+     {:error :no-active-session :message \"...\"}
+
+   - Multiple active sessions (ambiguous):
+     {:error :multiple-sessions :message \"...\" :sessions [...]}"
+  [repo-path session-id agent]
+  (let [is-alias? (contains? #{"@current" "@last"} session-id)]
+    (cond
+      ;; Not an alias - return as-is
+      (not is-alias?)
+      {:session-id session-id
+       :resolved-from nil}
+
+      ;; Alias but no agent specified - error
+      (nil? agent)
+      {:error :no-agent-specified
+       :message (str "Cannot resolve " session-id " without --agent. "
+                     "Specify --agent or use an explicit session ID.")}
+
+      ;; Alias with agent - look up sessions
+      :else
+      (let [now (Instant/now)
+            sessions (->> (load-sessions-for-agent repo-path agent)
+                          (remove #(session-expired? % :now now))
+                          ;; Sort by started-at descending (most recent first)
+                          (sort-by #(.getTime (:started-at %)) >))]
+        (case (count sessions)
+          ;; 0 sessions - error
+          0 {:error :no-active-session
+             :message (str "No active sessions for agent '" agent "'. "
+                           "Get a task with: af ready --agent " agent)}
+
+          ;; 1 session - resolve successfully
+          1 {:session-id (:session-id (first sessions))
+             :resolved-from session-id}
+
+          ;; 2+ sessions - ambiguous, require explicit choice
+          {:error :multiple-sessions
+           :message (str "Cannot resolve " session-id ": multiple active sessions for '"
+                         agent "'. Please specify an explicit session ID:")
+           :sessions (mapv (fn [s]
+                             {:session-id (:session-id s)
+                              :role (:role s)
+                              :mote-id (:mote-id s)
+                              :started-at (:started-at s)})
+                           sessions)})))))
+
+;; -----------------------------------------------------------------------------
 ;; Session Resolution (Auto-Use Single Session)
 ;; -----------------------------------------------------------------------------
 

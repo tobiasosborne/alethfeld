@@ -1340,3 +1340,198 @@
       (is (session/mote-has-reservation? *temp-dir* "1.1" :proposer))
       (is (not (session/mote-has-reservation? *temp-dir* "1.1" :advisor)))
       (is (not (session/mote-has-reservation? *temp-dir* "1.2"))))))
+
+;; =============================================================================
+;; Session Alias Resolution Tests (@current, @last)
+;; =============================================================================
+
+(deftest resolve-session-alias-non-alias-test
+  (testing "Non-alias session ID is returned as-is"
+    (init-session-dirs)
+    (let [result (session/resolve-session-alias *temp-dir* "some-explicit-id" "agent-1")]
+      (is (= "some-explicit-id" (:session-id result)))
+      (is (nil? (:resolved-from result)))
+      (is (nil? (:error result)))))
+
+  (testing "Valid session ID format is returned as-is"
+    (init-session-dirs)
+    (let [explicit-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+          result (session/resolve-session-alias *temp-dir* explicit-id "agent-1")]
+      (is (= explicit-id (:session-id result)))
+      (is (nil? (:resolved-from result)))))
+
+  (testing "Non-alias works without agent"
+    (init-session-dirs)
+    (let [result (session/resolve-session-alias *temp-dir* "explicit-id" nil)]
+      (is (= "explicit-id" (:session-id result)))
+      (is (nil? (:resolved-from result)))
+      (is (nil? (:error result))))))
+
+(deftest resolve-session-alias-current-single-session-test
+  (testing "@current resolves to the only active session"
+    (init-session-dirs)
+    (let [session (session/create-session! *temp-dir* "1" :verifier "agent-current")
+          result (session/resolve-session-alias *temp-dir* "@current" "agent-current")]
+      (is (= (:session-id session) (:session-id result)))
+      (is (= "@current" (:resolved-from result)))
+      (is (nil? (:error result)))))
+
+  (testing "@last resolves to the only active session (alias for @current)"
+    ;; Use a different agent name to avoid session accumulation within the same deftest
+    (let [session (session/create-session! *temp-dir* "1" :proposer "agent-last")
+          result (session/resolve-session-alias *temp-dir* "@last" "agent-last")]
+      (is (= (:session-id session) (:session-id result)))
+      (is (= "@last" (:resolved-from result)))
+      (is (nil? (:error result))))))
+
+(deftest resolve-session-alias-no-agent-test
+  (testing "@current without agent returns error"
+    (init-session-dirs)
+    (let [result (session/resolve-session-alias *temp-dir* "@current" nil)]
+      (is (= :no-agent-specified (:error result)))
+      (is (re-find #"Cannot resolve @current" (:message result)))
+      (is (re-find #"--agent" (:message result)))))
+
+  (testing "@last without agent returns error"
+    (init-session-dirs)
+    (let [result (session/resolve-session-alias *temp-dir* "@last" nil)]
+      (is (= :no-agent-specified (:error result)))
+      (is (re-find #"Cannot resolve @last" (:message result))))))
+
+(deftest resolve-session-alias-no-sessions-test
+  (testing "@current with no active sessions returns error"
+    (init-session-dirs)
+    (let [result (session/resolve-session-alias *temp-dir* "@current" "lonely-agent")]
+      (is (= :no-active-session (:error result)))
+      (is (re-find #"No active sessions" (:message result)))
+      (is (re-find #"lonely-agent" (:message result)))
+      (is (re-find #"af ready" (:message result)))))
+
+  (testing "Expired sessions are not counted"
+    (init-session-dirs)
+    (let [past (java.util.Date. (- (.getTime (java.util.Date.)) 1000))
+          expired-session {:session-id "12345678-1234-1234-1234-123456789012-12345678-1234-1234-1234-123456789012"
+                           :mote-id "1"
+                           :role :proposer
+                           :agent "agent-with-expired"
+                           :started-at past
+                           :expires-at past
+                           :actions []}
+          active-path (str *temp-dir* "/.alethfeld/sessions/active/" (:session-id expired-session) ".edn")]
+      (io/write-edn active-path expired-session)
+      (let [result (session/resolve-session-alias *temp-dir* "@current" "agent-with-expired")]
+        (is (= :no-active-session (:error result)))))))
+
+(deftest resolve-session-alias-multiple-sessions-test
+  (testing "@current with multiple sessions returns error with session list"
+    (init-session-dirs)
+    (let [s1 (session/create-session! *temp-dir* "1" :verifier "multi-agent")
+          s2 (session/create-session! *temp-dir* "2" :advisor "multi-agent")
+          result (session/resolve-session-alias *temp-dir* "@current" "multi-agent")]
+      (is (= :multiple-sessions (:error result)))
+      (is (re-find #"Cannot resolve @current" (:message result)))
+      (is (re-find #"multi-agent" (:message result)))
+      (is (= 2 (count (:sessions result))))
+      ;; Check session info is included
+      (let [session-ids (set (map :session-id (:sessions result)))]
+        (is (contains? session-ids (:session-id s1)))
+        (is (contains? session-ids (:session-id s2))))
+      ;; Check that role and mote-id are included
+      (is (every? :role (:sessions result)))
+      (is (every? :mote-id (:sessions result)))
+      ;; Check that started-at is included for disambiguation
+      (is (every? :started-at (:sessions result)))))
+
+  (testing "@last with multiple sessions also returns error"
+    (init-session-dirs)
+    (let [_s1 (session/create-session! *temp-dir* "1" :proposer "multi-agent-2")
+          _s2 (session/create-session! *temp-dir* "2" :prover "multi-agent-2")
+          result (session/resolve-session-alias *temp-dir* "@last" "multi-agent-2")]
+      (is (= :multiple-sessions (:error result)))
+      (is (re-find #"Cannot resolve @last" (:message result)))))
+
+  (testing "Three or more sessions also returns error"
+    (init-session-dirs)
+    (let [_s1 (session/create-session! *temp-dir* "1" :verifier "triple-agent")
+          _s2 (session/create-session! *temp-dir* "2" :advisor "triple-agent")
+          _s3 (session/create-session! *temp-dir* "3" :proposer "triple-agent")
+          result (session/resolve-session-alias *temp-dir* "@current" "triple-agent")]
+      (is (= :multiple-sessions (:error result)))
+      (is (= 3 (count (:sessions result)))))))
+
+(deftest resolve-session-alias-most-recent-test
+  (testing "@current resolves to the most recently started session"
+    (init-session-dirs)
+    ;; Create sessions with different start times
+    ;; Note: We create them in sequence, so the last one should be most recent
+    (let [s1 (session/create-session! *temp-dir* "1" :verifier "recent-agent")]
+      ;; Small delay to ensure different timestamps
+      (Thread/sleep 10)
+      (let [s2 (session/create-session! *temp-dir* "2" :advisor "recent-agent")]
+        ;; End s1 so only s2 is active
+        (session/end-session! *temp-dir* (:session-id s1))
+        (let [result (session/resolve-session-alias *temp-dir* "@current" "recent-agent")]
+          ;; Should resolve to s2 since s1 is ended
+          (is (= (:session-id s2) (:session-id result)))
+          (is (= "@current" (:resolved-from result))))))))
+
+(deftest resolve-session-alias-different-agents-test
+  (testing "Sessions from different agents are filtered correctly"
+    (init-session-dirs)
+    (let [s1 (session/create-session! *temp-dir* "1" :verifier "agent-a")
+          _s2 (session/create-session! *temp-dir* "2" :advisor "agent-b")
+          result (session/resolve-session-alias *temp-dir* "@current" "agent-a")]
+      ;; Should only find agent-a's session
+      (is (= (:session-id s1) (:session-id result)))
+      (is (= "@current" (:resolved-from result)))))
+
+  (testing "Agent with one session when other agents have many"
+    (init-session-dirs)
+    (let [_s1 (session/create-session! *temp-dir* "1" :verifier "busy-agent")
+          _s2 (session/create-session! *temp-dir* "2" :advisor "busy-agent")
+          s3 (session/create-session! *temp-dir* "3" :proposer "single-agent")
+          result (session/resolve-session-alias *temp-dir* "@current" "single-agent")]
+      (is (= (:session-id s3) (:session-id result)))
+      (is (nil? (:error result))))))
+
+(deftest resolve-session-alias-case-sensitivity-test
+  (testing "Aliases are case-sensitive (only lowercase works)"
+    (init-session-dirs)
+    (let [_s (session/create-session! *temp-dir* "1" :verifier "agent-1")]
+      ;; @CURRENT is not recognized as an alias
+      (let [result (session/resolve-session-alias *temp-dir* "@CURRENT" "agent-1")]
+        (is (= "@CURRENT" (:session-id result)))
+        (is (nil? (:resolved-from result))))
+      ;; @Current is not recognized
+      (let [result (session/resolve-session-alias *temp-dir* "@Current" "agent-1")]
+        (is (= "@Current" (:session-id result)))
+        (is (nil? (:resolved-from result))))
+      ;; @LAST is not recognized
+      (let [result (session/resolve-session-alias *temp-dir* "@LAST" "agent-1")]
+        (is (= "@LAST" (:session-id result)))
+        (is (nil? (:resolved-from result)))))))
+
+(deftest resolve-session-alias-empty-string-test
+  (testing "Empty string is returned as-is (not an alias)"
+    (init-session-dirs)
+    (let [result (session/resolve-session-alias *temp-dir* "" "agent-1")]
+      (is (= "" (:session-id result)))
+      (is (nil? (:resolved-from result)))
+      (is (nil? (:error result))))))
+
+(deftest resolve-session-alias-similar-strings-test
+  (testing "Strings similar to aliases are not resolved"
+    (init-session-dirs)
+    (let [_s (session/create-session! *temp-dir* "1" :verifier "agent-1")]
+      ;; "current" without @ is not an alias
+      (let [result (session/resolve-session-alias *temp-dir* "current" "agent-1")]
+        (is (= "current" (:session-id result)))
+        (is (nil? (:resolved-from result))))
+      ;; "@curr" is not an alias
+      (let [result (session/resolve-session-alias *temp-dir* "@curr" "agent-1")]
+        (is (= "@curr" (:session-id result)))
+        (is (nil? (:resolved-from result))))
+      ;; "@latest" is not an alias
+      (let [result (session/resolve-session-alias *temp-dir* "@latest" "agent-1")]
+        (is (= "@latest" (:session-id result)))
+        (is (nil? (:resolved-from result)))))))
