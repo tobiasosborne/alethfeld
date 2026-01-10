@@ -729,6 +729,7 @@
   (testing "Verifier can perform verifier actions"
     (is (session/allowed? :verifier :vote))
     (is (session/allowed? :verifier :taint-add))
+    (is (session/allowed? :verifier :taint-remove))  ; Added in 7.8 for workflow control
     (is (session/allowed? :verifier :done)))
 
   (testing "Verifier cannot propose"
@@ -802,6 +803,11 @@
   (testing "Returns roles that can vote"
     (is (= #{:verifier :counterexample}
            (session/get-roles-for-action :vote))))
+
+  (testing "Returns roles that can taint-remove"
+    ;; Verifier added in 7.8 for workflow control (removing :needs-verification)
+    (is (= #{:prover :verifier :ref-checker}
+           (session/get-roles-for-action :taint-remove))))
 
   (testing "All roles can :done"
     (is (= #{:proposer :advisor :prover :verifier :ref-checker :counterexample}

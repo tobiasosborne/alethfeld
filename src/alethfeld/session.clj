@@ -42,14 +42,14 @@
    - :proposer - Creates proposals and adds definitions/assumptions/refs
    - :advisor - Reviews proposals (approve/reject)
    - :prover - Similar to proposer but can also remove taints
-   - :verifier - Votes on motes and can add taints
+   - :verifier - Votes on motes and can add/remove taints (workflow control)
    - :ref-checker - Manages references and can remove taints
    - :counterexample - Votes and can update status (refutation)"
   {:proposer      #{:propose :add-definition :add-assumption :add-ref :done}
    :advisor       #{:approve :reject :done}
    :prover        #{:propose :add-definition :add-assumption :add-ref
                     :taint-remove :done}
-   :verifier      #{:vote :taint-add :done}
+   :verifier      #{:vote :taint-add :taint-remove :done}
    :ref-checker   #{:add-ref :taint-remove :done}
    :counterexample #{:vote :update-status :done}})
 

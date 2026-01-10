@@ -252,14 +252,16 @@
                             #"Action not allowed for role"
                             (session/enforce-session! *temp-dir* (:session-id sess) :vote "1"))))))
 
-(deftest verifier-cannot-taint-remove-test
-  (testing "verifier role cannot remove taints"
+(deftest verifier-can-taint-remove-test
+  ;; Changed in v0.2 (7.8): Verifiers can now remove taints for workflow control.
+  ;; This enables verifiers to remove :needs-verification when demanding decomposition.
+  (testing "verifier role CAN remove taints (7.8 workflow control)"
     (init-repo!)
     (create-mote! "1" "Test claim" :claimed-by "agent-1")
-    (let [sess (create-session! "1" :verifier "agent-1")]
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                            #"Action not allowed for role"
-                            (session/enforce-session! *temp-dir* (:session-id sess) :taint-remove "1"))))))
+    (let [sess (create-session! "1" :verifier "agent-1")
+          result (session/enforce-session! *temp-dir* (:session-id sess) :taint-remove "1")]
+      (is (some? result))
+      (is (= :verifier (:role result))))))
 
 ;; =============================================================================
 ;; Handler Registration Tests
