@@ -70,9 +70,10 @@
 \begin{center}
 \begin{tabular}{ll}
 \textbf{Graph ID:} & \texttt{graph-4be308-49c58e} \\
-\textbf{Version:} & 76 \\
-\textbf{Status:} & Verified (37/37 nodes) \\
-\textbf{Taint:} & Clean \\
+\textbf{Version:} & 216 \\
+\textbf{Status:} & 99 verified, 4 admitted (103 total nodes) \\
+\textbf{Taint:} & 84 clean, 19 tainted by admitted \\
+\textbf{Depth:} & 3 (refined substeps added) \\
 \textbf{Lean 4:} & Skeleton with sorries \\
 \end{tabular}
 \end{center}
@@ -275,7 +276,15 @@ theorem dps_generalization
 \end{center}
 
 \vspace{1em}
-\textbf{Summary:} Proof structure verified in EDN (37/37 nodes). Lean 4 skeleton generated with sorries for full formalization.
+\textbf{Summary:} Proof structure refined to depth 3 with 103 total nodes (99 verified, 4 admitted). The admitted nodes concern cone preservation under contraction with dual basis functionals---this requires additional mathematical work to fully justify. Lean 4 skeleton generated with sorries for full formalization.
+
+\textbf{Admitted Steps (requiring further work):}
+\begin{enumerate}
+\item \texttt{:3-bwd005a-v3}: Contraction with basis functional preserves cone structure
+\item \texttt{:3-bwd005b}: Cone preservation under $(id \otimes e_j^*)$
+\item \texttt{:3-bwd005c}: Application of $\phi^{\otimes(k-1)}$ preserves membership
+\item \texttt{:3-bwd010c-v3}: Positivity of $F_a$ from de Finetti consistency
+\end{enumerate}
 
 \section{References}
 

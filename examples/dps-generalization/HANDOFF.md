@@ -61,11 +61,27 @@ The Lean file is a **skeleton with sorries**. Key structures defined:
 
 ```
 Graph ID: graph-4be308-49c58e
-Version: 76
-Nodes: 37 total (4 assumptions, 3 definitions, 24 claims, 2 local-assume, 2 local-discharge, 1 external-ref, 1 qed)
-Status: All verified
-Taint: Clean (0 tainted)
+Version: 216
+Nodes: 103 total (refined from 37)
+  - 4 assumptions, 3 definitions
+  - 90 claims (depth 2 and 3)
+  - 2 local-assume, 2 local-discharge
+  - 1 external-ref, 1 qed
+Status: 99 verified, 4 admitted
+Taint: 84 clean, 19 tainted (by admitted nodes)
+Max Depth: 3 (substeps added for all depth-2 claims)
 ```
+
+### Admitted Steps (requiring further mathematical work)
+
+The following 4 substeps were admitted due to gaps in the cone preservation argument:
+
+1. **:3-bwd005a-v3**: Contraction with basis functional $e_j^*$ and cone structure
+2. **:3-bwd005b**: Cone preservation under $(id \otimes e_j^*)$
+3. **:3-bwd005c**: Application of $\phi^{\otimes(k-1)}$ preserves membership
+4. **:3-bwd010c-v3**: Positivity of $F_a$ from de Finetti consistency
+
+**Root Issue**: The proof uses dual basis functionals $e_j^*$ which are not necessarily in the dual cone $\mathsf{C}_B^*$. This requires either (a) a modified argument using functionals in the dual cone, or (b) a careful analysis of how the de Finetti structure compensates for this gap.
 
 ## Commits
 
