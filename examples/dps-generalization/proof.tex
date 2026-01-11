@@ -144,21 +144,61 @@ The proof proceeds in two directions.
 \begin{enumerate}[leftmargin=2em]
 \proofstep{1}{1} Assume $x \in \C_A \tmin \C_B$. \textit{(Local assumption :2-fwd001)}
 
-\proofstep{1}{2} By Definition~\ref{def:min}, $x = \sum_{i=1}^n \lambda_i (a_i \otimes b_i)$ where $\lambda_i \geq 0$, $a_i \in \C_A$, $b_i \in \C_B$. \textit{(Definition expansion :2-fwd002)}
+\proofstep{1}{2} By Definition~\ref{def:min}, $x = \sum_{i=1}^n \lambda_i (a_i \otimes b_i)$ where $\lambda_i \geq 0$, $a_i \in \C_A$, $b_i \in \C_B$. \textit{(:2-fwd002)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item From Definition~\ref{def:min}, $\C_A \tmin \C_B = \conv\{a \otimes b : a \in \C_A, b \in \C_B\}$, so $x$ lies in this convex hull. \textit{(:3-fwd002a)}
+\item By definition of convex hull, $x = \sum_{i=1}^n \lambda_i (a_i \otimes b_i)$ for some $n \geq 1$, $\lambda_i \geq 0$, $\sum_i \lambda_i = 1$. \textit{(:3-fwd002b)}
+\item Each generator satisfies $a_i \in \C_A$ and $b_i \in \C_B$ by membership in the generating set. \textit{(:3-fwd002c)}
+\end{enumerate}
 
-\proofstep{1}{3} For any $k \geq 1$, define $y_k = \sum_{i=1}^n \lambda_i (a_i^{\otimes k} \otimes b_i)$. \textit{(Construction :2-fwd003)}
+\proofstep{1}{3} For any $k \geq 1$, define $y_k = \sum_{i=1}^n \lambda_i (a_i^{\otimes k} \otimes b_i)$. \textit{(:2-fwd003)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Fix arbitrary $k \geq 1$. For each $i$, $a_i \in \C_A$ implies $a_i^{\otimes k} \in \C_A^{\otimes k}$ by closure under tensor products. \textit{(:3-fwd003a)}
+\item Define $y_k = \sum_{i=1}^n \lambda_i (a_i^{\otimes k} \otimes b_i)$. This is a finite sum of products from $\C_A^{\otimes k}$ and $\C_B$. \textit{(:3-fwd003b)}
+\end{enumerate}
 
-\proofstep{1}{4} $y_k \in \C_A^{\tmax k} \tmax \C_B$ because $a_i^{\otimes k} \otimes b_i \in \C_A^{\tmin k} \tmin \C_B \subseteq \C_A^{\tmax k} \tmax \C_B$. \textit{(Substitution :2-fwd004)}
+\proofstep{1}{4} $y_k \in \C_A^{\tmax k} \tmax \C_B$ because $a_i^{\otimes k} \otimes b_i \in \C_A^{\tmin k} \tmin \C_B \subseteq \C_A^{\tmax k} \tmax \C_B$. \textit{(:2-fwd004)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item For each $i$, $a_i^{\otimes k} \otimes b_i \in \C_A^{\tmin k} \tmin \C_B$ by definition of minimal tensor product. \textit{(:3-fwd004a)}
+\item The inclusion $\C_A^{\tmin k} \tmin \C_B \subseteq \C_A^{\tmax k} \tmax \C_B$ holds since minimal $\subseteq$ maximal. \textit{(:3-fwd004b)}
+\item Thus $y_k = \sum_i \lambda_i(a_i^{\otimes k} \otimes b_i) \in \C_A^{\tmax k} \tmax \C_B$ by convexity. \textit{(:3-fwd004c)}
+\end{enumerate}
 
-\proofstep{1}{5} $y_k$ is symmetric under permutations: for any $\pi \in S_k$, $\pi \cdot (a_i^{\otimes k}) = a_i^{\otimes k}$ since $a_i^{\otimes k}$ is the $k$-fold tensor product of identical elements. \textit{(Algebraic :2-fwd005)}
+\proofstep{1}{5} $y_k$ is symmetric under permutations of the $\C_A$ factors. \textit{(:2-fwd005)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item For any $\pi \in S_k$ and $a \in \C_A$, the tensor power $\pi \cdot (a^{\otimes k}) = a \otimes \cdots \otimes a$ (k identical factors). \textit{(:3-fwd005a)}
+\item Permuting identical factors gives $\pi \cdot (a^{\otimes k}) = a^{\otimes k}$ for all $\pi \in S_k$. \textit{(:3-fwd005b)}
+\item Since each summand is symmetric, $y_k$ is symmetric under permutations. \textit{(:3-fwd005c)}
+\end{enumerate}
 
-\proofstep{1}{6} Compute $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(y_k) = \sum_i \lambda_i \phi(a_i)^{k-1} (a_i \otimes b_i)$. \textit{(Algebraic :2-fwd006)}
+\proofstep{1}{6} Compute $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(y_k) = \sum_i \lambda_i \phi(a_i)^{k-1} (a_i \otimes b_i)$. \textit{(:2-fwd006)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Apply the map $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)$ to $y_k$. By linearity, this maps each summand separately. \textit{(:3-fwd006a)}
+\item For each summand: $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(a_i^{\otimes k} \otimes b_i) = \phi(a_i)^{k-1} \cdot (a_i \otimes b_i)$. \textit{(:3-fwd006b)}
+\item Summing: $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(y_k) = \sum_i \lambda_i \phi(a_i)^{k-1} (a_i \otimes b_i)$. \textit{(:3-fwd006c)}
+\end{enumerate}
 
-\proofstep{1}{7} WLOG, assume $\phi(a_i) = 1$ for all $i$ by rescaling $a_i \mapsto a_i/\phi(a_i)$ and $\lambda_i \mapsto \lambda_i \phi(a_i)$, using $\phi(a_i) > 0$ since $\phi \in \inte(\C_A^*)$. \textit{(Normalization :2-fwd007)}
+\proofstep{1}{7} WLOG, assume $\phi(a_i) = 1$ for all $i$ by rescaling. \textit{(:2-fwd007)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Since $\phi \in \inte(\C_A^*)$ and $a_i \in \C_A \setminus \{0\}$, we have $\phi(a_i) > 0$. \textit{(:3-fwd007a)}
+\item Define $\tilde{a}_i = a_i / \phi(a_i)$ and $\tilde{\lambda}_i = \lambda_i \phi(a_i)$. Then $\phi(\tilde{a}_i) = 1$ and $\tilde{a}_i \in \C_A$. \textit{(:3-fwd007b)}
+\item The representation is preserved: $\sum_i \lambda_i (a_i \otimes b_i) = \sum_i \tilde{\lambda}_i (\tilde{a}_i \otimes b_i)$. \textit{(:3-fwd007c)}
+\end{enumerate}
 
-\proofstep{1}{8} With this normalization: $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(y_k) = \sum_i \lambda_i (a_i \otimes b_i) = x$. \textit{(Substitution :2-fwd008)}
+\proofstep{1}{8} With normalization $\phi(a_i) = 1$: $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(y_k) = x$. \textit{(:2-fwd008)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Assuming $\phi(a_i) = 1$, we have $\phi(a_i)^{k-1} = 1$. \textit{(:3-fwd008a)}
+\item Substituting: $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(y_k) = \sum_i \lambda_i \cdot 1 \cdot (a_i \otimes b_i)$. \textit{(:3-fwd008b)}
+\item By definition $x = \sum_i \lambda_i (a_i \otimes b_i)$, hence the reduction gives $x$. \textit{(:3-fwd008c)}
+\end{enumerate}
 
-\proofstep{1}{9} Thus $y_k$ satisfies all requirements of Definition~\ref{def:symext}. \textit{(Conjunction :2-fwd009)}
+\proofstep{1}{9} Thus $y_k$ satisfies all requirements of Definition~\ref{def:symext}. \textit{(:2-fwd009)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Requirement (1): $y_k \in \C_A^{\tmax k} \tmax \C_B$ --- verified by Step 1.4. \textit{(:3-fwd009a)}
+\item Requirement (2): $y_k$ symmetric under permutations --- verified by Step 1.5. \textit{(:3-fwd009b)}
+\item Requirement (3): Reduction gives $x$ --- verified by Step 1.8. \textit{(:3-fwd009c)}
+\item All three conditions satisfied, hence $y_k$ is a symmetric extension of $x$ to $k$ copies. \textit{(:3-fwd009d)}
+\end{enumerate}
 
 \proofstep{1}{10} \textbf{Direction ($\Leftarrow$) complete.} \textit{(Discharge :2-fwd010)}
 \end{enumerate}
@@ -166,37 +206,107 @@ The proof proceeds in two directions.
 \subsection*{Direction ($\Rightarrow$): Symmetric extensions imply minimal tensor}
 
 \begin{enumerate}[leftmargin=2em]
-\proofstep{1}{1} Assume $x$ has symmetric extensions $y_k$ to $k$ copies for all $k \geq 1$. \textit{(Local assumption :2-bwd001)}
+\proofstep{1}{1} Assume $x$ has symmetric extensions $y_k$ to $k$ copies for all $k \geq 1$. \textit{(:2-bwd001)}
 
-\proofstep{1}{2} Since $\C_B$ is generating ($\C_B - \C_B = V_B$), there exists a basis $\{e_j\}_{j=1}^{\dim V_B}$ of $V_B$ with each $e_j \in \inte(\C_B)$. \textit{(Existence :2-bwd002)}
+\proofstep{1}{2} Since $\C_B$ is generating, there exists a basis $\{e_j\}$ of $V_B$ with each $e_j \in \inte(\C_B)$. \textit{(:2-bwd002)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item A proper cone $\C_B$ is generating means $\C_B - \C_B = V_B$. \textit{(:3-bwd002a)}
+\item The interior $\inte(\C_B) \neq \emptyset$ for a proper generating cone in finite dimensions. \textit{(:3-bwd002b)}
+\item Since $\inte(\C_B)$ spans $V_B$, we can select a basis consisting entirely of interior points. \textit{(:3-bwd002c)}
+\end{enumerate}
 
-\proofstep{1}{3} Each $e_j$ defines a dual functional $e_j^* \in V_B^*$. For any $g \in \C_B^*$, $g(e_j) > 0$ since $e_j \in \inte(\C_B)$. \textit{(Definition :2-bwd003)}
+\proofstep{1}{3} Each $e_j$ defines a dual functional $e_j^* \in V_B^*$. For $g \in \C_B^*$, $g(e_j) > 0$. \textit{(:2-bwd003)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item The basis $\{e_j\}$ induces a dual basis $\{e_j^*\}$ via $e_j^*(e_k) = \delta_{jk}$. \textit{(:3-bwd003a)}
+\item For $g \in \C_B^*$ and $v \in \inte(\C_B)$: $g(v) > 0$ (strict positivity on interior). \textit{(:3-bwd003b)}
+\item Since each $e_j \in \inte(\C_B)$, for any $g \in \C_B^*$ we have $g(e_j) > 0$. \textit{(:3-bwd003c)}
+\end{enumerate}
 
-\proofstep{1}{4} For each $j$ and $k$, define $\bar{x}_{e_j,k} = (\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes e_j^*)(y_k) \in V_A^{\otimes k}$. \textit{(Construction :2-bwd004)}
+\proofstep{1}{4} Define $\bar{x}_{e_j,k} = (\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes e_j^*)(y_k) \in V_A^{\otimes k}$. \textit{(:2-bwd004)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Fix $j \in \{1, ..., \dim V_B\}$ and $k \geq 1$. By assumption, $y_k$ exists. \textit{(:3-bwd004a)}
+\item The map $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes e_j^*)$ is well-defined linear. \textit{(:3-bwd004b)}
+\item Define $\bar{x}_{e_j,k} = (\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes e_j^*)(y_k) \in V_A^{\otimes k}$. \textit{(:3-bwd004c)}
+\end{enumerate}
 
-\proofstep{1}{5} $\bar{x}_{e_j,k} \in \C_A^{\tmax k}$ because $y_k \in \C_A^{\tmax k} \tmax \C_B$ and $e_j \in \C_B$ implies $(\mathrm{id} \otimes e_j^*)$ preserves cone positivity. \textit{(Modus ponens :2-bwd005)}
+\proofstep{1}{5} $\bar{x}_{e_j,k} \in \C_A^{\tmax k}$ (cone membership). \textit{(:2-bwd005)} \textcolor{red}{[ADMITTED]}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item \textcolor{red}{[ADMITTED]} The contraction $({\mathrm{id}_A^{\otimes k} \otimes e_j^*})$ applied to $y_k$ lies in a compact subset determined by cone structure. \textit{(:3-bwd005a-v3)}
+\item \textcolor{red}{[ADMITTED]} The map $(\mathrm{id} \otimes e_j^*)$ preserves cone structure. \textit{(:3-bwd005b)}
+\item \textcolor{red}{[ADMITTED]} Applying $\phi^{\otimes(k-1)} \otimes \mathrm{id}_A$ preserves membership in $\C_A^{\tmax k}$. \textit{(:3-bwd005c)}
+\end{enumerate}
 
-\proofstep{1}{6} $\bar{x}_{e_j,k}$ is symmetric under permutations because $y_k$ is symmetric. \textit{(Algebraic :2-bwd006)}
+\proofstep{1}{6} $\bar{x}_{e_j,k}$ is symmetric under permutations because $y_k$ is symmetric. \textit{(:2-bwd006)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item By assumption, $y_k$ is symmetric under permutations $\pi \in S_k$ of the $\C_A$ factors. \textit{(:3-bwd006a)}
+\item The map $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes e_j^*)$ commutes with permutations. \textit{(:3-bwd006b)}
+\item Since $\pi \cdot y_k = y_k$ and the map commutes, $\pi \cdot \bar{x}_{e_j,k} = \bar{x}_{e_j,k}$. \textit{(:3-bwd006c)}
+\end{enumerate}
 
-\proofstep{1}{7} The sequence $\{\bar{x}_{e_j,k}\}_{k \geq 1}$ is exchangeable: for any $l > 0$, $\bar{x}_{e_j,k} = (\phi^{\otimes l} \otimes \mathrm{id}_A^{\otimes k})(\bar{x}_{e_j,k+l})$. \textit{(Algebraic :2-bwd007)}
+\proofstep{1}{7} The sequence $\{\bar{x}_{e_j,k}\}_{k \geq 1}$ is exchangeable. \textit{(:2-bwd007)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item For $l > 0$, the reduction property gives $(\phi^{\otimes l} \otimes \mathrm{id}_A^{\otimes k})(y_{k+l}) = y_k$. \textit{(:3-bwd007a)}
+\item Applying $({\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes e_j^*})$: $(\phi^{\otimes l} \otimes \mathrm{id}_A^{\otimes k})(\bar{x}_{e_j,k+l}) = \bar{x}_{e_j,k}$. \textit{(:3-bwd007b)}
+\item This is precisely the exchangeability condition: consistency under marginals. \textit{(:3-bwd007c)}
+\end{enumerate}
 
-\proofstep{1}{8} By Axiom~\ref{ax:definetti} (de Finetti), there exists a unique probability measure $\mu_{e_j}$ on the normalized base $B_A = \{a \in \C_A : \phi(a) = 1\}$ such that $\bar{x}_{e_j,k} = \int_{B_A} a^{\otimes k} \, d\mu_{e_j}(a)$. \textit{(External :2-bwd008)}
+\proofstep{1}{8} By Axiom~\ref{ax:definetti}, there exists unique $\mu_{e_j}$ on $B_A$ with $\bar{x}_{e_j,k} = \int_{B_A} a^{\otimes k} d\mu_{e_j}(a)$. \textit{(:2-bwd008, External)}
 
-\proofstep{1}{9} For each $a \in B_A$, define $F_a: V_B \to \mathbb{R}$ by $F_a(e_j) = d\mu_{e_j}(a)$. This is well-defined by uniqueness of the de Finetti measure. \textit{(Construction :2-bwd009)}
+\proofstep{1}{9} For each $a \in B_A$, define $F_a: V_B \to \mathbb{R}$ by $F_a(e_j) = d\mu_{e_j}(a)$. \textit{(:2-bwd009)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item The de Finetti theorem provides unique measures $\mu_{e_j}$ for each basis vector. \textit{(:3-bwd009a)}
+\item For fixed $a \in B_A$, define $F_a(e_j) = d\mu_{e_j}(a)$ (Radon-Nikodym derivative). \textit{(:3-bwd009b)}
+\item Since $\{e_j\}$ is a basis, $F_a$ extends uniquely to a linear functional $F_a: V_B \to \mathbb{R}$. \textit{(:3-bwd009c)}
+\end{enumerate}
 
-\proofstep{1}{10} $F_a$ extends linearly to $V_B$ and is positive on convex combinations of basis elements $\{e_j\}$, hence on $\C_B$. \textit{(Algebraic :2-bwd010)}
+\proofstep{1}{10} $F_a$ is positive on $\C_B$. \textit{(:2-bwd010)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Each $\mu_{e_j}$ is a probability measure, so $d\mu_{e_j}(a) \geq 0$ for all $a \in B_A$. \textit{(:3-bwd010a)}
+\item For $b = \sum_j \beta_j e_j \in V_B$, we have $F_a(b) = \sum_j \beta_j d\mu_{e_j}(a)$. \textit{(:3-bwd010b)}
+\item \textcolor{red}{[ADMITTED]} Positivity of $F_a$ on $\C_B$ from de Finetti consistency. \textit{(:3-bwd010c-v3)}
+\end{enumerate}
 
-\proofstep{1}{11} Since $F_a \in \C_B^*$ is positive linear on $V_B$, by the bipolar theorem $(\C_B^*)^* = \C_B$, there exists unique $\sigma_a \in \C_B$ such that $F_a(b) = \langle \sigma_a, b \rangle$ for all $b \in V_B$. \textit{(Riesz :2-bwd011)}
+\proofstep{1}{11} By Riesz representation and bipolar theorem, there exists $\sigma_a \in \C_B$ with $F_a(b) = \langle \sigma_a, b \rangle$. \textit{(:2-bwd011)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Since $F_a \in \C_B^*$ (positive on $\C_B$), $F_a$ defines an element of the dual cone. \textit{(:3-bwd011a)}
+\item The bipolar theorem states $(\C_B^*)^* = \C_B$ for proper cones. \textit{(:3-bwd011b)}
+\item By Riesz representation, $F_a(b) = \langle \sigma_a, b \rangle$ for unique $\sigma_a \in V_B$; bipolar ensures $\sigma_a \in \C_B$. \textit{(:3-bwd011c)}
+\end{enumerate}
 
-\proofstep{1}{12} Define $P(a) = \psi(\sigma_a)$ where $\psi \in \inte(\C_B^*)$ is a normalization functional. Then $P$ is a probability density on $B_A$. \textit{(Construction :2-bwd012)}
+\proofstep{1}{12} Define $P(a) = \psi(\sigma_a)$ where $\psi \in \inte(\C_B^*)$. Then $P$ is a probability density. \textit{(:2-bwd012)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Choose $\psi \in \inte(\C_B^*)$ (exists by properness and finite dimensionality). \textit{(:3-bwd012a)}
+\item For $\sigma_a \in \C_B$, define $P(a) = \psi(\sigma_a) \geq 0$. \textit{(:3-bwd012b)}
+\item $P: B_A \to \mathbb{R}_{\geq 0}$ integrates to a finite constant by compactness, hence is a probability density. \textit{(:3-bwd012c)}
+\end{enumerate}
 
-\proofstep{1}{13} The symmetric extensions satisfy: $y_k = \int_{B_A} a^{\otimes k} \otimes \sigma_a \, dP(a)$. \textit{(Algebraic :2-bwd013)}
+\proofstep{1}{13} The symmetric extensions satisfy: $y_k = \int_{B_A} a^{\otimes k} \otimes \sigma_a \, dP(a)$. \textit{(:2-bwd013)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item From de Finetti: $\bar{x}_{e_j,k} = \int_{B_A} a^{\otimes k} d\mu_{e_j}(a)$ where $d\mu_{e_j}(a) = \langle \sigma_a, e_j \rangle dP(a)$. \textit{(:3-bwd013a)}
+\item Thus $\bar{x}_{e_j,k} = (\mathrm{id}^{\otimes k} \otimes e_j^*)\left(\int_{B_A} a^{\otimes k} \otimes \sigma_a dP(a)\right)$. \textit{(:3-bwd013b)}
+\item Since this holds for all basis vectors $e_j$, we have $y_k = \int_{B_A} a^{\otimes k} \otimes \sigma_a dP(a)$. \textit{(:3-bwd013c)}
+\end{enumerate}
 
-\proofstep{1}{14} Taking the marginal: $x = \int_{B_A} a \otimes \sigma_a \, dP(a)$. \textit{(Algebraic :2-bwd014)}
+\proofstep{1}{14} Taking the marginal: $x = \int_{B_A} a \otimes \sigma_a \, dP(a)$. \textit{(:2-bwd014)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Apply $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)$ to $y_k = \int_{B_A} a^{\otimes k} \otimes \sigma_a dP(a)$. \textit{(:3-bwd014a)}
+\item By linearity: $(\phi^{\otimes(k-1)} \otimes \mathrm{id}_A \otimes \mathrm{id}_B)(y_k) = \int_{B_A} \phi(a)^{k-1}(a \otimes \sigma_a) dP(a)$. \textit{(:3-bwd014b)}
+\item Since $a \in B_A = \{a : \phi(a) = 1\}$, we have $x = \int_{B_A} (a \otimes \sigma_a) dP(a)$. \textit{(:3-bwd014c)}
+\end{enumerate}
 
-\proofstep{1}{15} The integral is a convex combination of elements $a \otimes \sigma_a$ where $a \in \C_A$ and $\sigma_a \in \C_B$. \textit{(Definition :2-bwd015)}
+\proofstep{1}{15} The integral is a convex combination of $a \otimes \sigma_a$ with $a \in \C_A$, $\sigma_a \in \C_B$. \textit{(:2-bwd015)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item The integral $x = \int_{B_A} (a \otimes \sigma_a) dP(a)$ is over compact $B_A$ with probability measure $P$. \textit{(:3-bwd015a)}
+\item For each $a \in B_A$: $a \in \C_A$ and $\sigma_a \in \C_B$. \textit{(:3-bwd015b)}
+\item Hence $a \otimes \sigma_a \in \C_A \otimes \C_B$ for each $a$, and $x$ is a convex combination. \textit{(:3-bwd015c)}
+\end{enumerate}
 
-\proofstep{1}{16} By Definition~\ref{def:min}, $x \in \C_A \tmin \C_B$. \textit{(Definition :2-bwd016)}
+\proofstep{1}{16} By Definition~\ref{def:min}, $x \in \C_A \tmin \C_B$. \textit{(:2-bwd016)}
+\begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
+\item Definition~\ref{def:min}: $\C_A \tmin \C_B = \conv\{a \otimes b : a \in \C_A, b \in \C_B\}$. \textit{(:3-bwd016a)}
+\item By Step 1.15, $x = \int (a \otimes \sigma_a) dP(a)$ where each $a \otimes \sigma_a$ is in the generating set. \textit{(:3-bwd016b)}
+\item Since $x$ is a convex combination of generating set elements, $x \in \conv\{...\} = \C_A \tmin \C_B$. \textit{(:3-bwd016c)}
+\end{enumerate}
 
 \proofstep{1}{17} \textbf{Direction ($\Rightarrow$) complete.} \textit{(Discharge :2-bwd017)}
 \end{enumerate}
