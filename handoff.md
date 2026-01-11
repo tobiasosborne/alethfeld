@@ -1,54 +1,82 @@
 # Alethfeld Session Handoff
 
-**Last updated:** 2026-01-10
-**Last session:** Parallel Subagent Swarming (Round 22)
-**Session status:** n0wf COMPLETE - 1,362 TESTS PASSING
+**Last updated:** 2026-01-11
+**Last session:** v0.3 Revision Planning
+**Session status:** COMPLETE - Plan documented and committed
 
 ---
 
 ## Session Summary
 
-Completed n0wf (Split session.clj) by swarming 7 parallel agents:
+Created comprehensive v0.3 revision plan to align `af` with legacy alethfeld workflow while preserving agent-friendly design.
 
-### Parallel Execution Strategy
+### Key Decisions Made
 
-Spawned 7 agents simultaneously (one per submodule):
-- **Agent 1:** session/role.clj - Role-action matrix
-- **Agent 2:** session/contributor.clj - Contributor tracking
-- **Agent 3:** session/core.clj - Session CRUD (largest module)
-- **Agent 4:** session/enforcement.clj - Session validation
-- **Agent 5:** session/cleanup.clj - Stale detection
-- **Agent 6:** session/reservation.clj - Job reservations
-- **Agent 7:** session/resolution.clj - @current/@last aliases
+| Decision | Rationale |
+|----------|-----------|
+| Merge proposer into prover | Eliminate proposal/approval bottleneck |
+| Eliminate advisor role | Redundant gatekeeping |
+| Single verifier default | Quorum adds friction without value |
+| Accretive lemma labeling | No deletion/extraction, just add `:lemma` field |
+| No content-hash | Git handles integrity |
+| No archive directory | Git is the archive |
+| LaTeX convention (not enforced) | Light touch, trust agents |
+| Preserve adversarial verifier | Critical for catching errors |
 
-No git conflicts because:
-- Each agent wrote to a different file (no overlapping changes)
-- Git operations serialized by parent agent afterward
-- Facade created after all submodules completed
+### Files Created
 
-### Work Completed This Session
-
-| Type | File | Description |
-|------|------|-------------|
-| New | session/role.clj | Role-action matrix, permission checking (~70 lines) |
-| New | session/contributor.clj | Self-vote prevention (~55 lines) |
-| New | session/core.clj | Session CRUD, lifecycle (~250 lines) |
-| New | session/enforcement.clj | enforce-session!, validate-session! (~95 lines) |
-| New | session/cleanup.clj | PID detection, cleanup functions (~140 lines) |
-| New | session/reservation.clj | Job reservation system (~235 lines) |
-| New | session/resolution.clj | @current/@last resolution (~160 lines) |
-| Modified | session.clj | Facade with re-exports (~110 lines) |
-
-**Total: 8 files changed, 1,251 insertions, 1,089 deletions**
+| File | Purpose |
+|------|---------|
+| `docs/V03-REVISION-PLAN.md` | Full revision plan with Malli schemas |
+| `prompts/v03/prover.md` | Prover agent prompt |
+| `prompts/v03/verifier.md` | Adversarial verifier prompt |
+| `prompts/v03/checker.md` | Ref-checker + counterexample prompt |
 
 ---
 
-## Test Health
+## v0.3 Plan Overview
 
-- **Total tests:** 1,362
-- **Total assertions:** 7,502
-- **Status:** ALL PASSING
-- **Flaky:** 3 tests in `concurrency_test.clj` marked `^:flaky`
+### Simplified Workflow
+
+```
+BEFORE: Create → Verifier says decompose → Proposer proposes → Advisors approve → Verify
+AFTER:  Create → Verifier evaluates (accept/challenge/decompose/admit) → Repeat
+```
+
+### New Roles (3 instead of 6)
+
+| Role | Responsibility |
+|------|----------------|
+| Prover | Creates, decomposes, refines |
+| Verifier | Accept/challenge/decompose/admit |
+| Checker | Refs + counterexamples (optional) |
+
+### New Commands
+
+```bash
+af decompose <id> --claim "..." --claim "..."   # Direct decomposition
+af verify <id> --accept|--challenge|--decompose|--admit
+af lemma <id> --name "..."                      # Accretive labeling
+```
+
+### Schema Additions
+
+- `:type` (node types: assumption, claim, lemma-ref, etc.)
+- `:justification` (20+ inference rules)
+- `:taint` (clean/tainted/self-admitted)
+- Graph-level: `:symbols`, `:lemmas`, `:obligations`
+
+---
+
+## Implementation Phases
+
+| Phase | Priority | Status |
+|-------|----------|--------|
+| 1. Workflow simplification | CRITICAL | Planned |
+| 2. Admitted status + taint | HIGH | Planned |
+| 3. Schema enrichment | MEDIUM | Planned |
+| 4. Lemma system | MEDIUM | Planned |
+| 5. UX improvements | LOW | Planned |
 
 ---
 
@@ -56,14 +84,9 @@ No git conflicts because:
 
 | Source | State |
 |--------|-------|
-| **Beads issues** | 0 open, 428 closed |
-| **Codebase** | v0.2.1 (session modularization) |
-
----
-
-## Remaining Open Issues
-
-None! All issues closed.
+| **Beads issues** | 0 open |
+| **Codebase** | v0.2.1 (stable) |
+| **v0.3 plan** | Documented, not implemented |
 
 ---
 
@@ -72,73 +95,19 @@ None! All issues closed.
 ```bash
 clj -M:test              # 1362 tests, all passing
 clj -M:run --version     # Alethfeld v0.2.1
-./install.sh             # Build and install af command
-bd stats                 # 428 closed, 0 open
-bd ready                 # See available work (none)
+
+# Review v0.3 plan
+cat docs/V03-REVISION-PLAN.md
+
+# Review new prompts
+ls prompts/v03/
 ```
 
 ---
 
-## Files Modified This Session
+## Next Steps
 
-| File | Changes |
-|------|---------|
-| `src/alethfeld/session.clj` | Now a facade with re-exports |
-| `src/alethfeld/session/` | New directory with 7 submodules |
-
----
-
-## v0.2.1 Status
-
-| Feature | Status |
-|---------|--------|
-| Core CLI | Done |
-| Session management | Done (now modularized) |
-| Transaction layer | Done + TOCTOU fix |
-| Multi-agent safety | Done (Layers 1-4) |
-| Performance | Improved (batch loading) |
-| Documentation | Done |
-| Test coverage | 100% for repair.clj |
-| Magic numbers cleanup | Done (62cq complete) |
-| Repo-path parameterization | Done (ro8b complete) |
-| Session modularization | Done (n0wf complete) |
-
-**v0.2.1 released.**
-
----
-
-## Session Module Structure
-
-```
-src/alethfeld/session.clj (facade)
-    |
-    +---> session/role.clj (no deps)
-    |
-    +---> session/contributor.clj (no deps)
-    |
-    +---> session/core.clj
-    |         |
-    |         +---> alethfeld.io
-    |         +---> alethfeld.path
-    |         +---> alethfeld.schema
-    |
-    +---> session/enforcement.clj
-    |         |
-    |         +---> session/role
-    |         +---> session/core
-    |
-    +---> session/cleanup.clj
-    |         |
-    |         +---> session/core
-    |         +---> babashka.process
-    |
-    +---> session/reservation.clj
-    |         |
-    |         +---> session/core
-    |         +---> alethfeld.io
-    |         +---> alethfeld.path
-    |
-    +---> session/resolution.clj
-              |
-              +---> session/core
-```
+1. Review v0.3 plan for completeness
+2. Create beads issues for implementation phases
+3. Begin Phase 1: workflow simplification
+4. Test with sqrt(2) proof using new workflow
