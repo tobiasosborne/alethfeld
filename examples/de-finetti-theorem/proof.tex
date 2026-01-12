@@ -1,0 +1,171 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{enumitem}
+
+\geometry{margin=1in}
+
+% Theorem environments
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{axiom}{Axiom}[section]
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+% Lamport-style proof steps
+\newcommand{\proofstep}[2]{\item[$\langle #1 \rangle$#2.]}
+
+\title{\textbf{de Finetti's Theorem for Compact Convex Sets}\\[0.3em]
+{\normalsize Alethfeld Proof Graph}}
+\author{Generated from EDN Semantic Proof Graphs}
+\date{January 12, 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\begin{tabular}{ll}
+\textbf{Graph ID:} & \texttt{graph-108eab-730049} \\
+\textbf{Version:} & 140 \\
+\textbf{Status:} & 55 verified, 4 admitted (60 total nodes) \\
+\textbf{Taint:} & 39 clean, 21 tainted by admitted \\
+\textbf{Depth:} & 2 (substeps added for critical claims) \\
+\end{tabular}
+\end{center}
+
+\section*{Abstract}
+
+This document presents a formal proof of de Finetti's theorem for exchangeable sequences taking values in a compact convex subset of a finite-dimensional real vector space. The proof uses the backwards martingale approach to establish that any infinite exchangeable sequence admits a unique representation as a mixture of i.i.d.\ sequences.
+
+\section{Definitions and Assumptions}
+
+\begin{definition}[Probability Space]
+Let $V$ be a finite-dimensional real vector space, $K \subseteq V$ a compact convex subset, and $(\Omega, \mathcal{F}, \mathbb{P})$ a probability space.
+\end{definition}
+
+\begin{definition}[Exchangeability]
+A sequence $(X_n)_{n \geq 1}$ of $K$-valued random variables is \emph{exchangeable} if for every $n \geq 1$ and every permutation $\sigma \in S_n$, the joint distribution of $(X_{\sigma(1)}, \ldots, X_{\sigma(n)})$ equals that of $(X_1, \ldots, X_n)$.
+\end{definition}
+
+\begin{definition}[Symmetric $\sigma$-algebra]
+$\mathcal{E}_n = \sigma\{f(X_1, \ldots, X_n) : f \text{ symmetric measurable}\}$.
+\end{definition}
+
+\begin{definition}[Tail $\sigma$-algebra]
+$\mathcal{T} = \bigcap_{n=1}^{\infty} \sigma(X_{n+1}, X_{n+2}, \ldots)$.
+\end{definition}
+
+\begin{definition}[Exchangeable $\sigma$-algebra]
+$\mathcal{E} = \bigcap_{n=1}^{\infty} \mathcal{E}_n$.
+\end{definition}
+
+\begin{definition}[Empirical Average]
+$\bar{X}_n = \frac{1}{n}\sum_{i=1}^{n} X_i \in V$.
+\end{definition}
+
+\section{Main Result}
+
+\begin{theorem}[de Finetti]
+Let $(X_n)_{n \geq 1}$ be an infinite exchangeable sequence taking values in compact convex $K \subset V$. Then there exists a unique probability measure $\mu$ on $\mathcal{P}(K)$ such that:
+\[
+\mathbb{P}(X_1 \in A_1, \ldots, X_n \in A_n) = \int_{\mathcal{P}(K)} P(A_1) \cdots P(A_n) \, d\mu(P)
+\]
+for all $n \geq 1$. Equivalently, $(X_n)$ are conditionally i.i.d.\ given $\mathcal{T}$.
+\end{theorem}
+
+\begin{proof}
+The proof proceeds through several key steps.
+
+\subsection*{Step 1: Backwards Martingale Structure}
+
+\begin{enumerate}[leftmargin=2em]
+\proofstep{1}{1} The sequence $(\bar{X}_n, \mathcal{E}_n)$ forms a backwards martingale: $\mathbb{E}[\bar{X}_n | \mathcal{E}_{n+1}] = \bar{X}_{n+1}$. \textit{(:1-clm002, verified)}
+
+\proofstep{1}{2} The filtration $(\mathcal{E}_n)$ is decreasing with $\bigcap_n \mathcal{E}_n = \mathcal{E}$. \textit{(:1-clm003, verified)}
+
+\proofstep{1}{3} The empirical averages satisfy $\bar{X}_n \in K$ for all $n$ by convexity of $K$. \textit{(:1-clm004, verified)}
+\end{enumerate}
+
+\subsection*{Step 2: Backwards Martingale Convergence}
+
+\begin{enumerate}[leftmargin=2em]
+\proofstep{1}{4} By backwards martingale convergence, $\bar{X}_n \to \Theta$ a.s.\ and in $L^1$, where $\Theta = \mathbb{E}[X_1 | \mathcal{E}]$. \textit{(:1-clm005, verified)}
+
+\proofstep{1}{5} The limit $\Theta$ is $\mathcal{T}$-measurable and $\Theta \in K$ a.s. \textit{(:1-clm006, :1-clm007, verified)}
+\end{enumerate}
+
+\subsection*{Step 3: Equality of Tail and Exchangeable $\sigma$-algebras}
+
+\begin{enumerate}[leftmargin=2em]
+\proofstep{1}{6} \textbf{Direction 1 ($\mathcal{T} \subseteq \mathcal{E}$):} Any tail event $A \in \mathcal{T}$ is invariant under finite permutations, hence $A \in \mathcal{E}_n$ for all $n$, so $A \in \mathcal{E}$. \textit{(:2-clm001a--e, verified)}
+
+\proofstep{1}{7} \textbf{Direction 2 ($\mathcal{E} \subseteq \mathcal{T}$ mod $\mathbb{P}$):} For $A \in \mathcal{E}$, using conditional i.i.d.\ and Hewitt-Savage 0-1 law: $\mathbb{P}(A|\mathcal{T}) \in \{0,1\}$ a.s., so $A$ equals a $\mathcal{T}$-measurable event mod $\mathbb{P}$. \textit{(:2-clm001j-v2--p-v2, verified)}
+
+\proofstep{1}{8} Therefore $\mathcal{T} = \mathcal{E}$ (mod $\mathbb{P}$). \textit{(:1-clm001, verified)}
+\end{enumerate}
+
+\subsection*{Step 4: Conditional Independence}
+
+\begin{enumerate}[leftmargin=2em]
+\proofstep{1}{9} Define $Y_m = \frac{1}{m!} \sum_{\sigma \in S_m} \prod_{i=1}^n f_i(X_{\sigma(i)})$ for bounded measurable $f_i$. \textit{(:2-clm011a, verified)}
+
+\proofstep{1}{10} $(Y_m, \mathcal{E}_m)$ is a backwards martingale; by convergence, $Y_m \to \mathbb{E}[\prod f_i(X_i) | \mathcal{T}]$ a.s. \textit{(:2-clm011d--f, verified)}
+
+\proofstep{1}{11} Combinatorial expansion: $Y_m \to \prod_{i=1}^n \mathbb{E}[f_i(X_1) | \mathcal{T}]$ a.s. \textit{(:2-clm011h--j, verified)}
+
+\proofstep{1}{12} By uniqueness of limits: $\mathbb{E}[\prod f_i(X_i) | \mathcal{T}] = \prod \mathbb{E}[f_i(X_1) | \mathcal{T}]$ a.s. \textit{(:2-clm011k, verified)}
+
+\proofstep{1}{13} Define $P_\Theta$ as the regular conditional distribution of $X_1$ given $\mathcal{T}$. Then:
+\[
+\mathbb{E}[\prod f_i(X_i) | \mathcal{T}] = \int_{K^n} \prod f_i \, dP_\Theta^{\otimes n}
+\]
+establishing conditional i.i.d. \textit{(:2-clm011l-v2, :2-clm011m-v2, verified)}
+\end{enumerate}
+
+\subsection*{Step 5: Mixing Measure and Uniqueness}
+
+\begin{enumerate}[leftmargin=2em]
+\proofstep{1}{14} Define $\mu = \mathbb{P} \circ P_\Theta^{-1} \in \mathcal{P}(\mathcal{P}(K))$. \textit{(:1-def007, verified)}
+
+\proofstep{1}{15} The joint distribution equals $\int P^{\otimes n} d\mu(P)$. \textit{(:1-clm014--16, verified)}
+
+\proofstep{1}{16} \textcolor{red}{[ADMITTED]} Uniqueness via Choquet simplex structure. \textit{(:1-clm018--20, admitted)}
+\end{enumerate}
+
+\subsection*{Conclusion}
+
+The theorem is proved: existence via backwards martingale construction, uniqueness via Choquet theory (admitted). \textbf{QED.}
+\end{proof}
+
+\section{Admitted Steps}
+
+The following steps require additional justification:
+
+\begin{enumerate}
+\item \texttt{:1-clm008}: The claim that $P_\Theta = \delta_\Theta$ (Dirac mass) is an oversimplification. In general, $P_\Theta$ is the full conditional distribution, not necessarily a point mass.
+
+\item \texttt{:1-clm018}: The assertion that exchangeable measures form a Choquet simplex with extreme points being i.i.d.\ measures requires the full Hewitt-Savage theorem.
+
+\item \texttt{:1-clm019}: Choquet's theorem application requires verification of metrizability and simplex conditions.
+
+\item \texttt{:1-clm020}: Uniqueness conclusion depends on proper Choquet theory setup.
+\end{enumerate}
+
+\section{References}
+
+\begin{enumerate}
+\item B.~de Finetti. \textit{La pr\'evision: ses lois logiques, ses sources subjectives}. Annales de l'Institut Henri Poincar\'e, 7(1):1--68, 1937.
+
+\item E.~Hewitt and L.~J.~Savage. \textit{Symmetric measures on Cartesian products}. Transactions of the American Mathematical Society, 80:470--501, 1955.
+
+\item D.~Williams. \textit{Probability with Martingales}. Cambridge University Press, 1991.
+\end{enumerate}
+
+\end{document}

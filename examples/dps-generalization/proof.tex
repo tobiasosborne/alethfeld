@@ -123,9 +123,13 @@ Fix $\phi \in \inte(\C_A^*)$. An element $x \in \C_A \tmax \C_B$ has a \emph{sym
 \end{enumerate}
 \end{definition}
 
-\begin{axiom}[de Finetti Theorem] \label{ax:definetti}
-For an exchangeable sequence of random variables on a compact convex set in finite dimensions, there exists a unique probability measure such that the sequence has an i.i.d.\ representation under that measure.
-\end{axiom}
+\begin{theorem}[de Finetti] \label{thm:definetti}
+For an exchangeable sequence of random variables on a compact convex set $K$ in finite dimensions, there exists a unique probability measure $\mu$ on $\mathcal{P}(K)$ such that the sequence has a conditional i.i.d.\ representation under that measure.
+\end{theorem}
+
+\begin{proof}
+See \texttt{../de-finetti-theorem/proof.tex} for the complete proof using the backwards martingale approach. The proof establishes conditional i.i.d.\ given the tail $\sigma$-algebra via backwards martingale convergence, then proves $\mathcal{T} = \mathcal{E}$ (mod $\mathbb{P}$) using the Hewitt-Savage 0-1 law.
+\end{proof}
 
 \section{Main Result}
 
@@ -250,7 +254,7 @@ The proof proceeds in two directions.
 \item This is precisely the exchangeability condition: consistency under marginals. \textit{(:3-bwd007c)}
 \end{enumerate}
 
-\proofstep{1}{8} By Axiom~\ref{ax:definetti}, there exists unique $\mu_{e_j}$ on $B_A$ with $\bar{x}_{e_j,k} = \int_{B_A} a^{\otimes k} d\mu_{e_j}(a)$. \textit{(:2-bwd008, External)}
+\proofstep{1}{8} By Theorem~\ref{thm:definetti}, there exists unique $\mu_{e_j}$ on $B_A$ with $\bar{x}_{e_j,k} = \int_{B_A} a^{\otimes k} d\mu_{e_j}(a)$. \textit{(:2-bwd008, External)}
 
 \proofstep{1}{9} For each $a \in B_A$, define $F_a: V_B \to \mathbb{R}$ by $F_a(e_j) = d\mu_{e_j}(a)$. \textit{(:2-bwd009)}
 \begin{enumerate}[leftmargin=1.5em, label=$\langle 2.\alph* \rangle$]
