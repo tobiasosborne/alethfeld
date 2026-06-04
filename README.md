@@ -1,4 +1,31 @@
+> # ⚠️ This project is no longer maintained — superseded by [Vibefeld](https://github.com/tobiasosborne/vibefeld)
+>
+> **Alethfeld was an experiment (November 2025) and is now archived.** It explored coordinating
+> adversarial AI agents to produce rigorous, machine-checked proofs. The experiment worked, and the
+> learnings were carried directly into a new, far more capable project:
+>
+> ### 👉 **[Vibefeld — Adversarial proof verification for the AI age](https://github.com/tobiasosborne/vibefeld)**
+>
+> **Vibefeld supersedes Alethfeld in essentially every dimension. If you are starting today, use Vibefeld.**
+>
+> | | Alethfeld (this repo, archived) | **Vibefeld (active)** |
+> |---|---|---|
+> | **Form** | A set of orchestrator *prompts* plus a Clojure/EDN CLI | A real, **agent-first CLI framework** built in **Go (1.25+)** |
+> | **Proof representation** | Hand-managed EDN graphs | **Event-sourced, append-only ledger** with complete audit trails |
+> | **Structure** | Lamport-style hierarchy, manually maintained | **Automatic hierarchical numbering** (1, 1.1, 1.1.1) |
+> | **Uncertainty** | Manual `recompute` of taint | **Built-in taint tracking** that propagates epistemic uncertainty through dependencies |
+> | **Authoring** | Structured notation + EDN | **Natural-language mathematics** — no formal syntax required |
+> | **Concurrency** | Single-shot CLI invocations | **Filesystem-based multi-agent concurrency**, no database needed |
+> | **Design ethos** | Adversarial verification (prototype) | **Adversarial by design** — proofs are *battle-tested*, with full dispute-resolution records |
+>
+> Everything below this notice is preserved for historical reference only. It documents the original
+> November 2025 experiment and is **not** the recommended starting point.
+>
+> ---
+
 # Alethfeld: Rigorous Proofs via Adversarial AI Agents
+
+> **Status: Archived experiment (Nov 2025). Active successor → [Vibefeld](https://github.com/tobiasosborne/vibefeld).**
 
 **Alethfeld** is a system for developing mathematical proofs with machine-checked rigour. It coordinates multiple AI agents—each with a specific role—to produce proofs that are structured, verified, and traceable.
 
@@ -50,7 +77,12 @@ The Prover and Verifier operate in a loop: the Prover asserts a step, the Verifi
 
 This adversarial structure catches errors that a single model would miss.
 
-## Current Status (January 2026)
+## Status: Archived
+
+> **This project is no longer maintained.** The work below describes the state of the experiment when it
+> concluded. For an actively developed successor, see **[Vibefeld](https://github.com/tobiasosborne/vibefeld)**.
+
+### Historical Snapshot (January 2026)
 
 ### Orchestrator Protocol
 
@@ -335,14 +367,9 @@ See [`CHANGELOG-v5.2.md`](CHANGELOG-v5.2.md) for detailed migration guide.
 
 ## Contributing
 
-This is an active research project. If you're interested in:
-- Testing on theorems from your field
-- Improving the agent prompts
-- Adding Malli schemas for validation
-- Connecting to proof assistants
-- Building tooling around the EDN format
-
-...contributions are welcome.
+**This repository is archived and no longer accepting contributions.** Development has moved to
+**[Vibefeld](https://github.com/tobiasosborne/vibefeld)** — please direct interest, issues, and
+contributions there.
 
 ## License
 
